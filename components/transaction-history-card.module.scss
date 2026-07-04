@@ -1,0 +1,146 @@
+@use '../styles/variables' as *;
+
+.card {
+  @include card;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  text-decoration: none;
+  color: inherit;
+
+  &.clickable {
+    @include tap;
+
+    &:hover {
+      border-color: rgba($gold, 0.35);
+      background: rgba($gold, 0.04);
+    }
+  }
+}
+
+.icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: $r-sm;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &.send {
+    background: rgba(248, 113, 113, 0.13);
+    color: $danger;
+  }
+
+  &.receive {
+    background: rgba(74, 222, 128, 0.13);
+    color: $success;
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.direction {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .prefix {
+    color: $text-muted;
+    font-weight: 500;
+  }
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+.status {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+
+  &.waiting {
+    color: $gold;
+  }
+
+  &.inprogress {
+    color: $blue;
+  }
+
+  &.done {
+    color: $success;
+  }
+
+  &.error {
+    color: $danger;
+  }
+}
+
+.txid {
+  color: $gold;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sep {
+  opacity: 0.5;
+}
+
+.flags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1;
+
+  .arrow {
+    color: $text-dim;
+    font-size: 10px;
+  }
+}
+
+.amounts {
+  text-align: right;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.amount {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+
+  &.plus {
+    color: $success;
+  }
+
+  &.minus {
+    color: $danger;
+  }
+}
+
+.conversion {
+  font-size: 11px;
+  color: $text-dim;
+  margin-top: 3px;
+  white-space: nowrap;
+}

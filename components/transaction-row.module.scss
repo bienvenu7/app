@@ -1,0 +1,89 @@
+@use '../styles/variables' as *;
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid $border;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &.send {
+    background: rgba(248, 113, 113, 0.13);
+    color: $danger;
+  }
+  &.receive {
+    background: rgba(74, 222, 128, 0.13);
+    color: $success;
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+.txid {
+  font-family: var(--font-geist-sans);
+  letter-spacing: 0.02em;
+}
+
+.sep {
+  opacity: 0.5;
+}
+
+.amounts {
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.amount {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+
+  &.plus {
+    color: $success;
+  }
+}
+
+.route {
+  font-size: 11px;
+  color: $text-dim;
+  margin-top: 3px;
+}

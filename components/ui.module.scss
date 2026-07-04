@@ -1,0 +1,82 @@
+@use '../styles/variables' as *;
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: $r-pill;
+  background: $bg-elevated;
+  border: 1px solid $border;
+  color: $text;
+  @include tap;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: $text-muted;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+// Buttons
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: $r-pill;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  @include tap;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+}
+
+.btnPrimary {
+  background: $gold;
+  color: $bg;
+  box-shadow: $shadow-glow;
+}
+
+.btnGhost {
+  background: $bg-elevated;
+  color: $text;
+  border: 1px solid $border-strong;
+  box-shadow: none;
+}
+
+.card {
+  @include card;
+  padding: 18px;
+}

@@ -1,0 +1,48 @@
+@use '../styles/variables' as *;
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: $gold;
+  color: $bg;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.word {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.accent {
+  color: $gold;
+}
+
+.lg {
+  .mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    svg {
+      width: 26px;
+      height: 26px;
+    }
+  }
+  .word {
+    font-size: 24px;
+  }
+}

@@ -1,0 +1,476 @@
+@use '../../styles/variables' as *;
+
+.progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.progressStep {
+  flex: 1;
+  height: 4px;
+  border-radius: $r-pill;
+  background: $bg-elevated-2;
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    background: $gold;
+  }
+}
+
+// Fixed recap card
+.recap {
+  @include card;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  background: linear-gradient(150deg, #141b2b 0%, #0e1422 100%);
+}
+
+.recapTop {
+  @include flex-between;
+  font-size: 12px;
+  color: $text-muted;
+  margin-bottom: 10px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: $r-pill;
+  background: $gold-soft;
+  color: $gold;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.routeCountry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  .flag {
+    font-size: 22px;
+    line-height: 1;
+  }
+  .info {
+    min-width: 0;
+  }
+  .cName {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cAmt {
+    font-size: 12px;
+    color: $text-muted;
+  }
+}
+
+.arrow {
+  color: $gold;
+  flex: 0 0 auto;
+  svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+}
+
+// Step wrapper
+.stepArea {
+  position: relative;
+}
+
+.stepTitle {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.stepDesc {
+  font-size: 13px;
+  color: $text-muted;
+  margin-bottom: 18px;
+}
+
+// Type choice
+.typeGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.typeCard {
+  @include card;
+  @include tap;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  text-align: left;
+  background: $bg-elevated;
+
+  .tIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    background: $gold-soft;
+    color: $gold;
+    flex: 0 0 auto;
+    svg {
+      width: 22px;
+      height: 22px;
+    }
+  }
+  .tLabel {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .tDesc {
+    display: block;
+    font-size: 12px;
+    color: $text-muted;
+    margin-top: 2px;
+  }
+  .check {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid $border-strong;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $bg;
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  &.selected {
+    border-color: $gold;
+    background: linear-gradient(150deg, rgba(232, 192, 100, 0.08), transparent);
+    .check {
+      border-color: $gold;
+      background: $gold;
+    }
+  }
+}
+
+// Country picker
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-muted;
+  margin-bottom: 8px;
+}
+
+.countryList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.countryChip {
+  @include tap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: $r-sm;
+  background: $bg-elevated;
+  border: 1px solid $border;
+
+  .flag {
+    font-size: 22px;
+  }
+  .cn {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &.selected {
+    border-color: $gold;
+    background: $gold-soft;
+  }
+}
+
+.fixedSide {
+  @include card;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+
+  .flag {
+    font-size: 26px;
+  }
+  .fLabel {
+    font-size: 12px;
+    color: $text-muted;
+  }
+  .fName {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .lock {
+    margin-left: auto;
+    color: $text-dim;
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+// Converter
+.amountBox {
+  @include card;
+  padding: 16px;
+  margin-bottom: 12px;
+
+  .amountLabel {
+    @include flex-between;
+    font-size: 12px;
+    color: $text-muted;
+    margin-bottom: 8px;
+  }
+
+  .amountInput {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: $text;
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .cur {
+      font-size: 16px;
+      font-weight: 600;
+      color: $text-muted;
+    }
+  }
+
+  &.received {
+    background: linear-gradient(150deg, rgba(232, 192, 100, 0.1), transparent);
+    border-color: rgba(232, 192, 100, 0.3);
+    .amountValue {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: $gold;
+    }
+  }
+}
+
+.swapLine {
+  display: flex;
+  justify-content: center;
+  margin: -4px 0 8px;
+
+  .swapIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: $bg-elevated-2;
+    border: 1px solid $border;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $gold;
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.breakdown {
+  @include card;
+  padding: 14px 16px;
+  margin: 14px 0 22px;
+
+  .brow {
+    @include flex-between;
+    font-size: 13px;
+    padding: 5px 0;
+    color: $text-muted;
+
+    strong {
+      color: $text;
+      font-weight: 600;
+    }
+  }
+  .divider {
+    height: 1px;
+    background: $border;
+    margin: 6px 0;
+  }
+}
+
+// Form
+.field {
+  margin-bottom: 16px;
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.input {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border-radius: $r-sm;
+  background: $bg-elevated-2;
+  border: 1px solid $border;
+  color: $text;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &::placeholder {
+    color: $text-dim;
+  }
+  &:focus {
+    border-color: $gold;
+  }
+}
+
+.payGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.payChip {
+  @include tap;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: $r-sm;
+  background: $bg-elevated-2;
+  border: 1px solid $border;
+
+  .pLabel {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .pHint {
+    font-size: 11px;
+    color: $text-muted;
+    margin-top: 2px;
+  }
+
+  &.selected {
+    border-color: $gold;
+    background: $gold-soft;
+  }
+}
+
+// Terms
+.terms {
+  @include card;
+  padding: 18px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: $text-muted;
+  line-height: 1.7;
+
+  h3 {
+    color: $text;
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  ul {
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+  }
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: $r-md;
+  background: $bg-elevated;
+  border: 1px solid $border;
+  margin-bottom: 22px;
+  @include tap;
+
+  &.on {
+    border-color: $gold;
+  }
+
+  .box {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    border: 2px solid $border-strong;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $bg;
+    margin-top: 1px;
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+  &.on .box {
+    background: $gold;
+    border-color: $gold;
+  }
+
+  .cbText {
+    font-size: 13px;
+    color: $text;
+    line-height: 1.5;
+    span {
+      color: $gold;
+    }
+  }
+}
+
+// Footer buttons
+.footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
