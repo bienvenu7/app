@@ -1,0 +1,196 @@
+@use "../styles/variables" as *;
+
+.top {
+  @include flex-between;
+  margin-bottom: 22px;
+}
+
+.greeting {
+  font-size: 13px;
+  color: $text-muted;
+}
+.name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: $gold-soft;
+  border: 1px solid $border-strong;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $gold;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.hero {
+  position: relative;
+  @include card;
+  padding: 24px 22px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: -60px;
+    right: -40px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(
+      circle,
+      rgba(232, 192, 100, 0.22) 0%,
+      rgba(232, 192, 100, 0) 70%
+    );
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: $r-pill;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid $border;
+  font-size: 12px;
+  color: $text-muted;
+  margin-bottom: 14px;
+
+  .pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $gold;
+    box-shadow: 0 0 8px $gold;
+  }
+}
+
+.heroTitle {
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
+
+  .ru {
+    color: $blue;
+  }
+  .af {
+    color: $gold;
+  }
+}
+
+.heroSub {
+  margin-top: 10px;
+  color: $text-muted;
+  font-size: 13px;
+  max-width: 280px;
+  position: relative;
+  z-index: 1;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.action {
+  @include card;
+  @include tap;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+
+  .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: $gold-soft;
+    color: $gold;
+    svg {
+      width: 22px;
+      height: 22px;
+    }
+  }
+
+  .label {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .desc {
+    font-size: 12px;
+    color: $text-muted;
+  }
+
+  &.receive .icon {
+    background: rgba(142, 162, 224, 0.14);
+    color: $blue;
+  }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.stat {
+  @include card;
+  padding: 14px 12px;
+  text-align: center;
+
+  .value {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .caption {
+    font-size: 11px;
+    color: $text-muted;
+    margin-top: 3px;
+  }
+}
+
+.sectionHead {
+  @include flex-between;
+  margin-bottom: 12px;
+
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  a {
+    font-size: 13px;
+    color: $gold;
+  }
+}
+
+.empty {
+  @include card;
+  padding: 28px 18px;
+  text-align: center;
+  color: $text-muted;
+  font-size: 13px;
+
+  svg {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 10px;
+    color: $text-dim;
+  }
+}

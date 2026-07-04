@@ -1,0 +1,387 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Check,
+  Lock,
+  ArrowDown,
+} from "lucide-react";
+import ui from "@/components/ui.module.scss";
+import styles from "./transfer.module.scss";
+import {
+  AFRICAN_COUNTRIES,
+  RUSSIA,
+  getCountry,
+  computeQuote,
+  formatMoney,
+  PAYMENT_METHODS,
+  type Country,
+  getCountryWithId,
+} from "@/lib/data";
+import { type TransferType } from "@/lib/storage";
+import { Auth } from "@/providers/AuthContext";
+import {
+  useGetCountries,
+  useGetDirections,
+  useGetRate,
+} from "@/hooks/useCountry";
+import TypeStep from "@/components/transfert/TypeStep";
+import AmountStep from "@/components/transfert/AmountStep";
+import { ICountry, IDirection, IRate } from "@/types/country";
+import { useGetNetworksById } from "@/hooks/useNetwork";
+import FormStep from "@/components/transfert/FormStep";
+import { INetworkResponse } from "@/types/networks";
+import TermsStep from "@/components/transfert/TermsStep";
+import { ITrasanctionData } from "@/types/transaction";
+import moment from "moment";
+import { useCreateTransaction } from "@/hooks/useTransaction";
+import { toast } from "sonner";
+
+const TOTAL_STEPS = 4;
+
+function TransferFlow() {
+  const {
+    state: { user, isLoading },
+  } = Auth();
+
+  const { countries } = useGetCountries();
+  const { data: directions } = useGetDirections();
+
+  const router = useRouter();
+  const params = useSearchParams();
+  const initialType = (params.get("type") as TransferType) || "send";
+
+  const [step, setStep] = useState(0);
+  const [type, setType] = useState<TransferType>(initialType);
+
+  const [dir, setDir] = useState(1);
+  const [africanCode, setAfricanCode] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [senderName, setSenderName] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [payment, setPayment] = useState("");
+  const [accepted, setAccepted] = useState(false);
+
+  // send: Russia -> Africa ; receive: Africa -> Russia
+  const userCountry = useMemo(() => {
+    return AFRICAN_COUNTRIES.find((e) => e.code === user?.Country.name);
+  }, [user]);
+
+  const from: Country = useMemo(() => {
+    return type === "send"
+      ? userCountry!
+      : (AFRICAN_COUNTRIES.find((e) => e.code === africanCode) ?? userCountry!);
+  }, [userCountry, type, africanCode]);
+
+  const to: Country = useMemo(() => {
+    return type === "send"
+      ? (AFRICAN_COUNTRIES.find((e) => e.code === africanCode) ?? userCountry!)
+      : userCountry!;
+  }, [userCountry, type, africanCode]);
+
+  const countryTo = useMemo(() => {
+    return (countries as ICountry[])?.find((e) => e.name === to?.code);
+  }, [countries, to]);
+
+  const iltineraire = useMemo(() => {
+    if (!directions) {
+      return undefined;
+    }
+    return (directions as IDirection[]).find(
+      (el) => el.code === `${from?.code}-${to?.code}`,
+    );
+  }, [directions, from, to]);
+
+  useEffect(() => {
+    if (!iltineraire) {
+      setAmount("");
+      return;
+    }
+    setAmount(iltineraire.min.toString());
+  }, [iltineraire]);
+
+  const { data: rateData } = useGetRate(iltineraire?.code);
+  const { network: networks } = useGetNetworksById(countryTo?.id);
+
+  const selectedNetwork = useMemo(() => {
+    return (networks as INetworkResponse[])?.find((el) => el.id === payment);
+  }, [networks, payment]);
+
+  const amountNum = parseFloat(amount) || 0;
+  const quote = useMemo(
+    () => computeQuote(amountNum, from, to),
+    [amountNum, from, to],
+  );
+
+  const go = (next: number) => {
+    setDir(next > step ? 1 : -1);
+    setStep(next);
+  };
+
+  const canNext = () => {
+    if (step === 0) return !!type;
+    if (step === 1) return !!africanCode && amountNum > 0;
+    if (step === 2)
+      return (
+        senderName.trim() &&
+        recipientName.trim() &&
+        recipientPhone.trim().length >= 6 &&
+        !!payment
+      );
+    if (step === 3) return accepted;
+    return false;
+  };
+
+  const handleBack = () => {
+    if (step === 0) {
+      router.push("/");
+      return;
+    }
+    go(step - 1);
+  };
+
+  const stepTitles = [
+    "Type de transfert",
+    "Montant & pays",
+    "Détails du transfert",
+    "Conditions",
+  ];
+
+  const variants = {
+    enter: (d: number) => ({ x: d > 0 ? 40 : -40, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (d: number) => ({ x: d > 0 ? -40 : 40, opacity: 0 }),
+  };
+
+  const showRecap = step >= 1;
+
+  const fee = parseFloat(amount) * ((iltineraire?.fee || 0) / 100);
+
+  const transactionData: ITrasanctionData = {
+    amountToSend: amountNum + fee,
+    amountToPayOut: parseFloat(amount) * parseFloat(rateData?.taux ?? "0"),
+    clientEmail: user?.email as string,
+    fees: fee,
+    networkId: payment,
+    type: type === "send" ? "SEND" : "RECEIVE",
+    receiverPhone: recipientPhone,
+    senderName: senderName,
+    receiverName: recipientName,
+    code: iltineraire?.code!,
+    status: "WAITING" as any,
+    origin: from?.code,
+    dateTime: moment().format("DD-MM-YYYY"),
+  };
+
+  const { isCreatingTransaction, mutateAsync } =
+    useCreateTransaction(transactionData);
+
+  const handleNext = async () => {
+    if (!canNext()) return;
+    if (step < TOTAL_STEPS - 1) {
+      go(step + 1);
+      return;
+    }
+    // last step -> save draft, go to validation
+    await mutateAsync()
+      .then((e) => {
+        toast.success(`transfert ${e.txid} enregistré avec succèss!`);
+        const txId = e.id ?? e.txid;
+        router.push(`/transfer/validate?id=${encodeURIComponent(txId)}`);
+      })
+      .catch(() => {
+        toast.error("Une erreur s'est produit, veuillez ressayer plkutard!");
+      });
+  };
+
+  // const createTransaction = async (
+  //   event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  // ) => {
+  //   event.preventDefault();
+
+  //   await mutateAsync()
+  //     .then((e) =>
+  //       toast.success(`transfert ${e.txid} enregistré avec succèss!`),
+  //     )
+  //     .catch(() => {
+  //       toast.error("Une erreur s'est produit, veuillez ressayer plkutard!");
+  //     });
+  // };
+
+  return (
+    <div>
+      <header className={ui.pageHeader}>
+        <button className={ui.back} onClick={handleBack} aria-label="Retour">
+          <ArrowLeft aria-hidden="true" />
+        </button>
+        <div>
+          <div className={ui.title}>Nouveau transfert</div>
+          <div className={ui.subtitle}>
+            Étape {step + 1} sur {TOTAL_STEPS} · {stepTitles[step]}
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.progress}>
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <div key={i} className={styles.progressStep}>
+            <motion.span
+              initial={false}
+              animate={{ width: i <= step ? "100%" : "0%" }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Fixed recap */}
+      <AnimatePresence initial={false}>
+        {showRecap && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className={styles.recap}
+          >
+            <div className={styles.recapTop}>
+              <span className={styles.tag}>
+                {type === "send" ? (
+                  <ArrowUpRight size={13} aria-hidden="true" />
+                ) : (
+                  <ArrowDownLeft size={13} aria-hidden="true" />
+                )}
+                {type === "send" ? "Envoi" : "Réception"}
+              </span>
+              <span>Récapitulatif</span>
+            </div>
+            <div className={styles.route}>
+              <div className={styles.routeCountry}>
+                <span className={styles.flag}>{from.flag}</span>
+                <div className={styles.info}>
+                  <div className={styles.cName}>{from.name}</div>
+                  <div className={styles.cAmt}>
+                    {amountNum > 0 ? formatMoney(amountNum, from) : "—"}
+                  </div>
+                </div>
+              </div>
+              <span className={styles.arrow}>
+                <ArrowRight aria-hidden="true" />
+              </span>
+              <div className={styles.routeCountry}>
+                <span className={styles.flag}>{to.flag}</span>
+                <div className={styles.info}>
+                  <div className={styles.cName}>{to.name}</div>
+                  <div className={styles.cAmt}>
+                    {amountNum > 0
+                      ? formatMoney(
+                          parseFloat(amount) *
+                            parseFloat(rateData?.taux ?? "0"),
+                          to,
+                        )
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Animated steps */}
+      <div className={styles.stepArea}>
+        <AnimatePresence mode="wait" custom={dir}>
+          <motion.div
+            key={step}
+            custom={dir}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            {step === 0 && <TypeStep type={type} setType={setType} />}
+
+            {step === 1 && (
+              <AmountStep
+                type={type}
+                africanCode={africanCode}
+                setAfricanCode={setAfricanCode}
+                amount={amount}
+                setAmount={setAmount}
+                from={from}
+                to={to}
+                quote={quote}
+                amountNum={amountNum}
+                user={user!}
+                rateData={rateData as IRate}
+                iltineraire={iltineraire as IDirection}
+              />
+            )}
+
+            {step === 2 && (
+              <FormStep
+                recipientPhone={recipientPhone}
+                setRecipientPhone={setRecipientPhone}
+                payment={payment}
+                setPayment={setPayment}
+                recipientName={recipientName}
+                senderName={senderName}
+                setRecipientName={setRecipientName}
+                setSenderName={setSenderName}
+                networks={networks as INetworkResponse[]}
+              />
+            )}
+
+            {step === 3 && (
+              <TermsStep
+                accepted={accepted}
+                setAccepted={setAccepted}
+                from={from}
+                to={to}
+                amountNum={amountNum}
+                quote={quote}
+                amount={amount}
+                iltineraire={iltineraire!}
+                rateData={rateData}
+                recipientName={recipientName}
+                recipientPhone={recipientPhone}
+                selectedNetwork={selectedNetwork!}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      <div className={styles.footer}>
+        {step > 0 && (
+          <button className={`${ui.btn} ${ui.btnGhost}`} onClick={handleBack}>
+            Retour
+          </button>
+        )}
+        <button
+          className={`${ui.btn} ${ui.btnPrimary}`}
+          onClick={handleNext}
+          disabled={!canNext() || isCreatingTransaction}
+        >
+          {step === TOTAL_STEPS - 1 ? "Sauvegarder" : "Suivant"}
+          <ArrowRight aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function TransferPage() {
+  return (
+    <Suspense fallback={null}>
+      <TransferFlow />
+    </Suspense>
+  );
+}

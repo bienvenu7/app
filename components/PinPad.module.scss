@@ -1,0 +1,115 @@
+@use '../styles/variables' as *;
+
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 26px 0 34px;
+
+  &.compact {
+    gap: 10px;
+  }
+}
+
+.dotCompact {
+  width: 12px;
+  height: 12px;
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid $border-strong;
+  background: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+
+  &.filled {
+    background: $gold;
+    border-color: $gold;
+    transform: scale(1.05);
+  }
+
+  &.shake {
+    border-color: $danger;
+  }
+}
+
+.dotsShake {
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-6px);
+  }
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.key {
+  @include tap;
+  height: 68px;
+  border-radius: $r-md;
+  background: $bg-elevated;
+  border: 1px solid $border;
+  color: $text;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    background: $bg-elevated-2;
+    border-color: $gold;
+  }
+}
+
+.keyGhost {
+  background: transparent;
+  border: none;
+  pointer-events: none;
+}
+
+.keyDelete {
+  @include tap;
+  height: 68px;
+  border-radius: $r-md;
+  background: transparent;
+  border: none;
+  color: $text-muted;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+}

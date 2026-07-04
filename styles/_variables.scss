@@ -1,0 +1,59 @@
+// ===== Afrue-inspired theme tokens =====
+
+// Colors
+$bg: #0b0f1a; // deep navy background
+$bg-elevated: #121826; // cards / elevated surfaces
+$bg-elevated-2: #1a2233; // inputs / nested surfaces
+$border: rgba(255, 255, 255, 0.08);
+$border-strong: rgba(255, 255, 255, 0.16);
+
+$text: #f4f1ea; // off-white primary text
+$text-muted: #9aa3b2; // muted grey text
+$text-dim: #6b7385;
+
+$gold: #e8c064; // primary gold accent
+$gold-soft: rgba(232, 192, 100, 0.14);
+$gold-strong: #f0cd7a;
+
+$success: #4ade80;
+$danger: #f87171;
+$blue: #8ea2e0; // used for "Russie" highlight accent
+
+// Radii
+$r-sm: 10px;
+$r-md: 16px;
+$r-lg: 22px;
+$r-pill: 999px;
+
+// Layout
+$app-max: 460px;
+$nav-height: 74px;
+
+// Shadows
+$shadow-card: 0 8px 30px rgba(0, 0, 0, 0.35);
+$shadow-glow: 0 0 40px rgba(232, 192, 100, 0.18);
+
+// ===== Mixins =====
+@mixin card {
+  background: $bg-elevated;
+  border: 1px solid $border;
+  border-radius: $r-md;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin tap {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, background 0.18s ease, border-color 0.18s ease,
+    opacity 0.18s ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}

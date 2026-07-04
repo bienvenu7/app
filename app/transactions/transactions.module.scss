@@ -1,0 +1,71 @@
+@use "../../styles/variables" as *;
+
+.header {
+  padding: 12px 0 6px;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+
+  em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    color: $gold;
+  }
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.dateGroup {
+  margin-top: 22px;
+
+  &:first-of-type {
+    margin-top: 18px;
+  }
+}
+
+.dateLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-dim;
+  margin-bottom: 10px;
+  padding-left: 2px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty {
+  @include card;
+  margin-top: 28px;
+  padding: 36px 20px;
+  text-align: center;
+  color: $text-muted;
+  font-size: 14px;
+
+  svg {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto 12px;
+    color: $text-dim;
+    display: block;
+  }
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}

@@ -1,0 +1,71 @@
+import styles from "@/app/transfer/transfer.module.scss";
+import { INetworkResponse } from "@/types/networks";
+
+export default function FormStep(props: {
+  senderName: string;
+  setSenderName: React.Dispatch<React.SetStateAction<string>>;
+  recipientName: string;
+  setRecipientName: React.Dispatch<React.SetStateAction<string>>;
+  recipientPhone: string;
+  setRecipientPhone: React.Dispatch<React.SetStateAction<string>>;
+  payment: string;
+  setPayment: React.Dispatch<React.SetStateAction<string>>;
+  networks: INetworkResponse[];
+}) {
+  return (
+    <div>
+      <h2 className={styles.stepTitle}>Détails du transfert</h2>
+      <p className={styles.stepDesc}>
+        Renseignez l&apos;expéditeur et le destinataire.
+      </p>
+
+      <span className={styles.label}>Expéditeur</span>
+      <div className={styles.field}>
+        <input
+          className={styles.input}
+          placeholder="Nom(s) et Prénom(s)"
+          value={props.senderName}
+          onChange={(e) => props.setSenderName(e.target.value)}
+          aria-label="Prénom de l'expéditeur"
+        />
+      </div>
+
+      <span className={styles.label}>Destinataire</span>
+      <div className={styles.field}>
+        <input
+          className={styles.input}
+          placeholder="Nom(s) et Prénom(s)"
+          value={props.recipientName}
+          onChange={(e) => props.setRecipientName(e.target.value)}
+          aria-label="Prénom du destinataire"
+        />
+      </div>
+
+      <div className={styles.field}>
+        <input
+          className={styles.input}
+          type="tel"
+          placeholder="Téléphone rattaché au compte du destinataire"
+          value={props.recipientPhone}
+          onChange={(e) => props.setRecipientPhone(e.target.value)}
+          aria-label="Téléphone du destinataire"
+        />
+      </div>
+
+      <span className={styles.label}>Moyen de paiement du destinataire</span>
+      <div className={styles.payGrid}>
+        {props.networks &&
+          props.networks.map((m) => (
+            <button
+              key={m.id}
+              className={`${styles.payChip} ${props.payment === m.id ? styles.selected : ""}`}
+              onClick={() => props.setPayment(m.id)}
+            >
+              <div className={styles.pLabel}>{m.name}</div>
+              <div className={styles.pHint}>{m.pubicName}</div>
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+}

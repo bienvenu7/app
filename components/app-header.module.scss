@@ -1,0 +1,23 @@
+@use '../styles/variables' as *;
+
+.header {
+  @include flex-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: $gold-soft;
+  border: 1px solid $border-strong;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $gold;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+  @include tap;
+}

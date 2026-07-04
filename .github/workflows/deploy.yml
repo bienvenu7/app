@@ -1,0 +1,156 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - app
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy (build only; bundle is from this ref)"
+        required: false
+        default: "app"
+
+concurrency:
+  group: deploy-app
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_DIR: /var/www/app
+      TARGET_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18.0"
+          cache: "npm"
+
+      - name: Telegram notify start
+        env:
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets missing, skipping notification."
+            exit 0
+          fi
+          MESSAGE="🚀 Deploy started
+          Repo: ${REPO}
+          Branch: ${TARGET_BRANCH}
+          Actor: ${ACTOR}
+          Run: ${RUN_URL}"
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${MESSAGE}" >/dev/null
+
+      - name: Install, build, pack standalone
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          if [ ! -d .next/standalone ]; then
+            echo "Missing .next/standalone (is output: standalone in next.config?)" >&2
+            exit 1
+          fi
+          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
+          cp -R deploy .next/standalone/
+          echo "Bundle size (before tar):"
+          du -sh .next/standalone
+          tar -czf deploy.tar.gz -C .next/standalone .
+          ls -la deploy.tar.gz
+
+      - name: Upload apply script
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "deploy/artifact-apply.sh"
+          target: /var/www/app/deploy/
+          strip_components: 0
+
+      - name: Upload bundle
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "deploy.tar.gz"
+          target: /var/www/app/
+          strip_components: 0
+
+      - name: Apply bundle on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            set -e
+            echo "👤 Utilisateur du déploiement : ${{ secrets.VPS_USER }}"
+            cd /var/www/app
+            command -v rsync >/dev/null 2>&1 || { echo "rsync requis sur le serveur" >&2; exit 1; }
+            # Pas de chmod: inutile avec "bash" et souvent "Operation not permitted" si ownership strict
+            bash deploy/artifact-apply.sh
+
+      - name: Telegram notify success
+        if: success()
+        env:
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets missing, skipping notification."
+            exit 0
+          fi
+          MESSAGE="✅ Deploy success
+          Repo: ${REPO}
+          Branch: ${TARGET_BRANCH}
+          Actor: ${ACTOR}
+          Run: ${RUN_URL}"
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${MESSAGE}" >/dev/null
+
+      - name: Telegram notify failure
+        if: failure()
+        env:
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets missing, skipping notification."
+            exit 0
+          fi
+          MESSAGE="❌ Deploy failed
+          Repo: ${REPO}
+          Branch: ${TARGET_BRANCH}
+          Actor: ${ACTOR}
+          Run: ${RUN_URL}"
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${MESSAGE}" >/dev/null

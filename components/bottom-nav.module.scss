@@ -1,0 +1,60 @@
+@use '../styles/variables' as *;
+
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: $app-max;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+.pill {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 8px;
+  border-radius: $r-pill;
+  background: #12141d;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 6px;
+  border-radius: $r-pill;
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  @include tap;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+
+  svg {
+    width: 21px;
+    height: 21px;
+    flex-shrink: 0;
+  }
+
+  &.active {
+    background: #4a4631;
+    color: #0b0f1a;
+  }
+}

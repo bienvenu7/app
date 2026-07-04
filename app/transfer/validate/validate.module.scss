@@ -1,0 +1,429 @@
+@use "../../../styles/variables" as *;
+
+.wrap {
+  padding: 20px 18px 160px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: $text-muted;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 0;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 4px;
+
+  em {
+    color: $gold;
+    font-family: var(--font-serif), Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+  }
+}
+
+.subtitle {
+  color: $text-muted;
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.card {
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+  // border: 1px solid $line;
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.routeSide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+
+  &.right {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+.flag {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.countryName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.routeArrow {
+  color: $gold;
+  flex-shrink: 0;
+}
+
+.amountBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.amountLabel {
+  font-size: 11px;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.amountValue {
+  font-size: 17px;
+  font-weight: 700;
+
+  &.gold {
+    color: $gold;
+  }
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  // border-top: 1px solid $line;
+  font-size: 14px;
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+.rowLabel {
+  color: $text-muted;
+  flex-shrink: 0;
+}
+
+.rowValue {
+  font-weight: 600;
+  text-align: right;
+}
+
+.payBar {
+  position: sticky;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.totalLabel {
+  color: $text-muted;
+  font-size: 13px;
+}
+
+.totalValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: $gold;
+}
+
+.payBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 999px;
+  background: $gold;
+  color: $text-muted;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: wait;
+  }
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba($text-muted, 0.35);
+  border-top-color: $text-muted;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Success state */
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.checkCircle {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba($gold, 0.12);
+  border: 2px solid $gold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $gold;
+  margin-bottom: 22px;
+}
+
+.successTitle {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 6px;
+
+  em {
+    color: $gold;
+    font-family: var(--font-serif), Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+  }
+}
+
+.successText {
+  color: $text-muted;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.txidPill {
+  display: inline-block;
+  margin: 14px 0 26px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+  // border: 1px solid $line;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $gold;
+}
+
+.successActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.ghostBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 15px;
+  border-radius: 999px;
+  background: transparent;
+  // border: 1px solid $line;
+  color: $text;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: $text-muted;
+}
+
+.cardTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 13px;
+  color: $text-muted;
+  margin-bottom: 8px;
+}
+
+.fieldInput {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba($text-muted, 0.2);
+  background: rgba($bg, 0.5);
+  color: $text;
+  font-size: 15px;
+  outline: none;
+
+  &:focus {
+    border-color: rgba($gold, 0.5);
+  }
+}
+
+.processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  color: $text-muted;
+  font-size: 14px;
+}
+
+.proofSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+}
+
+.proofLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text;
+}
+
+.proofHint {
+  font-size: 12px;
+  color: $text-muted;
+  margin-top: -4px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.uploadZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 16px;
+  border-radius: 14px;
+  border: 1.5px dashed rgba($text-muted, 0.35);
+  background: rgba($bg, 0.35);
+  color: $text-muted;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+
+  &:hover {
+    border-color: rgba($gold, 0.5);
+    background: rgba($gold, 0.04);
+  }
+}
+
+.uploadIcon {
+  color: $gold;
+  margin-bottom: 2px;
+}
+
+.uploadFormats {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.previewWrap {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba($text-muted, 0.2);
+}
+
+.previewImage {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+.removePreview {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: $text;
+  cursor: pointer;
+}
+
+.confirmBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px;
+  border: 1.5px solid rgba($gold, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: $gold;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
