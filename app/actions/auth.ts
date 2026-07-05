@@ -96,7 +96,7 @@ export const confirmOtp = async (email: string, newOtp: string) => {
     throw new Error("verify-otp: missing accessToken in response");
   }
 
-  setCookie("accessToken", accessToken);
+  setCookie("accessToken", accessToken, 30);
   return data;
 };
 

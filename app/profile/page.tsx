@@ -128,55 +128,57 @@ export default function ProfilePage() {
   }
 
   return (
-    <div>
-      <header className={styles.header}>
+    <div className={styles.page}>
+      <header className={`${styles.header} ${styles.pageHeader}`}>
         <h1 className={styles.title}>
           Mon <em>profil</em>
         </h1>
       </header>
 
-      <section className={styles.hero}>
-        <div className={styles.avatar} aria-hidden="true">
-          {initials}
-        </div>
-        <div className={styles.name}>{user.fullName}</div>
-        <div className={styles.email}>{user.email}</div>
-      </section>
+      <div className={styles.pageSidebar}>
+        <section className={styles.hero}>
+          <div className={styles.avatar} aria-hidden="true">
+            {initials}
+          </div>
+          <div className={styles.name}>{user.fullName}</div>
+          <div className={styles.email}>{user.email}</div>
+        </section>
 
-      <div className={styles.stats}>
-        <div className={styles.stat}>
-          {isGettingTransaction ? (
-            <Loading />
-          ) : (
-            <>
-              <div className={styles.n}>{totalCount}</div>
-              <div className={styles.l}>Transferts</div>
-            </>
-          )}
-        </div>
-        <div className={styles.stat}>
-          {isGettingTransaction ? (
-            <Loading />
-          ) : (
-            <>
-              <div className={styles.n}>{sendCount}</div>
-              <div className={styles.l}>Envoyés</div>
-            </>
-          )}
-        </div>
-        <div className={styles.stat}>
-          {isGettingTransaction ? (
-            <Loading />
-          ) : (
-            <>
-              <div className={styles.n}>{receiveCount}</div>
-              <div className={styles.l}>Reçus</div>
-            </>
-          )}
+        <div className={styles.stats}>
+          <div className={styles.stat}>
+            {isGettingTransaction ? (
+              <Loading />
+            ) : (
+              <>
+                <div className={styles.n}>{totalCount}</div>
+                <div className={styles.l}>Transferts</div>
+              </>
+            )}
+          </div>
+          <div className={styles.stat}>
+            {isGettingTransaction ? (
+              <Loading />
+            ) : (
+              <>
+                <div className={styles.n}>{sendCount}</div>
+                <div className={styles.l}>Envoyés</div>
+              </>
+            )}
+          </div>
+          <div className={styles.stat}>
+            {isGettingTransaction ? (
+              <Loading />
+            ) : (
+              <>
+                <div className={styles.n}>{receiveCount}</div>
+                <div className={styles.l}>Reçus</div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      <section className={styles.section}>
+      <section className={`${styles.section} ${styles.pageForm}`}>
         <h2 className={styles.sectionTitle}>Informations personnelles</h2>
 
         <div className={styles.field}>

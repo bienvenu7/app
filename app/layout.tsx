@@ -43,11 +43,7 @@ export default function RootLayout({
     <html lang="fr" className={`${geistSans.variable} ${playfair.variable}`}>
       <body>
         <GlobalProvider>
-          <div className="app-shell">
-            <div className="app-content">
-              <AppShell>{children}</AppShell>
-            </div>
-          </div>
+          <AppShell>{children}</AppShell>
         </GlobalProvider>
 
         {process.env.NODE_ENV === "production" && <Analytics />}

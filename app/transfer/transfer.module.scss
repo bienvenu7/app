@@ -474,3 +474,50 @@
   gap: 12px;
   margin-top: 8px;
 }
+
+.page {
+  @include desktop {
+    max-width: $content-max-desktop;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 0 32px;
+    align-items: start;
+
+    > header,
+    > .progress,
+    > .stepArea,
+    > .footer {
+      grid-column: 1;
+    }
+  }
+}
+
+.recapAside {
+  @include desktop {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    position: sticky;
+    top: 32px;
+    margin-bottom: 0;
+    align-self: start;
+  }
+}
+
+@include desktop {
+  .typeGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .countryList {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stepTitle {
+    font-size: 22px;
+  }
+
+  .footer {
+    max-width: 520px;
+  }
+}

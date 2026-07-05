@@ -21,3 +21,9 @@
   flex-shrink: 0;
   @include tap;
 }
+
+@include desktop {
+  .header {
+    display: none;
+  }
+}

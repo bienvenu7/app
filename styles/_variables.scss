@@ -28,6 +28,9 @@ $r-pill: 999px;
 // Layout
 $app-max: 460px;
 $nav-height: 74px;
+$bp-desktop: 1024px;
+$sidebar-width: 260px;
+$content-max-desktop: 1120px;
 
 // Shadows
 $shadow-card: 0 8px 30px rgba(0, 0, 0, 0.35);
@@ -55,5 +58,11 @@ $shadow-glow: 0 0 40px rgba(232, 192, 100, 0.18);
 
   &:active {
     transform: scale(0.97);
+  }
+}
+
+@mixin desktop {
+  @media (min-width: $bp-desktop) {
+    @content;
   }
 }

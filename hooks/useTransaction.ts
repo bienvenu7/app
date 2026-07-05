@@ -7,9 +7,10 @@ import {
 } from "@/app/actions/transaction";
 import type { ITrasanctionData } from "@/types/transaction";
 import { Status } from "@/types/transaction";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useCreateTransaction = (data: ITrasanctionData) => {
+  const queryClient = useQueryClient();
   const {
     isPending: isCreatingTransaction,
     isError: isCreatingTransactionError,
@@ -17,6 +18,9 @@ export const useCreateTransaction = (data: ITrasanctionData) => {
   } = useMutation({
     mutationKey: ["transaction", data],
     mutationFn: () => createTransaction(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transaction"] });
+    },
   });
   return { mutateAsync, isCreatingTransaction, isCreatingTransactionError };
 };
@@ -36,6 +40,7 @@ export const useGetTransactonById = (id: string | undefined) => {
 };
 
 export const useUpdateTransaction = () => {
+  const queryClient = useQueryClient();
   const {
     isPending: isUpdatingTransaction,
     isError: isUpdatingTransactionError,
@@ -52,6 +57,9 @@ export const useUpdateTransaction = () => {
       hour: string;
       status: Status;
     }) => updateTransaction(transactionId, senderNumber, hour, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transaction"] });
+    },
   });
   return { mutateAsync, isUpdatingTransaction, isUpdatingTransactionError };
 };

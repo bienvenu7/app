@@ -216,7 +216,7 @@ function TransferFlow() {
   // };
 
   return (
-    <div>
+    <div className={styles.page}>
       <header className={ui.pageHeader}>
         <button className={ui.back} onClick={handleBack} aria-label="Retour">
           <ArrowLeft aria-hidden="true" />
@@ -241,14 +241,13 @@ function TransferFlow() {
         ))}
       </div>
 
-      {/* Fixed recap */}
       <AnimatePresence initial={false}>
         {showRecap && (
-          <motion.div
+          <motion.aside
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className={styles.recap}
+            className={`${styles.recap} ${styles.recapAside}`}
           >
             <div className={styles.recapTop}>
               <span className={styles.tag}>
@@ -290,11 +289,10 @@ function TransferFlow() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* Animated steps */}
       <div className={styles.stepArea}>
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div

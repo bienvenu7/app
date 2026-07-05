@@ -69,3 +69,30 @@
   justify-content: center;
   padding: 48px 0;
 }
+
+.page {
+  @include desktop {
+    max-width: $content-max-desktop;
+    margin: 0 auto;
+  }
+}
+
+@include desktop {
+  .header {
+    padding-bottom: 12px;
+  }
+
+  .title {
+    font-size: 32px;
+  }
+
+  .list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .dateGroup {
+    margin-top: 28px;
+  }
+}
