@@ -55,9 +55,7 @@ export function SideNav() {
       <div className={styles.glow} aria-hidden="true" />
       <div className={styles.brandWrap}>
         <Brand size="lg" />
-        <p className={styles.tagline}>
-          Transferts sécurisés Russie ↔ Afrique
-        </p>
+        <p className={styles.tagline}>Transferts sécurisés Russie ↔ Afrique</p>
       </div>
 
       <div className={styles.links}>
@@ -78,7 +76,11 @@ export function SideNav() {
       </div>
 
       <div className={styles.footer}>
-        <Link href="/profile" className={styles.profile} aria-label="Voir le profil">
+        <Link
+          href="/profile"
+          className={styles.profile}
+          aria-label="Voir le profil"
+        >
           <span className={styles.avatar}>{getInitials(user?.fullName)}</span>
           <span className={styles.profileInfo}>
             <span className={styles.profileName}>

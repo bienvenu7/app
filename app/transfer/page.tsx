@@ -20,6 +20,7 @@ import {
   getCountry,
   computeQuote,
   formatMoney,
+  computeTransferAmounts,
   PAYMENT_METHODS,
   type Country,
   getCountryWithId,
@@ -68,6 +69,7 @@ function TransferFlow() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [payment, setPayment] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const [feesIncluded, setFeesIncluded] = useState(false);
 
   // send: Russia -> Africa ; receive: Africa -> Russia
   const userCountry = useMemo(() => {
@@ -115,6 +117,17 @@ function TransferFlow() {
   }, [networks, payment]);
 
   const amountNum = parseFloat(amount) || 0;
+  const rate = parseFloat(rateData?.taux ?? "0");
+  const transferAmounts = useMemo(
+    () =>
+      computeTransferAmounts(
+        amountNum,
+        iltineraire?.fee ?? 0,
+        rate,
+        feesIncluded,
+      ),
+    [amountNum, iltineraire, rate, feesIncluded],
+  );
   const quote = useMemo(
     () => computeQuote(amountNum, from, to),
     [amountNum, from, to],
@@ -127,7 +140,14 @@ function TransferFlow() {
 
   const canNext = () => {
     if (step === 0) return !!type;
-    if (step === 1) return !!africanCode && amountNum > 0;
+    if (step === 1)
+      return (
+        !!africanCode &&
+        amountNum > 0 &&
+        !!iltineraire &&
+        amountNum >= iltineraire.min &&
+        amountNum <= iltineraire.max
+      );
     if (step === 2)
       return (
         senderName.trim() &&
@@ -162,13 +182,11 @@ function TransferFlow() {
 
   const showRecap = step >= 1;
 
-  const fee = parseFloat(amount) * ((iltineraire?.fee || 0) / 100);
-
   const transactionData: ITrasanctionData = {
-    amountToSend: amountNum + fee,
-    amountToPayOut: parseFloat(amount) * parseFloat(rateData?.taux ?? "0"),
+    amountToSend: transferAmounts.totalToPay,
+    amountToPayOut: transferAmounts.amountToPayOut,
     clientEmail: user?.email as string,
-    fees: fee,
+    fees: transferAmounts.fee,
     networkId: payment,
     type: type === "send" ? "SEND" : "RECEIVE",
     receiverPhone: recipientPhone,
@@ -266,7 +284,9 @@ function TransferFlow() {
                 <div className={styles.info}>
                   <div className={styles.cName}>{from.name}</div>
                   <div className={styles.cAmt}>
-                    {amountNum > 0 ? formatMoney(amountNum, from) : "—"}
+                    {amountNum > 0
+                      ? formatMoney(transferAmounts.totalToPay, from)
+                      : "—"}
                   </div>
                 </div>
               </div>
@@ -279,11 +299,7 @@ function TransferFlow() {
                   <div className={styles.cName}>{to.name}</div>
                   <div className={styles.cAmt}>
                     {amountNum > 0
-                      ? formatMoney(
-                          parseFloat(amount) *
-                            parseFloat(rateData?.taux ?? "0"),
-                          to,
-                        )
+                      ? formatMoney(transferAmounts.amountToPayOut, to)
                       : "—"}
                   </div>
                 </div>
@@ -320,6 +336,8 @@ function TransferFlow() {
                 user={user!}
                 rateData={rateData as IRate}
                 iltineraire={iltineraire as IDirection}
+                feesIncluded={feesIncluded}
+                setFeesIncluded={setFeesIncluded}
               />
             )}
 
@@ -348,6 +366,7 @@ function TransferFlow() {
                 amount={amount}
                 iltineraire={iltineraire!}
                 rateData={rateData}
+                feesIncluded={feesIncluded}
                 recipientName={recipientName}
                 recipientPhone={recipientPhone}
                 selectedNetwork={selectedNetwork!}
