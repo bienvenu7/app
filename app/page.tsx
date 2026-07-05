@@ -1,20 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import moment from "moment";
 import { motion } from "framer-motion";
 import { ArrowUpRight, ArrowDownLeft, Inbox } from "lucide-react";
-import { TransactionRow } from "@/components/transaction-row";
-import {
-  getTransactions,
-  type Transaction,
-} from "@/lib/storage";
+import { TransactionHistoryCard } from "@/components/transaction-history-card";
 import styles from "./home.module.scss";
 import { Auth } from "@/providers/AuthContext";
 import { useGetTransactonByEmail } from "@/hooks/useTransaction";
 import { actualDate } from "@/utils/moment";
 import Loading from "@/components/Loading";
 import { ITrasanctionResponse } from "@/types/transaction";
+
+function sortKey(tx: ITrasanctionResponse) {
+  const raw = tx.createdAt ?? tx.dateTime;
+  const parsed = moment(raw, ["DD-MM-YYYY", moment.ISO_8601], true);
+  return parsed.isValid() ? parsed.valueOf() : moment(raw).valueOf();
+}
 
 export default function HomePage() {
   const {
@@ -51,14 +54,11 @@ export default function HomePage() {
     return (transactions as ITrasanctionResponse[])?.length;
   }, [transactions]);
 
-  const [txs, setTxs] = useState<Transaction[]>([]);
-
-  useEffect(() => {
-    setTxs(getTransactions());
-  }, []);
-
-  // const sendCount = txs.filter((t) => t.type === "send").length;
-  // const receiveCount = txs.filter((t) => t.type === "receive").length;
+  const recentTransactions = useMemo(() => {
+    return [...((transactions as ITrasanctionResponse[]) ?? [])]
+      .sort((a, b) => sortKey(b) - sortKey(a))
+      .slice(0, 4);
+  }, [transactions]);
 
   const container = {
     hidden: { opacity: 0 },
@@ -78,8 +78,13 @@ export default function HomePage() {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show">
-      <motion.section variants={item} className={styles.hero}>
+    <motion.div
+      className={styles.page}
+      variants={container}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.section variants={item} className={`${styles.hero} ${styles.pageIntro}`}>
         <span className={styles.badge}>
           <span className={styles.pulse} aria-hidden="true" />
           Rapidité · Sécurité · Fiabilité
@@ -95,7 +100,7 @@ export default function HomePage() {
         </p>
       </motion.section>
 
-      <motion.div variants={item} className={styles.actions}>
+      <motion.div variants={item} className={`${styles.actions} ${styles.pageActions}`}>
         <Link href="/transfer?type=send" className={styles.action}>
           <span className={styles.icon}>
             <ArrowUpRight aria-hidden="true" />
@@ -119,7 +124,7 @@ export default function HomePage() {
         </Link>
       </motion.div>
 
-      <motion.div variants={item} className={styles.stats}>
+      <motion.div variants={item} className={`${styles.stats} ${styles.pageStats}`}>
         <div className={styles.stat}>
           {isGettingTransaction ? (
             <Loading />
@@ -152,24 +157,30 @@ export default function HomePage() {
         </div>
       </motion.div>
 
-      <motion.section variants={item}>
+      <motion.section variants={item} className={styles.pageRecent}>
         <div className={styles.sectionHead}>
           <h2>Transactions récentes</h2>
           {totalCount > 0 && <Link href="/transactions">Tout voir</Link>}
         </div>
 
-        {totalCount === 0 ? (
-          <div className={styles.empty}>
-            <Inbox aria-hidden="true" />
-            <div>Aucune transaction pour l&apos;instant.</div>
-          </div>
-        ) : (
-          <div className="serif-none">
-            {txs.slice(0, 4).map((tx) => (
-              <TransactionRow key={tx.txid} tx={tx} />
-            ))}
-          </div>
-        )}
+        <div className={styles.recentPanel}>
+          {isGettingTransaction ? (
+            <div className={styles.recentLoading}>
+              <Loading />
+            </div>
+          ) : totalCount === 0 ? (
+            <div className={styles.empty}>
+              <Inbox aria-hidden="true" />
+              <div>Aucune transaction pour l&apos;instant.</div>
+            </div>
+          ) : (
+            <div className={styles.recentList}>
+              {recentTransactions.map((tx) => (
+                <TransactionHistoryCard key={tx.id ?? tx.txid} tx={tx} />
+              ))}
+            </div>
+          )}
+        </div>
       </motion.section>
     </motion.div>
   );

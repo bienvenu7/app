@@ -342,3 +342,21 @@
   color: $gold;
   font-weight: 600;
 }
+
+@include desktop {
+  .brandRow {
+    margin-bottom: 36px;
+  }
+
+  .title {
+    font-size: 32px;
+  }
+
+  .header {
+    margin-bottom: 32px;
+  }
+
+  .genderRow {
+    max-width: none;
+  }
+}

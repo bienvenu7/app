@@ -65,7 +65,7 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div>
+    <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>
           Mes <em>transactions</em>

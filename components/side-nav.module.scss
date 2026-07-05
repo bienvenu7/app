@@ -1,0 +1,147 @@
+@use '../styles/variables' as *;
+
+.nav {
+  display: none;
+
+  @include desktop {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: $sidebar-width;
+    z-index: 60;
+    padding: 28px 20px 24px;
+    background: linear-gradient(180deg, #0e1320 0%, #0b0f1a 100%);
+    border-right: 1px solid $border;
+  }
+}
+
+.glow {
+  @include desktop {
+    position: absolute;
+    top: -80px;
+    left: -60px;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(
+      circle,
+      rgba(232, 192, 100, 0.14) 0%,
+      rgba(232, 192, 100, 0) 70%
+    );
+    pointer-events: none;
+  }
+}
+
+.brandWrap {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 36px;
+}
+
+.tagline {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: $text-dim;
+  max-width: 190px;
+}
+
+.links {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: $r-sm;
+  color: $text-muted;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+  border: 1px solid transparent;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: $text;
+  }
+
+  &.active {
+    background: $gold-soft;
+    border-color: rgba(232, 192, 100, 0.28);
+    color: $gold;
+    font-weight: 600;
+  }
+}
+
+.footer {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid $border;
+}
+
+.profile {
+  @include tap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: $r-sm;
+  transition: background 0.18s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: $gold-soft;
+  border: 1px solid $border-strong;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $gold;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.profileInfo {
+  min-width: 0;
+}
+
+.profileName {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profileHint {
+  font-size: 11px;
+  color: $text-dim;
+  margin-top: 1px;
+}
