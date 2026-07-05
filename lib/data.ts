@@ -111,3 +111,42 @@ export function formatMoney(value: number, country: Country) {
   }).format(value);
   return `${formatted} ${country.symbol}`;
 }
+
+export type TransferAmounts = {
+  fee: number;
+  totalToPay: number;
+  convertAmount: number;
+  amountToPayOut: number;
+};
+
+export function computeTransferAmounts(
+  amount: number,
+  feePercent: number,
+  rate: number,
+  feesIncluded: boolean,
+): TransferAmounts {
+  if (amount <= 0) {
+    return { fee: 0, totalToPay: 0, convertAmount: 0, amountToPayOut: 0 };
+  }
+
+  const feeRate = feePercent / 100;
+
+  if (feesIncluded) {
+    const fee = amount * feeRate;
+    const convertAmount = amount - fee;
+    return {
+      fee,
+      totalToPay: amount,
+      convertAmount,
+      amountToPayOut: convertAmount * rate,
+    };
+  }
+
+  const fee = amount * feeRate;
+  return {
+    fee,
+    totalToPay: amount + fee,
+    convertAmount: amount,
+    amountToPayOut: amount * rate,
+  };
+}

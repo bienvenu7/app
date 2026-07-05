@@ -1,4 +1,4 @@
-import { AFRICAN_COUNTRIES, Country, RUSSIA, formatMoney } from "@/lib/data";
+import { AFRICAN_COUNTRIES, Country, formatMoney, computeTransferAmounts } from "@/lib/data";
 import { TransferType } from "@/lib/storage";
 import styles from "@/app/transfer/transfer.module.scss";
 import { ArrowDown, Lock } from "lucide-react";
@@ -18,6 +18,8 @@ export default function AmountStep({
   user,
   rateData,
   iltineraire,
+  feesIncluded,
+  setFeesIncluded,
 }: {
   type: TransferType;
   africanCode: string;
@@ -31,11 +33,24 @@ export default function AmountStep({
   user: IClientResponse;
   rateData: IRate;
   iltineraire: IDirection;
+  feesIncluded: boolean;
+  setFeesIncluded: (v: boolean) => void;
 }) {
   const pickerLabel =
     type === "send" ? "Pays du destinataire" : "Pays de l'expéditeur";
 
-  const fee = parseFloat(amount) * ((iltineraire?.fee || 0) / 100);
+  const rate = parseFloat(rateData?.taux ?? "0");
+  const { fee, totalToPay, convertAmount, amountToPayOut } =
+    computeTransferAmounts(
+      amountNum,
+      iltineraire?.fee || 0,
+      rate,
+      feesIncluded,
+    );
+
+  const isAmountOutOfRange =
+    !!iltineraire &&
+    (amountNum < iltineraire.min || amountNum > iltineraire.max);
 
   return (
     <div>
@@ -91,6 +106,7 @@ export default function AmountStep({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             aria-label="Montant à envoyer"
+            className={isAmountOutOfRange ? styles.amountInvalid : undefined}
           />
           <span className={styles.cur}>{from.currency}</span>
         </div>
@@ -109,31 +125,54 @@ export default function AmountStep({
         <div className={styles.amountInput}>
           <span className={styles.amountValue}>
             {amountNum > 0
-              ? formatMoney(
-                  parseFloat(amount) * parseFloat(rateData?.taux ?? "0"),
-                  to,
-                )
+              ? formatMoney(amountToPayOut, to)
               : `0 ${to.symbol}`}
           </span>
         </div>
       </div>
 
       {amountNum > 0 && (
-        <div className={styles.breakdown}>
-          <div className={styles.brow}>
-            <span>Montant</span>
-            <strong>{formatMoney(amountNum, from)}</strong>
+        <>
+          <span className={styles.label}>Frais de transfert</span>
+          <div className={styles.feeOptions}>
+            <button
+              type="button"
+              className={`${styles.feeOption} ${!feesIncluded ? styles.selected : ""}`}
+              onClick={() => setFeesIncluded(false)}
+            >
+              <span className={styles.feeOptionTitle}>Frais en plus</span>
+              <span className={styles.feeOptionHint}>
+                Vous payez les frais en supplément
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.feeOption} ${feesIncluded ? styles.selected : ""}`}
+              onClick={() => setFeesIncluded(true)}
+            >
+              <span className={styles.feeOptionTitle}>Frais inclus</span>
+              <span className={styles.feeOptionHint}>
+                Les frais sont déduits du montant
+              </span>
+            </button>
           </div>
-          <div className={styles.brow}>
-            <span>Frais ({iltineraire?.fee})%</span>
-            <strong>{formatMoney(fee, from)}</strong>
+
+          <div className={styles.breakdown}>
+            <div className={styles.brow}>
+              <span>Montant</span>
+              <strong>{formatMoney(convertAmount, from)}</strong>
+            </div>
+            <div className={styles.brow}>
+              <span>Frais ({iltineraire?.fee})%</span>
+              <strong>{formatMoney(fee, from)}</strong>
+            </div>
+            <div className={styles.divider} />
+            <div className={styles.brow}>
+              <span>Total à payer</span>
+              <strong>{formatMoney(totalToPay, from)}</strong>
+            </div>
           </div>
-          <div className={styles.divider} />
-          <div className={styles.brow}>
-            <span>Total à payer</span>
-            <strong>{formatMoney(amountNum + fee, from)}</strong>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

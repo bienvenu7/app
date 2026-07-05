@@ -1,4 +1,4 @@
-import { Country, formatMoney } from "@/lib/data";
+import { Country, formatMoney, computeTransferAmounts } from "@/lib/data";
 import { IDirection, IRate } from "@/types/country";
 import styles from "@/app/transfer/transfer.module.scss";
 import { Check } from "lucide-react";
@@ -14,6 +14,7 @@ export default function TermsStep({
   amount,
   rateData,
   iltineraire,
+  feesIncluded,
   recipientName,
   selectedNetwork,
   recipientPhone,
@@ -27,11 +28,19 @@ export default function TermsStep({
   amount: string;
   rateData: IRate;
   iltineraire: IDirection;
+  feesIncluded: boolean;
   recipientName: string;
   selectedNetwork: INetworkResponse;
   recipientPhone: string;
 }) {
-  const fee = parseFloat(amount) * ((iltineraire?.fee || 0) / 100);
+  const rate = parseFloat(rateData?.taux ?? "0");
+  const { fee, totalToPay, convertAmount, amountToPayOut } =
+    computeTransferAmounts(
+      amountNum,
+      iltineraire?.fee || 0,
+      rate,
+      feesIncluded,
+    );
   return (
     <div>
       <h2 className={styles.stepTitle}>Conditions du transfert</h2>
@@ -43,23 +52,24 @@ export default function TermsStep({
         <h3>Contrat de transfert</h3>
         <ul>
           <li>
-            Vous envoyez <strong>{formatMoney(amountNum, from)}</strong> depuis{" "}
-            {from.name}.
+            Vous payez <strong>{formatMoney(totalToPay, from)}</strong> depuis{" "}
+            {from.name}
+            {feesIncluded
+              ? " (frais inclus)."
+              : ` (${formatMoney(convertAmount, from)} + ${formatMoney(fee, from)} de frais).`}
           </li>
           <li>
             Le destinataire <strong>{recipientName}</strong> recevra{" "}
-            <strong>
-              {formatMoney(
-                parseFloat(amount) * parseFloat(rateData?.taux ?? "0"),
-                to,
-              )}
-            </strong>{" "}
-            en {to.name} via <strong>{selectedNetwork?.name}</strong> au{" "}
+            <strong>{formatMoney(amountToPayOut, to)}</strong> en {to.name} via{" "}
+            <strong>{selectedNetwork?.name}</strong> au{" "}
             <strong>{recipientPhone}</strong>
           </li>
           <li>
             Des frais de service de <strong>{formatMoney(fee, from)}</strong>{" "}
-            s&apos;appliquent.
+            s&apos;appliquent
+            {feesIncluded
+              ? " et sont déduits du montant envoyé."
+              : " et sont payés en supplément."}
           </li>
           <li>Le taux de change est garanti pendant 30 minutes.</li>
           <li>Les informations fournies sont exactes et vérifiables.</li>
