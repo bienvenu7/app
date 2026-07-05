@@ -71,6 +71,11 @@ input[type="number"] {
   background: $bg;
   overflow: hidden;
 
+  @include tablet {
+    max-width: $bp-tablet-max;
+    width: 100%;
+  }
+
   // subtle radial glow like the reference hero
   &::before {
     content: "";

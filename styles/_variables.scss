@@ -27,8 +27,9 @@ $r-pill: 999px;
 
 // Layout
 $app-max: 460px;
+$bp-tablet-max: 920px;
 $nav-height: 74px;
-$bp-desktop: 1024px;
+$bp-desktop: 921px;
 $sidebar-width: 260px;
 $content-max-desktop: 1120px;
 
@@ -53,7 +54,10 @@ $shadow-glow: 0 0 40px rgba(232, 192, 100, 0.18);
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease, background 0.18s ease, border-color 0.18s ease,
+  transition:
+    transform 0.12s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
     opacity 0.18s ease;
 
   &:active {
@@ -63,6 +67,12 @@ $shadow-glow: 0 0 40px rgba(232, 192, 100, 0.18);
 
 @mixin desktop {
   @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: ($app-max + 1px)) and (max-width: $bp-tablet-max) {
     @content;
   }
 }

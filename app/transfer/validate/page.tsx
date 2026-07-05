@@ -6,8 +6,8 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
-  Lock,
   Check,
+  Copy,
   Download,
   Receipt,
   X,
@@ -17,6 +17,7 @@ import moment from "moment";
 import { toast } from "sonner";
 import styles from "./validate.module.scss";
 import { formatMoney, RUSSIA } from "@/lib/data";
+import { getLinks } from "@/lib/payment-networks";
 import { generateReceipt } from "@/lib/receipt";
 import {
   getTransactionAmounts,
@@ -35,6 +36,9 @@ import {
 import { uploafFile } from "@/app/actions/file";
 import type { ITrasanctionResponse } from "@/types/transaction";
 import { Status } from "@/types/transaction";
+import { useGetCards, useGetCountries } from "@/hooks/useCountry";
+import { ICountry } from "@/types/country";
+import type { IResponseCard } from "@/types/networks";
 
 function ValidateFlow() {
   const router = useRouter();
@@ -45,8 +49,11 @@ function ValidateFlow() {
     state: { user },
   } = Auth();
 
+  const { countries } = useGetCountries();
+
   const { transaction, isGettingTransaction, isTransactionError } =
     useGetTransactonById(txId);
+
   const { mutateAsync: updateTx, isUpdatingTransaction } =
     useUpdateTransaction();
 
@@ -63,9 +70,22 @@ function ValidateFlow() {
 
   const tx = transaction as ITrasanctionResponse | undefined;
 
-  const { from, to } = useMemo(
+  const { from, to, fromCode } = useMemo(
     () => parseTransactionRoute(tx?.code),
     [tx?.code],
+  );
+
+  const countryFrom = useMemo(() => {
+    return (countries as ICountry[])?.find(
+      (country: ICountry) => country.name === fromCode,
+    );
+  }, [countries, fromCode]);
+
+  const { cards, isLoading: isLoadingCards } = useGetCards(countryFrom?.id);
+
+  const paymentCards = useMemo(
+    () => (cards as IResponseCard[] | undefined)?.filter((card) => card.isActive),
+    [cards],
   );
 
   const amounts = useMemo(
@@ -102,6 +122,17 @@ function ValidateFlow() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleCopyPayment = async (text: string) => {
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copié dans le presse-papiers");
+    } catch {
+      toast.error("Impossible de copier");
+    }
+  };
+
   const handleConfirm = async () => {
     if (!tx || !txId) return;
     if (!proofFile) {
@@ -111,12 +142,6 @@ function ValidateFlow() {
 
     try {
       await uploafFile(proofFile, tx.id ?? txId, "Preuve de paiement");
-      await updateTx({
-        transactionId: tx.id ?? txId,
-        senderNumber: user?.whatsappNumber?.trim() ?? "",
-        hour: moment().format("HH:mm"),
-        status: Status.INPROGRESS,
-      });
       setPaidLocally(true);
       toast.success("Paiement enregistré, votre transfert est en cours.");
     } catch {
@@ -219,7 +244,10 @@ function ValidateFlow() {
   return (
     <main>
       <div className={styles.wrap}>
-        <button className={styles.back} onClick={() => router.push("/transfer")}>
+        <button
+          className={styles.back}
+          onClick={() => router.push("/transfer")}
+        >
           <ArrowLeft size={16} /> Retour
         </button>
 
@@ -308,10 +336,68 @@ function ValidateFlow() {
                 {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
-            <button className={styles.payBtn} type="button">
-              <Lock size={18} /> Payer{" "}
-              {formatMoney(amounts.totalAmount, sourceCountry)}
-            </button>
+            <div className={styles.payMethods}>
+              <p className={styles.payMethodsTitle}>Moyen de paiement</p>
+              {isLoadingCards ? (
+                <p className={styles.payMethodsHint}>
+                  Chargement des options de paiement...
+                </p>
+              ) : paymentCards?.length ? (
+                <div className={styles.payMethodsList}>
+                  {paymentCards.map((el) => {
+                    const networkFlag = getLinks(el.network.name);
+
+                    return el.isLink ? (
+                      <a
+                        key={el.id}
+                        className={styles.payLink}
+                        href={el.content || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {networkFlag ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={networkFlag}
+                            alt={el.network.pubicName}
+                          />
+                        ) : (
+                          `Payez avec ${el.network.pubicName}`
+                        )}
+                      </a>
+                    ) : (
+                      <div key={el.id} className={styles.payContainer}>
+                        <span className={styles.payContent}>
+                          {networkFlag ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={networkFlag}
+                              alt={el.network.name}
+                              className={styles.payNetworkImg}
+                            />
+                          ) : (
+                            <strong>{el.network.name} : </strong>
+                          )}
+                          {el.content || ""}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.copyBtn}
+                          aria-label="Copier les instructions de paiement"
+                          onClick={() => handleCopyPayment(el.content || "")}
+                        >
+                          <Copy size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className={styles.payMethodsHint}>
+                  Aucun moyen de paiement disponible pour ce pays.
+                </p>
+              )}
+            </div>
 
             <div className={styles.proofSection}>
               <p className={styles.proofLabel}>Preuve de paiement</p>
