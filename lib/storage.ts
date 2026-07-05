@@ -63,8 +63,8 @@ const PIN_KEY = "afrue.pinAuth"
 
 /** 3 months */
 export const PIN_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
-/** 8 hours */
-export const PIN_RELOCK_MS = 8 * 60 * 60 * 1000
+/** 15 minutes */
+export const PIN_RELOCK_MS = 15 * 60 * 1000
 
 const DEFAULT_PROFILE: Profile = {
   firstName: "Amadou",
