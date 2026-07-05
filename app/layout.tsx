@@ -22,7 +22,6 @@ export const metadata: Metadata = {
   title: "AFRU-E · Transfert d'argent Russie ↔ Afrique",
   description:
     "Transférez de l'argent entre la Russie et l'Afrique, rapidement et en toute sécurité.",
-  generator: "v0.app",
 };
 
 export const viewport: Viewport = {
