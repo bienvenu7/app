@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import {
   useResendOtp,
 } from "@/hooks/useAuthentication";
 import { Auth } from "@/providers/AuthContext";
+import { isAuthEntryRoute } from "@/lib/auth-routes";
+import Loading from "@/components/Loading";
 import {
   clearPinAuth,
   getValidPinAuth,
@@ -32,8 +34,16 @@ type Mode =
   | "confirm-pin"
   | "pin-login";
 
-export default function LoginPage() {
+function safeReturnPath(path: string | null): string {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return "/";
+  if (isAuthEntryRoute(path)) return "/";
+  return path;
+}
+
+function LoginFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = safeReturnPath(searchParams.get("from"));
   const { fillState } = Auth();
 
   const [mode, setMode] = useState<Mode>("checking");
@@ -80,12 +90,12 @@ export default function LoginPage() {
       try {
         const user = await getAuth();
         fillState(user);
-        router.replace("/");
+        router.replace(returnTo);
       } catch {
         setMode("pin-login");
       }
     })();
-  }, [fillState, router]);
+  }, [fillState, router, returnTo]);
 
   useEffect(() => {
     if (mode !== "pin-login" || !savedAuth) return;
@@ -143,9 +153,9 @@ export default function LoginPage() {
       const user = await getAuth();
       fillState(user);
       if (greeting) toast.success(greeting);
-      router.push("/");
+      router.replace(returnTo);
     },
-    [fillState, router],
+    [fillState, router, returnTo],
   );
 
   const handleLoginSubmit = async () => {
@@ -495,7 +505,8 @@ export default function LoginPage() {
                 )}
               </h1>
               <p className={styles.subtitle}>
-                Entrez votre code à 5 chiffres pour continuer.
+                Votre session a expiré. Entrez votre code à 5 chiffres pour
+                continuer.
               </p>
             </div>
 
@@ -516,5 +527,13 @@ export default function LoginPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <LoginFlow />
+    </Suspense>
   );
 }
