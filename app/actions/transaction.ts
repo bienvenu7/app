@@ -8,7 +8,11 @@ import type {
   Status,
 } from "../../types/transaction";
 
-const MAX_CALENDAR_DAYS_TO_SCAN = 730;
+const TRANSACTION_HISTORY_MONTHS = 6;
+
+function getTransactionHistoryMinDate() {
+  return moment().utc().subtract(TRANSACTION_HISTORY_MONTHS, "months").startOf("day");
+}
 
 export type TransactionDayBatch = {
   days: {
@@ -87,6 +91,8 @@ export const fetchTransactionsForActiveDays = async (
   startFromDate: string | undefined,
   activeDaysCount: number,
 ): Promise<TransactionDayBatch> => {
+  const minDate = getTransactionHistoryMinDate();
+
   let current = startFromDate
     ? moment(startFromDate, "DD-MM-YYYY", true)
     : moment().utc();
@@ -95,10 +101,20 @@ export const fetchTransactionsForActiveDays = async (
     current = moment().utc();
   }
 
-  const days: TransactionDayBatch["days"] = [];
-  let scanned = 0;
+  if (current.isBefore(minDate, "day")) {
+    return {
+      days: [],
+      nextCursor: current.format("DD-MM-YYYY"),
+      hasMore: false,
+    };
+  }
 
-  while (days.length < activeDaysCount && scanned < MAX_CALENDAR_DAYS_TO_SCAN) {
+  const days: TransactionDayBatch["days"] = [];
+
+  while (
+    days.length < activeDaysCount &&
+    current.isSameOrAfter(minDate, "day")
+  ) {
     const dateStr = current.format("DD-MM-YYYY");
     const transactions = await getTransactionByClientEmail(clientEmail, dateStr);
 
@@ -107,13 +123,13 @@ export const fetchTransactionsForActiveDays = async (
     }
 
     current = current.subtract(1, "day");
-    scanned++;
   }
 
   return {
     days,
     nextCursor: current.format("DD-MM-YYYY"),
-    hasMore: days.length >= activeDaysCount,
+    hasMore:
+      days.length >= activeDaysCount && current.isSameOrAfter(minDate, "day"),
   };
 };
 
