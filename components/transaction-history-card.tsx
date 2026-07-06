@@ -36,8 +36,10 @@ function getStatusClass(status: Status | string) {
 
 export function TransactionHistoryCard({
   tx,
+  onSelect,
 }: {
   tx: ITrasanctionResponse;
+  onSelect?: (tx: ITrasanctionResponse) => void;
 }) {
   const isSend = tx.type === "SEND";
   const { from, to } = parseRoute(tx.code);
@@ -120,5 +122,14 @@ export function TransactionHistoryCard({
     );
   }
 
-  return <article className={styles.card}>{content}</article>;
+  return (
+    <button
+      type="button"
+      className={`${styles.card} ${styles.clickable}`}
+      onClick={() => onSelect?.(tx)}
+      aria-label={`Voir les détails du transfert ${tx.txid}`}
+    >
+      {content}
+    </button>
+  );
 }

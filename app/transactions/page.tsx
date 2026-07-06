@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import moment from "moment";
 import "moment/locale/fr";
 import { Inbox } from "lucide-react";
 import styles from "./transactions.module.scss";
 import Loading from "@/components/Loading";
 import { TransactionHistoryCard } from "@/components/transaction-history-card";
+import { TransactionDetailsModal } from "@/components/transaction-details-modal";
 import { Auth } from "@/providers/AuthContext";
-import { useGetTransactonByEmail } from "@/hooks/useTransaction";
-import { actualDate } from "@/utils/moment";
+import { useInfiniteTransactionsByEmail } from "@/hooks/useTransaction";
 import type { ITrasanctionResponse } from "@/types/transaction";
 
 moment.locale("fr");
@@ -27,20 +27,45 @@ function sortKey(tx: ITrasanctionResponse) {
   return parsed.isValid() ? parsed.valueOf() : moment(raw).valueOf();
 }
 
+function txKey(tx: ITrasanctionResponse) {
+  return tx.id ?? tx.txid;
+}
+
 export default function TransactionsPage() {
   const {
     state: { user, isLoading },
   } = Auth();
 
-  const { transactions, isGettingTransaction } = useGetTransactonByEmail(
-    user?.email,
-    actualDate,
+  const {
+    data,
+    isGettingTransaction,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteTransactionsByEmail(user?.email);
+
+  const [selectedTx, setSelectedTx] = useState<ITrasanctionResponse | null>(
+    null,
   );
 
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   const grouped = useMemo(() => {
-    const list = [...((transactions as ITrasanctionResponse[]) ?? [])].sort(
-      (a, b) => sortKey(b) - sortKey(a),
-    );
+    const seen = new Set<string>();
+    const list: ITrasanctionResponse[] = [];
+
+    for (const page of data?.pages ?? []) {
+      for (const day of page.days) {
+        for (const tx of day.transactions) {
+          const key = txKey(tx);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push(tx);
+        }
+      }
+    }
+
+    list.sort((a, b) => sortKey(b) - sortKey(a));
 
     const map = new Map<string, ITrasanctionResponse[]>();
     for (const tx of list) {
@@ -49,12 +74,41 @@ export default function TransactionsPage() {
       group.push(tx);
       map.set(label, group);
     }
-    return Array.from(map.entries());
-  }, [transactions]);
 
-  const total = (transactions as ITrasanctionResponse[])?.length ?? 0;
+    return Array.from(map.entries());
+  }, [data]);
+
+  const total = useMemo(() => {
+    const seen = new Set<string>();
+    for (const page of data?.pages ?? []) {
+      for (const day of page.days) {
+        for (const tx of day.transactions) {
+          seen.add(txKey(tx));
+        }
+      }
+    }
+    return seen.size;
+  }, [data]);
+
   const totalLabel =
     total <= 1 ? "1 transaction au total" : `${total} transactions au total`;
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "240px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (isLoading) {
     return (
@@ -83,16 +137,40 @@ export default function TransactionsPage() {
           <div>Aucune transaction pour l&apos;instant.</div>
         </div>
       ) : (
-        grouped.map(([date, items]) => (
-          <section key={date} className={styles.dateGroup}>
-            <h2 className={styles.dateLabel}>{date}</h2>
-            <div className={styles.list}>
-              {items.map((tx) => (
-                <TransactionHistoryCard key={tx.id ?? tx.txid} tx={tx} />
-              ))}
+        <>
+          {grouped.map(([date, items]) => (
+            <section key={date} className={styles.dateGroup}>
+              <h2 className={styles.dateLabel}>{date}</h2>
+              <div className={styles.list}>
+                {items.map((tx) => (
+                  <TransactionHistoryCard
+                    key={txKey(tx)}
+                    tx={tx}
+                    onSelect={setSelectedTx}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+
+          {isFetchingNextPage && (
+            <div className={styles.loadMore} aria-live="polite">
+              <Loading />
             </div>
-          </section>
-        ))
+          )}
+
+          {hasNextPage && (
+            <div ref={loadMoreRef} className={styles.sentinel} aria-hidden="true" />
+          )}
+        </>
+      )}
+
+      {selectedTx && (
+        <TransactionDetailsModal
+          tx={selectedTx}
+          open={!!selectedTx}
+          onClose={() => setSelectedTx(null)}
+        />
       )}
     </div>
   );

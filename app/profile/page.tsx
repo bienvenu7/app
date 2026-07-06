@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import styles from "./profile.module.scss";
 import Loading from "@/components/Loading";
@@ -14,6 +14,7 @@ import { useGetTransactonByEmail } from "@/hooks/useTransaction";
 import { actualDate } from "@/utils/moment";
 import { countryFlagEmoji } from "@/lib/flags";
 import { clearPinAuth } from "@/lib/storage";
+import { useLogout } from "@/hooks/useAuthentication";
 import type { ICountry } from "@/types/country";
 import type { ITrasanctionResponse } from "@/types/transaction";
 
@@ -106,6 +107,20 @@ export default function ProfilePage() {
       }),
   });
 
+  const { logoutFn, islogout } = useLogout();
+
+  const canSave = useMemo(() => {
+    if (!user) return false;
+
+    const initialPhone = (user.whatsappNumber ?? "").trim();
+    const initialCountryId = user.Country?.id ?? "";
+    const nextPhone = phone.trim();
+    const hasChanges =
+      nextPhone !== initialPhone || countryId !== initialCountryId;
+
+    return hasChanges && (!!nextPhone || !!countryId);
+  }, [user, phone, countryId]);
+
   const handleSave = async () => {
     if (!user) return;
     try {
@@ -116,6 +131,18 @@ export default function ProfilePage() {
       setTimeout(() => router.push("/auth/login"), 1500);
     } catch {
       toast.error("Impossible d'enregistrer les modifications.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutFn();
+    } catch {
+      // On nettoie la session locale même si l'API échoue
+    } finally {
+      clearPinAuth();
+      resetState();
+      router.push("/auth/login");
     }
   };
 
@@ -275,9 +302,19 @@ export default function ProfilePage() {
           type="button"
           className={styles.saveBtn}
           onClick={handleSave}
-          disabled={isSaving || !phone.trim() || !countryId}
+          disabled={isSaving || !canSave}
         >
           {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+        </button>
+
+        <button
+          type="button"
+          className={styles.logoutBtn}
+          onClick={handleLogout}
+          disabled={islogout}
+        >
+          <LogOut size={18} aria-hidden="true" />
+          {islogout ? "Déconnexion..." : "Se déconnecter"}
         </button>
       </section>
     </div>

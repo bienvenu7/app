@@ -43,13 +43,15 @@ export default function FormStep(props: {
         />
       </div>
 
+      <span className={styles.label}>Téléphone du destinataire</span>
       <div className={styles.field}>
         <input
           className={styles.input}
           type="tel"
-          placeholder={`numero du destinataire, ${props.iltineraire.countryTo.formatNumber}`}
+          placeholder={`${props.iltineraire.countryTo.formatNumber}`}
           value={props.recipientPhone}
           onChange={(e) => props.setRecipientPhone(e.target.value)}
+          maxLength={props.iltineraire.countryTo.TelMaxNumber}
           aria-label="Téléphone du destinataire"
         />
       </div>

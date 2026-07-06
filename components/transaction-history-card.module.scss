@@ -8,6 +8,10 @@
   padding: 14px;
   text-decoration: none;
   color: inherit;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  border: 1px solid $border;
 
   &.clickable {
     @include tap;

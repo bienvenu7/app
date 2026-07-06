@@ -1,0 +1,166 @@
+@use "../styles/variables" as *;
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: min(85vh, 640px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+  border: 1px solid $border;
+  box-shadow: $shadow-card;
+
+  @include desktop {
+    max-width: 560px;
+    max-height: min(80vh, 720px);
+    border-radius: 24px;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid $border;
+
+  @include desktop {
+    padding: 22px 28px 18px;
+  }
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 700;
+
+  @include desktop {
+    font-size: 20px;
+  }
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba($text-muted, 0.12);
+  color: $text-muted;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: $text;
+    background: rgba($text-muted, 0.2);
+  }
+}
+
+.body {
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+
+  @include desktop {
+    padding: 20px 28px 28px;
+
+    .row {
+      padding: 15px 0;
+      font-size: 15px;
+    }
+
+    .flag {
+      font-size: 34px;
+    }
+
+    .countryName {
+      font-size: 14px;
+    }
+  }
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid $border;
+}
+
+.routeSide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+
+  &.right {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+.flag {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.countryName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.routeArrow {
+  color: $gold;
+  flex-shrink: 0;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  font-size: 14px;
+}
+
+.rowLabel {
+  color: $text-muted;
+  flex-shrink: 0;
+}
+
+.rowValue {
+  font-weight: 600;
+  text-align: right;
+
+  &.gold {
+    color: $gold;
+  }
+}
+
+.divider {
+  height: 1px;
+  background: $border;
+  margin: 4px 0 8px;
+}

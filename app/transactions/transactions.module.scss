@@ -67,7 +67,30 @@
 .loadingWrap {
   display: flex;
   justify-content: center;
+  align-items: center;
   padding: 48px 0;
+
+  svg path {
+    stroke: $gold;
+  }
+}
+
+.loadMore {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 72px;
+  padding: 24px 0 40px;
+
+  svg path {
+    stroke: $gold;
+  }
+}
+
+.sentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
 }
 
 .page {
