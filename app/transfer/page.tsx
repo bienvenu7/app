@@ -352,6 +352,7 @@ function TransferFlow() {
                 setRecipientName={setRecipientName}
                 setSenderName={setSenderName}
                 networks={networks as INetworkResponse[]}
+                iltineraire={iltineraire as IDirection}
               />
             )}
 
