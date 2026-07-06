@@ -1,13 +1,21 @@
 "use client";
 import {
   createTransaction,
+  fetchTransactionsForActiveDays,
   getTransactionByClientEmail,
   getTransactionById,
   updateTransaction,
 } from "@/app/actions/transaction";
 import type { ITrasanctionData } from "@/types/transaction";
 import { Status } from "@/types/transaction";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+
+const ACTIVE_DAYS_PER_PAGE = 3;
 
 export const useCreateTransaction = (data: ITrasanctionData) => {
   const queryClient = useQueryClient();
@@ -20,6 +28,7 @@ export const useCreateTransaction = (data: ITrasanctionData) => {
     mutationFn: () => createTransaction(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transaction"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-infinite"] });
     },
   });
   return { mutateAsync, isCreatingTransaction, isCreatingTransactionError };
@@ -59,6 +68,7 @@ export const useUpdateTransaction = () => {
     }) => updateTransaction(transactionId, senderNumber, hour, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transaction"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-infinite"] });
     },
   });
   return { mutateAsync, isUpdatingTransaction, isUpdatingTransactionError };
@@ -79,4 +89,37 @@ export const useGetTransactonByEmail = (
     enabled: !!email && !!date,
   });
   return { transactions, isGettingTransaction, isTransactionError };
+};
+
+export const useInfiniteTransactionsByEmail = (email: string | undefined) => {
+  const {
+    data,
+    isPending: isGettingTransaction,
+    isError: isTransactionError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["transactions-infinite", email],
+    queryFn: ({ pageParam }) =>
+      fetchTransactionsForActiveDays(
+        email!,
+        pageParam,
+        ACTIVE_DAYS_PER_PAGE,
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.nextCursor : undefined,
+    enabled: !!email,
+    refetchInterval: 1000 * 5,
+  });
+
+  return {
+    data,
+    isGettingTransaction,
+    isTransactionError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  };
 };

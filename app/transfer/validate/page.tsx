@@ -8,26 +8,24 @@ import {
   ArrowRight,
   Check,
   Copy,
-  Download,
+  Eye,
   Receipt,
   X,
   ImageIcon,
 } from "lucide-react";
-import moment from "moment";
 import { toast } from "sonner";
 import styles from "./validate.module.scss";
 import { formatMoney, RUSSIA } from "@/lib/data";
 import { getLinks } from "@/lib/payment-networks";
-import { generateReceipt } from "@/lib/receipt";
 import {
   getTransactionAmounts,
   isProcessingStatus,
   isTransactionPaid,
   isWaitingStatus,
   parseTransactionRoute,
-  toReceiptTransaction,
 } from "@/lib/transaction-utils";
 import Loading from "@/components/Loading";
+import { TransactionDetailsModal } from "@/components/transaction-details-modal";
 import { Auth } from "@/providers/AuthContext";
 import {
   useGetTransactonById,
@@ -35,7 +33,6 @@ import {
 } from "@/hooks/useTransaction";
 import { uploafFile } from "@/app/actions/file";
 import type { ITrasanctionResponse } from "@/types/transaction";
-import { Status } from "@/types/transaction";
 import { useGetCards, useGetCountries } from "@/hooks/useCountry";
 import { ICountry } from "@/types/country";
 import type { IResponseCard } from "@/types/networks";
@@ -58,6 +55,7 @@ function ValidateFlow() {
     useUpdateTransaction();
 
   const [paidLocally, setPaidLocally] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,7 +82,8 @@ function ValidateFlow() {
   const { cards, isLoading: isLoadingCards } = useGetCards(countryFrom?.id);
 
   const paymentCards = useMemo(
-    () => (cards as IResponseCard[] | undefined)?.filter((card) => card.isActive),
+    () =>
+      (cards as IResponseCard[] | undefined)?.filter((card) => card.isActive),
     [cards],
   );
 
@@ -191,7 +190,6 @@ function ValidateFlow() {
     );
   }
 
-  const receiptTx = toReceiptTransaction(tx);
   const paymentLabel =
     tx.Network?.pubicName ?? tx.Network?.name ?? tx.networkId;
   const sourceCountry = from ?? RUSSIA;
@@ -225,9 +223,9 @@ function ValidateFlow() {
           <div className={styles.successActions}>
             <button
               className={styles.payBtn}
-              onClick={() => generateReceipt(receiptTx)}
+              onClick={() => setShowDetails(true)}
             >
-              <Download size={18} /> Télécharger le reçu
+              <Eye size={18} /> Voir les détails
             </button>
             <button
               className={styles.ghostBtn}
@@ -237,6 +235,12 @@ function ValidateFlow() {
             </button>
           </div>
         </motion.div>
+
+        <TransactionDetailsModal
+          tx={tx}
+          open={showDetails}
+          onClose={() => setShowDetails(false)}
+        />
       </main>
     );
   }
@@ -357,10 +361,7 @@ function ValidateFlow() {
                       >
                         {networkFlag ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={networkFlag}
-                            alt={el.network.pubicName}
-                          />
+                          <img src={networkFlag} alt={el.network.pubicName} />
                         ) : (
                           `Payez avec ${el.network.pubicName}`
                         )}
