@@ -1,4 +1,5 @@
 import styles from "@/app/transfer/transfer.module.scss";
+import { IDirection } from "@/types/country";
 import { INetworkResponse } from "@/types/networks";
 
 export default function FormStep(props: {
@@ -11,6 +12,7 @@ export default function FormStep(props: {
   payment: string;
   setPayment: React.Dispatch<React.SetStateAction<string>>;
   networks: INetworkResponse[];
+  iltineraire: IDirection;
 }) {
   return (
     <div>
@@ -45,7 +47,7 @@ export default function FormStep(props: {
         <input
           className={styles.input}
           type="tel"
-          placeholder="Téléphone rattaché au compte du destinataire"
+          placeholder={`numero du destinataire, ${props.iltineraire.countryTo.formatNumber}`}
           value={props.recipientPhone}
           onChange={(e) => props.setRecipientPhone(e.target.value)}
           aria-label="Téléphone du destinataire"
