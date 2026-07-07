@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -12,17 +12,22 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/brand";
+import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
+import { confirmOtp, getAuth } from "@/app/actions/auth";
 import { useGetCountries } from "@/hooks/useCountry";
-import { useRegistration } from "@/hooks/useAuthentication";
+import { useRegistration, useResendOtp } from "@/hooks/useAuthentication";
 import { countryFlagEmoji } from "@/lib/flags";
+import { savePinAuth } from "@/lib/storage";
+import { Auth } from "@/providers/AuthContext";
 import type { ICountry } from "@/types/country";
 
-const TOTAL_STEPS = 2;
+const TOTAL_STEPS = 5;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { fillState } = Auth();
   const { countries, isLoading: loadingCountries } = useGetCountries();
 
   const [step, setStep] = useState(0);
@@ -42,6 +47,17 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Step 3 — OTP
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const otpSubmittedRef = useRef<string | null>(null);
+
+  // Steps 4–5 — PIN
+  const [pin, setPin] = useState("");
+  const [firstPin, setFirstPin] = useState("");
+  const [pinError, setPinError] = useState(false);
 
   const selectRef = useRef<HTMLDivElement>(null);
 
@@ -76,18 +92,30 @@ export default function RegisterPage() {
     countryId,
     gender,
   );
+  const { resend, isResending } = useResendOtp(email.trim());
 
-  const resetForm = () => {
-    setStep(0);
-    setCountryId("");
-    setCountrySearch("");
-    setFirstName("");
-    setLastName("");
-    setGender("");
-    setEmail("");
-    setPassword("");
-    setConfirmPassword("");
-  };
+  const resetOtpBuffer = useCallback(() => {
+    setOtp("");
+    setOtpError(false);
+    setOtpVerifying(false);
+    otpSubmittedRef.current = null;
+  }, []);
+
+  const resetPinBuffers = useCallback(() => {
+    setPin("");
+    setFirstPin("");
+    setPinError(false);
+  }, []);
+
+  const completeSessionAndGoHome = useCallback(
+    async (message?: string) => {
+      const user = await getAuth();
+      fillState(user);
+      toast.success(message ?? "Votre compte a été créé avec succès !");
+      router.replace("/");
+    },
+    [fillState, router],
+  );
 
   const canNextStep0 = !!countryId && !!firstName.trim() && !!lastName.trim() && !!gender;
   const canNextStep1 =
@@ -105,7 +133,21 @@ export default function RegisterPage() {
       router.push("/auth/login");
       return;
     }
+    if (step === 2) {
+      resetOtpBuffer();
+    }
     go(step - 1);
+  };
+
+  const handleResendOtp = async () => {
+    if (!email.trim()) return;
+    try {
+      await resend();
+      resetOtpBuffer();
+      toast.success("Un nouveau code a été envoyé.");
+    } catch {
+      toast.error("Impossible de renvoyer le code.");
+    }
   };
 
   const handleSubmit = async () => {
@@ -115,17 +157,92 @@ export default function RegisterPage() {
       return;
     }
 
+    if (step !== 1) return;
     if (!canNextStep1) return;
 
     try {
       await registerFn();
-      toast.success("Votre compte a été créé avec succès ! Connectez-vous.");
-      resetForm();
-      router.push("/auth/login");
+      resetOtpBuffer();
+      go(2);
+      toast.success("Un code à 6 chiffres vous a été envoyé par email.");
     } catch {
       toast.error("Une erreur s'est produite, veuillez réessayer.");
     }
   };
+
+  useEffect(() => {
+    if (step !== 2 || otp.length !== 6 || otpVerifying) return;
+    if (otpSubmittedRef.current === otp) return;
+
+    otpSubmittedRef.current = otp;
+    setOtpVerifying(true);
+
+    (async () => {
+      try {
+        await confirmOtp(email.trim(), otp);
+        resetOtpBuffer();
+        resetPinBuffers();
+        go(3);
+        toast.success("Code vérifié !");
+      } catch {
+        if (otpSubmittedRef.current !== otp) return;
+        otpSubmittedRef.current = null;
+        setOtpVerifying(false);
+        setOtpError(true);
+        toast.error("Code incorrect, réessayez.");
+        setTimeout(() => {
+          setOtpError(false);
+          setOtp("");
+        }, 500);
+      }
+    })();
+  }, [otp, step, otpVerifying, email, resetOtpBuffer, resetPinBuffers]);
+
+  useEffect(() => {
+    if (step !== 3 || pin.length !== 5) return;
+    const t = setTimeout(() => {
+      setFirstPin(pin);
+      setPin("");
+      go(4);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [pin, step]);
+
+  useEffect(() => {
+    if (step !== 4 || pin.length !== 5) return;
+
+    if (pin === firstPin) {
+      let cancelled = false;
+      (async () => {
+        const now = Date.now();
+        savePinAuth({
+          email: email.trim(),
+          pin,
+          createdAt: now,
+          lastUnlockAt: now,
+        });
+        try {
+          await completeSessionAndGoHome("Votre code a été créé avec succès !");
+        } catch {
+          if (cancelled) return;
+          toast.error("Impossible de charger votre session.");
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setPinError(true);
+    const t = setTimeout(() => {
+      setPinError(false);
+      setPin("");
+      setFirstPin("");
+      go(3);
+      toast.error("Les codes ne correspondent pas, réessayez.");
+    }, 500);
+    return () => clearTimeout(t);
+  }, [pin, step, firstPin, email, completeSessionAndGoHome]);
 
   const variants = {
     enter: (d: number) => ({ x: d > 0 ? 40 : -40, opacity: 0 }),
@@ -279,6 +396,69 @@ export default function RegisterPage() {
             </>
           )}
 
+          {step === 2 && (
+            <>
+              <div className={styles.pinHeader}>
+                <h1 className={styles.title}>
+                  Vérifiez votre <em>code</em>
+                </h1>
+                <p className={styles.subtitle}>
+                  Entrez le code à 6 chiffres envoyé à{" "}
+                  <span className={styles.otpEmail}>{email.trim()}</span>
+                </p>
+              </div>
+
+              <PinPad
+                length={6}
+                value={otp}
+                onChange={setOtp}
+                error={otpError}
+                disabled={otpVerifying}
+              />
+
+              <p className={styles.resendOtp}>
+                Vous n&apos;avez pas reçu le code ?{" "}
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={isResending || otpVerifying}
+                >
+                  {isResending ? "Envoi..." : "Renvoyer"}
+                </button>
+              </p>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <div className={styles.pinHeader}>
+                <h1 className={styles.title}>
+                  Créez votre <em>code</em>
+                </h1>
+                <p className={styles.subtitle}>
+                  Choisissez un code à 5 chiffres pour vos prochaines connexions.
+                </p>
+              </div>
+
+              <PinPad length={5} value={pin} onChange={setPin} error={pinError} />
+            </>
+          )}
+
+          {step === 4 && (
+            <>
+              <div className={styles.pinHeader}>
+                <h1 className={styles.title}>
+                  Confirmez votre <em>code</em>
+                </h1>
+                <p className={styles.subtitle}>
+                  Ressaisissez le même code pour le confirmer.
+                </p>
+              </div>
+
+              <PinPad length={5} value={pin} onChange={setPin} error={pinError} />
+            </>
+          )}
+
           {step === 1 && (
             <>
               <div className={styles.header}>
@@ -370,7 +550,7 @@ export default function RegisterPage() {
         </motion.div>
       </AnimatePresence>
 
-      {step === 0 ? (
+      {step === 0 && (
         <button
           className={`${ui.btn} ${ui.btnPrimary}`}
           onClick={handleSubmit}
@@ -380,7 +560,9 @@ export default function RegisterPage() {
           Suivant
           <ArrowRight aria-hidden="true" />
         </button>
-      ) : (
+      )}
+
+      {step === 1 && (
         <div className={styles.stepFooter} style={{ marginTop: 26 }}>
           <button className={ui.back} onClick={handleBack} aria-label="Retour">
             <ArrowLeft aria-hidden="true" />
@@ -395,12 +577,22 @@ export default function RegisterPage() {
         </div>
       )}
 
-      <p className={styles.footerLink}>
-        Déjà un compte ?{" "}
-        <button type="button" onClick={() => router.push("/auth/login")}>
-          Se connecter
-        </button>
-      </p>
+      {step === 2 && (
+        <div className={styles.stepFooter} style={{ marginTop: 26 }}>
+          <button className={ui.back} onClick={handleBack} aria-label="Retour">
+            <ArrowLeft aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {step < 2 && (
+        <p className={styles.footerLink}>
+          Déjà un compte ?{" "}
+          <button type="button" onClick={() => router.push("/auth/login")}>
+            Se connecter
+          </button>
+        </p>
+      )}
     </div>
   );
 }
