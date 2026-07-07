@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/brand";
 import { PinPad } from "@/components/PinPad";
@@ -13,6 +13,7 @@ import { confirmOtp, getAuth } from "@/app/actions/auth";
 import {
   useAuthentication,
   useResendOtp,
+  useUpdatePassword,
 } from "@/hooks/useAuthentication";
 import { Auth } from "@/providers/AuthContext";
 import { isAuthEntryRoute } from "@/lib/auth-routes";
@@ -29,6 +30,7 @@ import {
 type Mode =
   | "checking"
   | "credentials"
+  | "forgot-password"
   | "verify-otp"
   | "create-pin"
   | "confirm-pin"
@@ -57,6 +59,13 @@ function LoginFlow() {
   const [showPassword, setShowPassword] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
+  // Forgot password
+  const [resetEmail, setResetEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
   // OTP
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
@@ -71,6 +80,8 @@ function LoginFlow() {
 
   const { postLogin, isLogin } = useAuthentication(email.trim(), password);
   const { resend, isResending } = useResendOtp(pendingEmail);
+  const { changeOtp: submitPasswordReset, loadingChangeOtp: isResettingPassword } =
+    useUpdatePassword(resetEmail.trim(), newPassword);
 
   useEffect(() => {
     const saved = getValidPinAuth();
@@ -157,6 +168,44 @@ function LoginFlow() {
     },
     [fillState, router, returnTo],
   );
+
+  const canResetPassword =
+    /\S+@\S+\.\S+/.test(resetEmail.trim()) &&
+    newPassword.length >= 6 &&
+    confirmNewPassword === newPassword;
+
+  const handleOpenForgotPassword = () => {
+    setResetEmail(email.trim());
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setShowNewPassword(false);
+    setShowConfirmNewPassword(false);
+    setMode("forgot-password");
+  };
+
+  const handleBackToLogin = () => {
+    setResetEmail("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setMode("credentials");
+  };
+
+  const handleForgotPasswordSubmit = async () => {
+    if (!canResetPassword) return;
+
+    try {
+      await submitPasswordReset();
+      setEmail(resetEmail.trim());
+      setPassword("");
+      setResetEmail("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setMode("credentials");
+      toast.success("Votre mot de passe a été mis à jour. Connectez-vous.");
+    } catch {
+      toast.error("Impossible de réinitialiser le mot de passe.");
+    }
+  };
 
   const handleLoginSubmit = async () => {
     if (!/\S+@\S+\.\S+/.test(email.trim()) || password.length < 1) return;
@@ -380,6 +429,12 @@ function LoginFlow() {
                   )}
                 </button>
               </div>
+
+              <p className={styles.forgotPassword}>
+                <button type="button" onClick={handleOpenForgotPassword}>
+                  Mot de passe oublié ?
+                </button>
+              </p>
             </div>
 
             <button
@@ -405,6 +460,123 @@ function LoginFlow() {
                 S&apos;inscrire
               </button>
             </p>
+          </motion.div>
+        )}
+
+        {mode === "forgot-password" && (
+          <motion.div
+            key="forgot-password"
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.2 }}
+          >
+            <div className={styles.header}>
+              <h1 className={styles.title}>
+                Mot de passe <em>oublié</em>
+              </h1>
+              <p className={styles.subtitle}>
+                Entrez votre email et choisissez un nouveau mot de passe.
+              </p>
+            </div>
+
+            <div className={styles.form}>
+              <div>
+                <span className={styles.label}>Email</span>
+                <input
+                  className={styles.input}
+                  type="email"
+                  placeholder="vous@exemple.com"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  aria-label="Email"
+                  autoFocus
+                />
+              </div>
+
+              <div className={styles.passwordField}>
+                <span className={styles.label}>Nouveau mot de passe</span>
+                <input
+                  className={styles.input}
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Au moins 6 caractères"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  aria-label="Nouveau mot de passe"
+                />
+                <button
+                  type="button"
+                  className={styles.toggleVisibility}
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  aria-label={
+                    showNewPassword
+                      ? "Masquer le mot de passe"
+                      : "Afficher le mot de passe"
+                  }
+                >
+                  {showNewPassword ? (
+                    <EyeOff aria-hidden="true" />
+                  ) : (
+                    <Eye aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+
+              <div className={styles.passwordField}>
+                <span className={styles.label}>Confirmer</span>
+                <input
+                  className={styles.input}
+                  type={showConfirmNewPassword ? "text" : "password"}
+                  placeholder="Retapez votre mot de passe"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  aria-label="Confirmer le mot de passe"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleForgotPasswordSubmit();
+                  }}
+                />
+                <button
+                  type="button"
+                  className={styles.toggleVisibility}
+                  onClick={() => setShowConfirmNewPassword((v) => !v)}
+                  aria-label={
+                    showConfirmNewPassword
+                      ? "Masquer le mot de passe"
+                      : "Afficher le mot de passe"
+                  }
+                >
+                  {showConfirmNewPassword ? (
+                    <EyeOff aria-hidden="true" />
+                  ) : (
+                    <Eye aria-hidden="true" />
+                  )}
+                </button>
+                {confirmNewPassword.length > 0 &&
+                  confirmNewPassword !== newPassword && (
+                    <p className={styles.hint}>
+                      Les mots de passe ne correspondent pas.
+                    </p>
+                  )}
+              </div>
+            </div>
+
+            <div className={styles.stepFooter} style={{ marginTop: 26 }}>
+              <button
+                className={ui.back}
+                onClick={handleBackToLogin}
+                aria-label="Retour"
+              >
+                <ArrowLeft aria-hidden="true" />
+              </button>
+              <button
+                className={`${ui.btn} ${ui.btnPrimary}`}
+                onClick={handleForgotPasswordSubmit}
+                disabled={!canResetPassword || isResettingPassword}
+              >
+                {isResettingPassword ? "Mise à jour..." : "Réinitialiser"}
+              </button>
+            </div>
           </motion.div>
         )}
 

@@ -1,4 +1,4 @@
-import { instance } from "@/config/instance";
+import { instance, instanceV2 } from "@/config/instance";
 import type { IClientResponse, IClientUpdate } from "@/types/user";
 import { deleteCookie, getCookie, setCookie } from "@/config/cookies";
 
@@ -25,8 +25,8 @@ export const register = async (
   fullName: string,
   countryId: string,
   gender: string,
-) => {
-  const { data } = await instance.post("auth/register", {
+): Promise<{ message: string }> => {
+  const { data } = await instanceV2.post("clients/register", {
     email,
     password,
     fullName,
@@ -64,8 +64,11 @@ export const login = async (email: string, password: string) => {
   return "done";
 };
 
-export const updatePassword = async (email: string, password: string) => {
-  const { data } = await instance.patch("auth/update-password", {
+export const updatePassword = async (
+  email: string,
+  password: string,
+): Promise<{ message: string }> => {
+  const { data } = await instanceV2.patch("clients/reset-password", {
     email,
     password,
   });
