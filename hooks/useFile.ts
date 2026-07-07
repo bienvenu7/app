@@ -1,4 +1,5 @@
 "use client";
+import { sendMessage } from "@/app/actions/chatbot";
 import { IReceipt, getReceipt, uploafFile } from "@/app/actions/file";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -17,4 +18,12 @@ export const useGetReceipt = (id: string | undefined) => {
     enabled: !!id,
   });
   return { isError, isPending, data, isSuccess };
+};
+
+export const useSendMessage = (message: string) => {
+  const { data, isPending, mutateAsync, error } = useMutation({
+    mutationFn: sendMessage,
+    mutationKey: [message],
+  });
+  return { data, isPending, mutateAsync, error };
 };
