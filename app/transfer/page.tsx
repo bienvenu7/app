@@ -259,56 +259,6 @@ function TransferFlow() {
         ))}
       </div>
 
-      <AnimatePresence initial={false}>
-        {showRecap && (
-          <motion.aside
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className={`${styles.recap} ${styles.recapAside}`}
-          >
-            <div className={styles.recapTop}>
-              <span className={styles.tag}>
-                {type === "send" ? (
-                  <ArrowUpRight size={13} aria-hidden="true" />
-                ) : (
-                  <ArrowDownLeft size={13} aria-hidden="true" />
-                )}
-                {type === "send" ? "Envoi" : "Réception"}
-              </span>
-              <span>Récapitulatif</span>
-            </div>
-            <div className={styles.route}>
-              <div className={styles.routeCountry}>
-                <span className={styles.flag}>{from.flag}</span>
-                <div className={styles.info}>
-                  <div className={styles.cName}>{from.name}</div>
-                  <div className={styles.cAmt}>
-                    {amountNum > 0
-                      ? formatMoney(transferAmounts.totalToPay, from)
-                      : "—"}
-                  </div>
-                </div>
-              </div>
-              <span className={styles.arrow}>
-                <ArrowRight aria-hidden="true" />
-              </span>
-              <div className={styles.routeCountry}>
-                <span className={styles.flag}>{to.flag}</span>
-                <div className={styles.info}>
-                  <div className={styles.cName}>{to.name}</div>
-                  <div className={styles.cAmt}>
-                    {amountNum > 0
-                      ? formatMoney(transferAmounts.amountToPayOut, to)
-                      : "—"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
-
       <div className={styles.stepArea}>
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
@@ -376,6 +326,56 @@ function TransferFlow() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <AnimatePresence initial={false}>
+        {showRecap && (
+          <motion.aside
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className={`${styles.recap} ${styles.recapAside}`}
+          >
+            <div className={styles.recapTop}>
+              <span className={styles.tag}>
+                {type === "send" ? (
+                  <ArrowUpRight size={13} aria-hidden="true" />
+                ) : (
+                  <ArrowDownLeft size={13} aria-hidden="true" />
+                )}
+                {type === "send" ? "Envoi" : "Réception"}
+              </span>
+              <span>Récapitulatif</span>
+            </div>
+            <div className={styles.route}>
+              <div className={styles.routeCountry}>
+                <span className={styles.flag}>{from.flag}</span>
+                <div className={styles.info}>
+                  <div className={styles.cName}>{from.name}</div>
+                  <div className={styles.cAmt}>
+                    {amountNum > 0
+                      ? formatMoney(transferAmounts.totalToPay, from)
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+              <span className={styles.arrow}>
+                <ArrowRight aria-hidden="true" />
+              </span>
+              <div className={styles.routeCountry}>
+                <span className={styles.flag}>{to.flag}</span>
+                <div className={styles.info}>
+                  <div className={styles.cName}>{to.name}</div>
+                  <div className={styles.cAmt}>
+                    {amountNum > 0
+                      ? formatMoney(transferAmounts.amountToPayOut, to)
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       <div className={styles.footer}>
         {step > 0 && (

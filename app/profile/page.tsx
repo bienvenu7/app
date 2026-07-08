@@ -64,7 +64,8 @@ export default function ProfilePage() {
   }, []);
 
   const { firstName, lastName } = splitFullName(user?.fullName);
-  const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase() || "··";
+  const initials =
+    `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase() || "··";
 
   const selectedCountry = useMemo(
     () => (countries as ICountry[])?.find((c) => c.id === countryId),
@@ -220,12 +221,7 @@ export default function ProfilePage() {
 
         <div className={styles.field}>
           <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            readOnly
-            aria-label="Email"
-          />
+          <input type="email" value={email} readOnly aria-label="Email" />
         </div>
 
         <div className={styles.field}>

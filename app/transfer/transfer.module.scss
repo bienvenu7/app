@@ -539,11 +539,14 @@
 }
 
 .recapAside {
+  margin-top: 8px;
+
   @include desktop {
     grid-column: 2;
-    grid-row: 1 / span 4;
+    grid-row: 1 / -1;
     position: sticky;
     top: 32px;
+    margin-top: 0;
     margin-bottom: 0;
     align-self: start;
   }

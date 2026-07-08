@@ -102,11 +102,7 @@ export const useInfiniteTransactionsByEmail = (email: string | undefined) => {
   } = useInfiniteQuery({
     queryKey: ["transactions-infinite", email],
     queryFn: ({ pageParam }) =>
-      fetchTransactionsForActiveDays(
-        email!,
-        pageParam,
-        ACTIVE_DAYS_PER_PAGE,
-      ),
+      fetchTransactionsForActiveDays(email!, pageParam, ACTIVE_DAYS_PER_PAGE),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : undefined,
