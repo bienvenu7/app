@@ -160,7 +160,11 @@ export default function TransactionsPage() {
           )}
 
           {hasNextPage && (
-            <div ref={loadMoreRef} className={styles.sentinel} aria-hidden="true" />
+            <div
+              ref={loadMoreRef}
+              className={styles.sentinel}
+              aria-hidden="true"
+            />
           )}
         </>
       )}

@@ -11,7 +11,10 @@ import type {
 const TRANSACTION_HISTORY_MONTHS = 6;
 
 function getTransactionHistoryMinDate() {
-  return moment().utc().subtract(TRANSACTION_HISTORY_MONTHS, "months").startOf("day");
+  return moment()
+    .utc()
+    .subtract(TRANSACTION_HISTORY_MONTHS, "months")
+    .startOf("day");
 }
 
 export type TransactionDayBatch = {
@@ -116,7 +119,10 @@ export const fetchTransactionsForActiveDays = async (
     current.isSameOrAfter(minDate, "day")
   ) {
     const dateStr = current.format("DD-MM-YYYY");
-    const transactions = await getTransactionByClientEmail(clientEmail, dateStr);
+    const transactions = await getTransactionByClientEmail(
+      clientEmail,
+      dateStr,
+    );
 
     if (transactions.length > 0) {
       days.push({ dateKey: dateStr, transactions });

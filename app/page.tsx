@@ -71,7 +71,10 @@ export default function HomePage() {
 
   if (isLoading) {
     return (
-      <div className={styles.hero} style={{ padding: "48px 0", textAlign: "center" }}>
+      <div
+        className={styles.hero}
+        style={{ padding: "48px 0", textAlign: "center" }}
+      >
         <Loading />
       </div>
     );
@@ -84,7 +87,10 @@ export default function HomePage() {
       initial="hidden"
       animate="show"
     >
-      <motion.section variants={item} className={`${styles.hero} ${styles.pageIntro}`}>
+      <motion.section
+        variants={item}
+        className={`${styles.hero} ${styles.pageIntro}`}
+      >
         <span className={styles.badge}>
           <span className={styles.pulse} aria-hidden="true" />
           Rapidité · Sécurité · Fiabilité
@@ -100,7 +106,10 @@ export default function HomePage() {
         </p>
       </motion.section>
 
-      <motion.div variants={item} className={`${styles.actions} ${styles.pageActions}`}>
+      <motion.div
+        variants={item}
+        className={`${styles.actions} ${styles.pageActions}`}
+      >
         <Link href="/transfer?type=send" className={styles.action}>
           <span className={styles.icon}>
             <ArrowUpRight aria-hidden="true" />
@@ -124,7 +133,10 @@ export default function HomePage() {
         </Link>
       </motion.div>
 
-      <motion.div variants={item} className={`${styles.stats} ${styles.pageStats}`}>
+      <motion.div
+        variants={item}
+        className={`${styles.stats} ${styles.pageStats}`}
+      >
         <div className={styles.stat}>
           {isGettingTransaction ? (
             <Loading />
