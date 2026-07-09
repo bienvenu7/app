@@ -9,6 +9,7 @@ import {
   Check,
   Copy,
   Eye,
+  Hourglass,
   Receipt,
   X,
   ImageIcon,
@@ -31,11 +32,37 @@ import {
   useGetTransactonById,
   useUpdateTransaction,
 } from "@/hooks/useTransaction";
-import { uploafFile } from "@/app/actions/file";
+import { uploadFiles } from "@/app/actions/file";
+import {
+  compressImageFilesForUpload,
+  formatFileSize,
+  MAX_SINGLE_REQUEST_BYTES,
+} from "@/lib/compress-image";
+import axios from "axios";
 import type { ITrasanctionResponse } from "@/types/transaction";
 import { useGetCards, useGetCountries } from "@/hooks/useCountry";
 import { ICountry } from "@/types/country";
 import type { IResponseCard } from "@/types/networks";
+import Link from "next/link";
+
+function TransferProgressIcon() {
+  return (
+    <div className={styles.progressRing} aria-hidden>
+      <svg className={styles.progressRingSvg} viewBox="0 0 96 96">
+        <circle className={styles.progressTrack} cx="48" cy="48" r="42" />
+        <circle className={styles.progressArc} cx="48" cy="48" r="42" />
+      </svg>
+      <div className={styles.progressInner}>
+        <Hourglass size={26} strokeWidth={1.75} />
+        <div className={styles.progressDots}>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <span key={index} className={styles.progressDot} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ValidateFlow() {
   const router = useRouter();
@@ -48,23 +75,24 @@ function ValidateFlow() {
 
   const { countries } = useGetCountries();
 
-  const { transaction, isGettingTransaction, isTransactionError } =
+  const { transaction, isGettingTransaction, isTransactionError, refetch } =
     useGetTransactonById(txId);
 
-  const { mutateAsync: updateTx, isUpdatingTransaction } =
-    useUpdateTransaction();
+  const { isUpdatingTransaction } = useUpdateTransaction();
 
   const [paidLocally, setPaidLocally] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [proofFiles, setProofFiles] = useState<
+    { file: File; previewUrl: string }[]
+  >([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      proofFiles.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
     };
-  }, [previewUrl]);
+  }, [proofFiles]);
 
   const tx = transaction as ITrasanctionResponse | undefined;
 
@@ -101,24 +129,30 @@ function ValidateFlow() {
   const canPay = tx && isWaiting && !showSuccess;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Veuillez sélectionner une image (JPG, PNG, etc.).");
+    const invalid = files.find((file) => !file.type.startsWith("image/"));
+    if (invalid) {
+      toast.error("Veuillez sélectionner uniquement des images (JPG, PNG, etc.).");
       return;
     }
 
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setProofFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    const newEntries = files.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setProofFiles((prev) => [...prev, ...newEntries]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const clearProof = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setProofFile(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const removeProof = (index: number) => {
+    setProofFiles((prev) => {
+      const entry = prev[index];
+      if (entry) URL.revokeObjectURL(entry.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleCopyPayment = async (text: string) => {
@@ -132,19 +166,56 @@ function ValidateFlow() {
     }
   };
 
+  const markPaymentConfirmed = () => {
+    setPaidLocally(true);
+    toast.success("Paiement enregistré, votre transfert est en cours.");
+  };
+
   const handleConfirm = async () => {
-    if (!tx || !txId) return;
-    if (!proofFile) {
-      toast.error("Ajoutez une capture d'écran de votre paiement.");
+    if (!tx || !txId || isSubmitting) return;
+    if (!proofFiles.length) {
+      toast.error("Ajoutez au moins une capture d'écran de votre paiement.");
       return;
     }
 
+    const transactionId = tx.id ?? txId;
+    setIsSubmitting(true);
+
     try {
-      await uploafFile(proofFile, tx.id ?? txId, "Preuve de paiement");
-      setPaidLocally(true);
-      toast.success("Paiement enregistré, votre transfert est en cours.");
-    } catch {
+      const compressedFiles = await compressImageFilesForUpload(
+        proofFiles.map(({ file }) => file),
+      );
+
+      const totalBytes = compressedFiles.reduce(
+        (sum, file) => sum + file.size,
+        0,
+      );
+
+      if (totalBytes > MAX_SINGLE_REQUEST_BYTES) {
+        toast.error(
+          `Les images restent trop volumineuses (${formatFileSize(totalBytes)}). Réduisez le nombre de fichiers.`,
+        );
+        return;
+      }
+
+      await uploadFiles(compressedFiles, transactionId, "Preuve de paiement");
+      markPaymentConfirmed();
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 413) {
+        toast.error(
+          "Les images sont trop volumineuses. Essayez avec moins de fichiers ou des captures plus légères.",
+        );
+        return;
+      }
+
+      const { data: updatedTx } = await refetch();
+      if (updatedTx && !isWaitingStatus(updatedTx.status)) {
+        markPaymentConfirmed();
+        return;
+      }
       toast.error("Impossible de confirmer le paiement. Réessayez.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -204,19 +275,18 @@ function ValidateFlow() {
           animate={{ opacity: 1 }}
         >
           <motion.div
-            className={styles.checkCircle}
-            initial={{ scale: 0, rotate: -30 }}
-            animate={{ scale: 1, rotate: 0 }}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 220, damping: 15 }}
           >
-            <Check size={44} strokeWidth={3} />
+            <TransferProgressIcon />
           </motion.div>
           <h1 className={styles.successTitle}>
-            Paiement <em>validé</em>
+            Transfert <em>en cours</em>
           </h1>
           <p className={styles.successText}>
-            Votre transfert de {formatMoney(tx.amountToPayOut, destCountry)} a
-            été traité avec succès.
+            Votre transfert de {formatMoney(tx.amountToPayOut, destCountry)} est
+            en cours de traitement. Vous serez notifié dès qu&apos;il sera terminé.
           </p>
           <span className={styles.txidPill}>{tx.txid}</span>
 
@@ -352,7 +422,7 @@ function ValidateFlow() {
                     const networkFlag = getLinks(el.network.name);
 
                     return el.isLink ? (
-                      <a
+                      <Link
                         key={el.id}
                         className={styles.payLink}
                         href={el.content || "#"}
@@ -365,7 +435,7 @@ function ValidateFlow() {
                         ) : (
                           `Payez avec ${el.network.pubicName}`
                         )}
-                      </a>
+                      </Link>
                     ) : (
                       <div key={el.id} className={styles.payContainer}>
                         <span className={styles.payContent}>
@@ -403,7 +473,8 @@ function ValidateFlow() {
             <div className={styles.proofSection}>
               <p className={styles.proofLabel}>Preuve de paiement</p>
               <p className={styles.proofHint}>
-                Ajoutez une capture d&apos;écran de votre transaction.
+                Ajoutez une ou plusieurs captures d&apos;écran de votre
+                transaction.
               </p>
 
               <input
@@ -411,43 +482,52 @@ function ValidateFlow() {
                 id="proofFile"
                 type="file"
                 accept="image/*"
+                multiple
                 className={styles.fileInput}
                 onChange={handleFileChange}
               />
 
-              {previewUrl ? (
-                <div className={styles.previewWrap}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewUrl}
-                    alt="Aperçu de la preuve de paiement"
-                    className={styles.previewImage}
-                  />
-                  <button
-                    type="button"
-                    className={styles.removePreview}
-                    onClick={clearProof}
-                    aria-label="Supprimer l'image"
-                  >
-                    <X size={16} />
-                  </button>
+              {proofFiles.length > 0 && (
+                <div className={styles.previewList}>
+                  {proofFiles.map(({ previewUrl }, index) => (
+                    <div key={previewUrl} className={styles.previewWrap}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={previewUrl}
+                        alt={`Aperçu de la preuve de paiement ${index + 1}`}
+                        className={styles.previewImage}
+                      />
+                      <button
+                        type="button"
+                        className={styles.removePreview}
+                        onClick={() => removeProof(index)}
+                        aria-label={`Supprimer l'image ${index + 1}`}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <label htmlFor="proofFile" className={styles.uploadZone}>
-                  <ImageIcon size={28} className={styles.uploadIcon} />
-                  <span>Choisir une image</span>
-                  <span className={styles.uploadFormats}>JPG, PNG, WEBP</span>
-                </label>
               )}
+
+              <label htmlFor="proofFile" className={styles.uploadZone}>
+                <ImageIcon size={28} className={styles.uploadIcon} />
+                <span>
+                  {proofFiles.length > 0
+                    ? "Ajouter d'autres images"
+                    : "Choisir des images"}
+                </span>
+                <span className={styles.uploadFormats}>JPG, PNG, WEBP</span>
+              </label>
             </div>
 
             <button
               className={styles.confirmBtn}
               type="button"
               onClick={handleConfirm}
-              disabled={isUpdatingTransaction || !proofFile}
+              disabled={isSubmitting || isUpdatingTransaction || !proofFiles.length}
             >
-              {isUpdatingTransaction ? (
+              {isSubmitting || isUpdatingTransaction ? (
                 <>
                   <span className={styles.spinner} /> Confirmation en cours...
                 </>
