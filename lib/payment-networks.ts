@@ -10,5 +10,10 @@ const FLAG_NETWORKS = [
 ] as const;
 
 export function getLinks(name: string): string | undefined {
+  const names = ["sberBank", "vtb Bank", "alfa Bank", "mtc"];
+
+  if (names.includes(name)) {
+    return "/partners/sbp-logo.png";
+  }
   return FLAG_NETWORKS.find((el) => el.id === name)?.flag;
 }

@@ -16,23 +16,31 @@ export interface IReceipt {
   uri: string;
 }
 
-export const uploafFile = async (
-  file: File,
+export const uploadFiles = async (
+  files: File[],
   id: string,
   comment: string,
-): Promise<IResponseFile> => {
+): Promise<IResponseFile | IResponseFile[]> => {
   const accessToken = getCookie("accessToken");
   const formData = new FormData();
-  formData.append("file", file);
+  files.forEach((file) => formData.append("file", file));
   formData.append("comment", comment);
 
   const { data } = await instance.post(`file/upload/${id}`, formData, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "multipart/form-data",
     },
   });
   return data;
+};
+
+export const uploafFile = async (
+  file: File,
+  id: string,
+  comment: string,
+): Promise<IResponseFile> => {
+  const data = await uploadFiles([file], id, comment);
+  return Array.isArray(data) ? data[0] : data;
 };
 
 export const getReceipt = async (id: string): Promise<IReceipt> => {
