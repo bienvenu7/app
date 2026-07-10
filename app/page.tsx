@@ -93,7 +93,7 @@ export default function HomePage() {
       >
         <span className={styles.badge}>
           <span className={styles.pulse} aria-hidden="true" />
-          Rapidité · Sécurité · Fiabilité
+          Fiabilité · Rapidité · Sécurité
         </span>
         <h1 className={styles.heroTitle}>
           Transferts d&apos;argent entre <br />
