@@ -253,7 +253,7 @@ export default function RegisterPage() {
   return (
     <div>
       <div className={styles.brandRow}>
-        <Brand />
+        <Brand size="auth" />
       </div>
 
       <div className={styles.progress}>

@@ -3,28 +3,33 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.44em;
+  line-height: 1;
 }
 
 .mark {
+  --logo-crop-scale: 2.61;
+  --mark-scale: 1.85;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: $gold;
-  color: $bg;
+  width: calc(1em * var(--mark-scale));
+  height: calc(1em * var(--mark-scale));
+  flex-shrink: 0;
+  overflow: hidden;
 
-  svg {
-    width: 20px;
-    height: 20px;
+  img {
+    width: calc(var(--logo-crop-scale) * 100%);
+    height: calc(var(--logo-crop-scale) * 100%);
+    max-width: none;
+    object-fit: contain;
   }
 }
 
 .word {
-  font-size: 18px;
+  font-size: 1em;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.04em;
 }
 
@@ -32,17 +37,22 @@
   color: $gold;
 }
 
+.md {
+  font-size: 18px;
+}
+
 .lg {
-  .mark {
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
-    svg {
-      width: 26px;
-      height: 26px;
-    }
-  }
-  .word {
+  font-size: 22px;
+
+  @include desktop {
     font-size: 24px;
+  }
+}
+
+.auth {
+  font-size: 18px;
+
+  @include desktop {
+    font-size: 22px;
   }
 }
