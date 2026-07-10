@@ -365,7 +365,7 @@ function LoginFlow() {
   return (
     <div>
       <div className={styles.brandRow}>
-        <Brand />
+        <Brand size="auth" />
       </div>
 
       <AnimatePresence mode="wait">

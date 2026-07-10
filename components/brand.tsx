@@ -1,12 +1,13 @@
 import styles from "./brand.module.scss"
 
-export function Brand({ size = "md" }: { size?: "md" | "lg" }) {
+type BrandSize = "md" | "lg" | "auth"
+
+export function Brand({ size = "md" }: { size?: BrandSize }) {
   return (
-    <div className={`${styles.brand} ${size === "lg" ? styles.lg : ""}`}>
+    <div className={`${styles.brand} ${styles[size]}`}>
       <span className={styles.mark} aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M12 4L20 19H4L12 4Z" fill="currentColor" />
-        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.svg" alt="" />
       </span>
       <span className={styles.word}>
         AFRU<span className={styles.accent}>-E</span>
