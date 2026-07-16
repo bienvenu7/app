@@ -80,6 +80,8 @@ export default function HomePage() {
     );
   }
 
+  //
+
   return (
     <motion.div
       className={styles.page}
