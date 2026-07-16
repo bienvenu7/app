@@ -134,7 +134,9 @@ function ValidateFlow() {
 
     const invalid = files.find((file) => !file.type.startsWith("image/"));
     if (invalid) {
-      toast.error("Veuillez sélectionner uniquement des images (JPG, PNG, etc.).");
+      toast.error(
+        "Veuillez sélectionner uniquement des images (JPG, PNG, etc.).",
+      );
       return;
     }
 
@@ -286,7 +288,8 @@ function ValidateFlow() {
           </h1>
           <p className={styles.successText}>
             Votre transfert de {formatMoney(tx.amountToPayOut, destCountry)} est
-            en cours de traitement. Vous serez notifié dès qu&apos;il sera terminé.
+            en cours de traitement. Vous serez notifié dès qu&apos;il sera
+            terminé.
           </p>
           <span className={styles.txidPill}>{tx.txid}</span>
 
@@ -525,7 +528,9 @@ function ValidateFlow() {
               className={styles.confirmBtn}
               type="button"
               onClick={handleConfirm}
-              disabled={isSubmitting || isUpdatingTransaction || !proofFiles.length}
+              disabled={
+                isSubmitting || isUpdatingTransaction || !proofFiles.length
+              }
             >
               {isSubmitting || isUpdatingTransaction ? (
                 <>
