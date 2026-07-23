@@ -83,8 +83,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          # strip_components: 0 garde le chemin source → cible = /var/www/app/deploy/artifact-apply.sh
+          # (target .../deploy/ créait .../deploy/deploy/artifact-apply.sh)
           source: "deploy/artifact-apply.sh"
-          target: /var/www/app/deploy/
+          target: /var/www/app/
           strip_components: 0
 
       - name: Upload bundle
@@ -112,6 +114,11 @@ jobs:
             echo "👤 Utilisateur du déploiement : ${{ secrets.VPS_USER }}"
             cd /var/www/app
             command -v rsync >/dev/null 2>&1 || { echo "rsync requis sur le serveur" >&2; exit 1; }
+            test -f deploy/artifact-apply.sh || {
+              echo "Missing deploy/artifact-apply.sh (scp path?)" >&2
+              find /var/www/app -name 'artifact-apply.sh' 2>/dev/null || true
+              exit 1
+            }
             # Pas de chmod: inutile avec "bash" et souvent "Operation not permitted" si ownership strict
             bash deploy/artifact-apply.sh
 

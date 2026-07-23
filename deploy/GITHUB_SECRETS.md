@@ -5,9 +5,23 @@ Configure these secrets in:
 
 - `VPS_HOST`: VPS public IP or domain
 - `VPS_PORT`: SSH port (usually `22`)
-- `VPS_USER`: deploy user (example: `deploy`)
+- `VPS_USER`: deploy user (example: `afrue`)
 - `VPS_SSH_KEY`: private SSH key content for the deploy user
 
-Optional variables:
+Optional (Telegram notifications):
 
-- `VPS_APP_DIR`: defaults to `/var/www/landing`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+## Deploy model (same as landing)
+
+1. GitHub Actions builds the Next.js standalone bundle (`npm ci` + `npm run build`).
+2. CI uploads `deploy.tar.gz` to `/var/www/app/` on the VPS.
+3. VPS only runs `bash deploy/artifact-apply.sh` (extract + rsync + PM2 reload).
+4. No `npm run build` on the server for normal deploys.
+
+App path on VPS: `/var/www/app`  
+PM2 process: `app` on port `1112`  
+Trigger branch: `app`
+
+`.env` / `.env.*` on the VPS are preserved and never overwritten by the bundle.
