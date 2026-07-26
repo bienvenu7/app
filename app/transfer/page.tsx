@@ -295,7 +295,15 @@ function TransferFlow() {
             exit="exit"
             transition={{ duration: 0.25, ease: "easeOut" }}
           >
-            {step === 0 && <TypeStep type={type} setType={setType} />}
+            {step === 0 && (
+              <TypeStep
+                type={type}
+                setType={setType}
+                userCountryName={
+                  user?.Country?.pubicName || userCountry?.name || ""
+                }
+              />
+            )}
 
             {step === 1 && (
               <AmountStep

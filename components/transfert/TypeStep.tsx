@@ -5,10 +5,14 @@ import { ArrowDownLeft, ArrowUpRight, Check } from "lucide-react";
 export default function TypeStep({
   type,
   setType,
+  userCountryName,
 }: {
   type: TransferType;
   setType: (t: TransferType) => void;
+  userCountryName: string;
 }) {
+  const country = userCountryName.trim() || "votre pays";
+
   const options: {
     id: TransferType;
     label: string;
@@ -18,16 +22,17 @@ export default function TypeStep({
     {
       id: "send",
       label: "Envoyer de l'argent",
-      desc: "De la Russie vers l'Afrique",
+      desc: `De ${country} vers…`,
       icon: ArrowUpRight,
     },
     {
       id: "receive",
       label: "Recevoir de l'argent",
-      desc: "De l'Afrique vers la Russie",
+      desc: `Vers ${country} depuis…`,
       icon: ArrowDownLeft,
     },
   ];
+
   return (
     <div>
       <h2 className={styles.stepTitle}>Que souhaitez-vous faire ?</h2>
