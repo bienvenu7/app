@@ -63,8 +63,10 @@ const PIN_KEY = "afrue.pinAuth"
 
 /** 3 months */
 export const PIN_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
-/** 15 minutes */
+/** Lock after 15 minutes without user activity */
 export const PIN_RELOCK_MS = 15 * 60 * 1000
+/** Min interval between activity timestamp writes */
+export const PIN_ACTIVITY_THROTTLE_MS = 30_000
 
 const DEFAULT_PROFILE: Profile = {
   firstName: "Amadou",
@@ -156,6 +158,18 @@ export function isPinExpired(auth: PinAuth): boolean {
 export function isPinUnlockRequired(auth: PinAuth): boolean {
   if (!auth.lastUnlockAt) return true
   return Date.now() - auth.lastUnlockAt > PIN_RELOCK_MS
+}
+
+/** Refresh activity timestamp (throttled) so active users never get locked. */
+export function touchPinActivity(auth?: PinAuth | null): void {
+  const current = auth ?? getValidPinAuth()
+  if (!current) return
+
+  const now = Date.now()
+  const last = current.lastUnlockAt ?? 0
+  if (now - last < PIN_ACTIVITY_THROTTLE_MS) return
+
+  savePinAuth({ ...current, lastUnlockAt: now })
 }
 
 export function getValidPinAuth(): PinAuth | null {

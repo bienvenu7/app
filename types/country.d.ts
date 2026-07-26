@@ -7,6 +7,7 @@ export interface ICountry {
   TelIndex: string;
   TelMaxNumber: string;
   formatNumber: string;
+  shedule?: IShedule;
 }
 
 export interface IRate {

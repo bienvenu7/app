@@ -43,6 +43,9 @@ import { ITrasanctionData } from "@/types/transaction";
 import moment from "moment";
 import { useCreateTransaction } from "@/hooks/useTransaction";
 import { toast } from "sonner";
+import { ScheduleUnavailableModal } from "@/components/schedule-unavailable-modal";
+import { isOutsideWorkingSchedule } from "@/lib/working-hours";
+import type { IShedule } from "@/types/country";
 
 const TOTAL_STEPS = 4;
 
@@ -70,6 +73,7 @@ function TransferFlow() {
   const [payment, setPayment] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [feesIncluded, setFeesIncluded] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   // send: Russia -> Africa ; receive: Africa -> Russia
   const userCountry = useMemo(() => {
@@ -91,6 +95,20 @@ function TransferFlow() {
   const countryTo = useMemo(() => {
     return (countries as ICountry[])?.find((e) => e.name === to?.code);
   }, [countries, to]);
+
+  const countryFrom = useMemo(() => {
+    return (countries as ICountry[])?.find((e) => e.name === from?.code);
+  }, [countries, from]);
+
+  const activeShedule = useMemo((): IShedule | undefined => {
+    const list = (countries as ICountry[]) ?? [];
+    return (
+      countryFrom?.shedule ??
+      countryTo?.shedule ??
+      list.find((c) => c.name === "ru")?.shedule ??
+      user?.Country?.shedule
+    );
+  }, [countries, countryFrom, countryTo, user]);
 
   const iltineraire = useMemo(() => {
     if (!directions) {
@@ -203,6 +221,13 @@ function TransferFlow() {
 
   const handleNext = async () => {
     if (!canNext()) return;
+
+    // Étape 2 (index 1) : vérifier les horaires de travail (heure de Moscou)
+    if (step === 1 && isOutsideWorkingSchedule(activeShedule)) {
+      setScheduleModalOpen(true);
+      return;
+    }
+
     if (step < TOTAL_STEPS - 1) {
       go(step + 1);
       return;
@@ -392,6 +417,13 @@ function TransferFlow() {
           <ArrowRight aria-hidden="true" />
         </button>
       </div>
+
+      <ScheduleUnavailableModal
+        open={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        workingFrom={activeShedule?.workingFrom ?? 10}
+        workingTo={activeShedule?.workingTo ?? 20}
+      />
     </div>
   );
 }
