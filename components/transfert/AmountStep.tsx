@@ -40,13 +40,12 @@ export default function AmountStep({
     type === "send" ? "Pays du destinataire" : "Pays de l'expéditeur";
 
   const rate = parseFloat(rateData?.taux ?? "0");
-  const { fee, totalToPay, convertAmount, amountToPayOut } =
-    computeTransferAmounts(
-      amountNum,
-      iltineraire?.fee || 0,
-      rate,
-      feesIncluded,
-    );
+  const { fee, totalToPay, amountToPayOut } = computeTransferAmounts(
+    amountNum,
+    iltineraire?.fee || 0,
+    rate,
+    feesIncluded,
+  );
 
   const isAmountOutOfRange =
     !!iltineraire &&
@@ -160,7 +159,7 @@ export default function AmountStep({
           <div className={styles.breakdown}>
             <div className={styles.brow}>
               <span>Montant</span>
-              <strong>{formatMoney(convertAmount, from)}</strong>
+              <strong>{formatMoney(amountToPayOut, to)}</strong>
             </div>
             <div className={styles.brow}>
               <span>Frais ({iltineraire?.fee})%</span>

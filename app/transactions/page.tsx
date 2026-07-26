@@ -1,17 +1,70 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import moment from "moment";
+import "moment/locale/fr";
 import { Inbox } from "lucide-react";
 import styles from "./transactions.module.scss";
 import Loading from "@/components/Loading";
 import { TransactionHistoryCard } from "@/components/transaction-history-card";
 import { TransactionDetailsModal } from "@/components/transaction-details-modal";
 import { Auth } from "@/providers/AuthContext";
-import { useProgressiveTransactionsByEmail } from "@/hooks/useProgressiveTransactions";
+import { useInfiniteTransactionsByEmail } from "@/hooks/useTransaction";
 import type { ITrasanctionResponse } from "@/types/transaction";
 
+moment.locale("fr");
+
 function txKey(tx: ITrasanctionResponse) {
-  return tx.id ?? tx.txid;
+  return String(tx.id ?? tx.txid ?? "");
+}
+
+function txMoment(tx: ITrasanctionResponse) {
+  const raw = tx.createdAt ?? tx.dateTime;
+  const parsed = moment(raw, ["DD-MM-YYYY", moment.ISO_8601], true);
+  return parsed.isValid() ? parsed : moment(raw);
+}
+
+function dedupeTransactions(transactions: ITrasanctionResponse[]) {
+  const seen = new Set<string>();
+  return transactions.filter((tx) => {
+    const key = txKey(tx);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function groupByDay(transactions: ITrasanctionResponse[]) {
+  const map = new Map<string, ITrasanctionResponse[]>();
+
+  for (const tx of transactions) {
+    const m = txMoment(tx);
+    const dateKey = m.isValid() ? m.format("DD-MM-YYYY") : "unknown";
+    const list = map.get(dateKey) ?? [];
+    list.push(tx);
+    map.set(dateKey, list);
+  }
+
+  return Array.from(map.entries())
+    .map(([dateKey, txs]) => ({
+      dateKey,
+      label:
+        dateKey === "unknown"
+          ? "DATE INCONNUE"
+          : moment(dateKey, "DD-MM-YYYY").format("D MMMM YYYY").toUpperCase(),
+      transactions: [...txs].sort(
+        (a, b) => txMoment(b).valueOf() - txMoment(a).valueOf(),
+      ),
+    }))
+    .sort((a, b) => {
+      if (a.dateKey === "unknown") return 1;
+      if (b.dateKey === "unknown") return -1;
+      return (
+        moment(b.dateKey, "DD-MM-YYYY").valueOf() -
+        moment(a.dateKey, "DD-MM-YYYY").valueOf()
+      );
+    });
 }
 
 export default function TransactionsPage() {
@@ -20,13 +73,13 @@ export default function TransactionsPage() {
   } = Auth();
 
   const {
-    days,
-    total,
-    hasMore,
-    isInitialLoading,
-    isLoadingMore,
+    data,
+    isGettingTransaction,
+    isTransactionError,
     fetchNextPage,
-  } = useProgressiveTransactionsByEmail(user?.email);
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteTransactionsByEmail(user?.email);
 
   const [selectedTx, setSelectedTx] = useState<ITrasanctionResponse | null>(
     null,
@@ -34,12 +87,49 @@ export default function TransactionsPage() {
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const totalLabel =
-    total <= 1 ? "1 transaction au total" : `${total} transactions au total`;
+  const transactions = useMemo(() => {
+    const pages = data?.pages ?? [];
+    const collected: ITrasanctionResponse[] = [];
 
-  const showInitialLoader = isInitialLoading && total === 0;
-  const showEmpty = !isInitialLoading && total === 0;
-  const isFetching = isInitialLoading || isLoadingMore;
+    for (const page of pages) {
+      const list = Array.isArray(page?.transactions)
+        ? page.transactions
+        : Array.isArray(page)
+          ? page
+          : [];
+      collected.push(...list);
+    }
+
+    return dedupeTransactions(collected);
+  }, [data]);
+
+  const days = useMemo(() => groupByDay(transactions), [transactions]);
+  const total = transactions.length;
+
+  const totalLabel =
+    total === 0
+      ? "Aucune transaction"
+      : total === 1
+        ? "1 transaction au total"
+        : `${total} transactions au total`;
+
+  const isFetching = isGettingTransaction || isFetchingNextPage;
+  const hasMore = !!hasNextPage;
+  const lastPageTxCount = data?.pages.at(-1)?.transactions?.length ?? 0;
+  const lastPageEmpty = !!data?.pages.length && lastPageTxCount === 0;
+
+  // Keep searching older periods when the latest window was empty
+  useEffect(() => {
+    if (!hasMore || isFetching || !lastPageEmpty) return;
+    void fetchNextPage();
+  }, [fetchNextPage, hasMore, isFetching, lastPageEmpty]);
+
+  // Full-page loader only before the first transaction appears
+  const showInitialLoader =
+    isLoading ||
+    (total === 0 && (isFetching || hasMore) && !isTransactionError);
+  const showEmpty =
+    total === 0 && !showInitialLoader && !isFetching && !hasMore;
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -58,21 +148,15 @@ export default function TransactionsPage() {
     return () => observer.disconnect();
   }, [fetchNextPage, hasMore, isFetching]);
 
-  if (isLoading) {
-    return (
-      <div style={{ padding: "48px 0", textAlign: "center" }}>
-        <Loading />
-      </div>
-    );
-  }
-
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>
           Mes <em>transactions</em>
         </h1>
-        <p className={styles.subtitle}>{totalLabel}</p>
+        <p className={styles.subtitle}>
+          {showInitialLoader ? "Chargement..." : totalLabel}
+        </p>
       </header>
 
       {showInitialLoader ? (
@@ -82,7 +166,11 @@ export default function TransactionsPage() {
       ) : showEmpty ? (
         <div className={styles.empty}>
           <Inbox aria-hidden="true" />
-          <div>Aucune transaction pour l&apos;instant.</div>
+          <div>
+            {isTransactionError
+              ? "Impossible de charger vos transactions."
+              : "Aucune transaction pour l&apos;instant."}
+          </div>
         </div>
       ) : (
         <>
@@ -90,9 +178,9 @@ export default function TransactionsPage() {
             <section key={day.dateKey} className={styles.dateGroup}>
               <h2 className={styles.dateLabel}>{day.label}</h2>
               <div className={styles.list}>
-                {day.transactions.map((tx) => (
+                {day.transactions.map((tx, index) => (
                   <TransactionHistoryCard
-                    key={txKey(tx)}
+                    key={`${day.dateKey}-${txKey(tx) || "tx"}-${index}`}
                     tx={tx}
                     onSelect={setSelectedTx}
                   />
@@ -101,18 +189,18 @@ export default function TransactionsPage() {
             </section>
           ))}
 
-          {isFetching && (
+          {(isFetching || hasMore) && (
             <div className={styles.loadMore} aria-live="polite">
-              <Loading />
+              {isFetching ? (
+                <Loading />
+              ) : (
+                <div
+                  ref={loadMoreRef}
+                  className={styles.sentinel}
+                  aria-hidden="true"
+                />
+              )}
             </div>
-          )}
-
-          {hasMore && !isFetching && (
-            <div
-              ref={loadMoreRef}
-              className={styles.sentinel}
-              aria-hidden="true"
-            />
           )}
         </>
       )}

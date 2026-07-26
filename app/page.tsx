@@ -8,7 +8,10 @@ import { ArrowUpRight, ArrowDownLeft, Inbox } from "lucide-react";
 import { TransactionHistoryCard } from "@/components/transaction-history-card";
 import styles from "./home.module.scss";
 import { Auth } from "@/providers/AuthContext";
-import { useGetTransactonByEmail } from "@/hooks/useTransaction";
+import {
+  useGetTransactionStatsMonthly,
+  useGetTransactonByEmail,
+} from "@/hooks/useTransaction";
 import { actualDate } from "@/utils/moment";
 import Loading from "@/components/Loading";
 import { ITrasanctionResponse } from "@/types/transaction";
@@ -24,41 +27,13 @@ export default function HomePage() {
     state: { user, isLoading },
   } = Auth();
 
-  const { transactions, isGettingTransaction } = useGetTransactonByEmail(
-    user?.email,
-    actualDate,
-  );
-
-  const sendCount = useMemo(() => {
-    if (!transactions) {
-      return 0;
-    }
-    return (transactions as ITrasanctionResponse[])?.filter(
-      (t) => t.type === "SEND",
-    ).length;
-  }, [transactions]);
-
-  const receiveCount = useMemo(() => {
-    if (!transactions) {
-      return 0;
-    }
-    return (transactions as ITrasanctionResponse[])?.filter(
-      (t) => t.type === "RECEIVE",
-    ).length;
-  }, [transactions]);
-
-  const totalCount = useMemo(() => {
-    if (!transactions) {
-      return 0;
-    }
-    return (transactions as ITrasanctionResponse[])?.length;
-  }, [transactions]);
+  const { stats, isGettingStats } = useGetTransactionStatsMonthly(user?.email);
 
   const recentTransactions = useMemo(() => {
-    return [...((transactions as ITrasanctionResponse[]) ?? [])]
+    return [...((stats?.transactions ?? []) as ITrasanctionResponse[])]
       .sort((a, b) => sortKey(b) - sortKey(a))
       .slice(0, 4);
-  }, [transactions]);
+  }, [stats?.transactions]);
 
   const container = {
     hidden: { opacity: 0 },
@@ -140,31 +115,31 @@ export default function HomePage() {
         className={`${styles.stats} ${styles.pageStats}`}
       >
         <div className={styles.stat}>
-          {isGettingTransaction ? (
+          {isGettingStats ? (
             <Loading />
           ) : (
             <>
-              <div className={styles.value}>{totalCount}</div>
+              <div className={styles.value}>{stats?.total ?? 0}</div>
               <div className={styles.caption}>Transferts ce mois</div>
             </>
           )}
         </div>
         <div className={styles.stat}>
-          {isGettingTransaction ? (
+          {isGettingStats ? (
             <Loading />
           ) : (
             <>
-              <div className={styles.value}>{sendCount}</div>
+              <div className={styles.value}>{stats?.send ?? 0}</div>
               <div className={styles.caption}>Envois ce mois</div>
             </>
           )}
         </div>
         <div className={styles.stat}>
-          {isGettingTransaction ? (
+          {isGettingStats ? (
             <Loading />
           ) : (
             <>
-              <div className={styles.value}>{receiveCount}</div>
+              <div className={styles.value}>{stats?.receive ?? 0}</div>
               <div className={styles.caption}>Réceptions ce mois</div>
             </>
           )}
@@ -174,15 +149,15 @@ export default function HomePage() {
       <motion.section variants={item} className={styles.pageRecent}>
         <div className={styles.sectionHead}>
           <h2>Transactions récentes</h2>
-          {totalCount > 0 && <Link href="/transactions">Tout voir</Link>}
+          {stats?.total > 0 && <Link href="/transactions">Tout voir</Link>}
         </div>
 
         <div className={styles.recentPanel}>
-          {isGettingTransaction ? (
+          {isGettingStats ? (
             <div className={styles.recentLoading}>
               <Loading />
             </div>
-          ) : totalCount === 0 ? (
+          ) : stats?.total === 0 ? (
             <div className={styles.empty}>
               <Inbox aria-hidden="true" />
               <div>Aucune transaction pour l&apos;instant.</div>

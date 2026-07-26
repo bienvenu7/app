@@ -2,6 +2,16 @@ import styles from "@/app/transfer/transfer.module.scss";
 import { IDirection } from "@/types/country";
 import { INetworkResponse } from "@/types/networks";
 
+/** Letters (incl. accents), spaces, hyphens and apostrophes — works on paste + all keyboards. */
+function lettersOnly(value: string) {
+  return value.replace(/[^\p{L}\s'-]/gu, "");
+}
+
+/** Digits only — works on paste + mobile numeric keypad. */
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 export default function FormStep(props: {
   senderName: string;
   setSenderName: React.Dispatch<React.SetStateAction<string>>;
@@ -25,9 +35,12 @@ export default function FormStep(props: {
       <div className={styles.field}>
         <input
           className={styles.input}
+          type="text"
+          inputMode="text"
+          autoComplete="name"
           placeholder="Nom(s) et Prénom(s)"
           value={props.senderName}
-          onChange={(e) => props.setSenderName(e.target.value)}
+          onChange={(e) => props.setSenderName(lettersOnly(e.target.value))}
           aria-label="Prénom de l'expéditeur"
         />
       </div>
@@ -36,9 +49,12 @@ export default function FormStep(props: {
       <div className={styles.field}>
         <input
           className={styles.input}
+          type="text"
+          inputMode="text"
+          autoComplete="name"
           placeholder="Nom(s) et Prénom(s)"
           value={props.recipientName}
-          onChange={(e) => props.setRecipientName(e.target.value)}
+          onChange={(e) => props.setRecipientName(lettersOnly(e.target.value))}
           aria-label="Prénom du destinataire"
         />
       </div>
@@ -48,9 +64,14 @@ export default function FormStep(props: {
         <input
           className={styles.input}
           type="tel"
+          inputMode="numeric"
+          autoComplete="tel"
+          pattern="[0-9]*"
           placeholder={`${props.iltineraire.countryTo.formatNumber}`}
           value={props.recipientPhone}
-          onChange={(e) => props.setRecipientPhone(e.target.value)}
+          onChange={(e) =>
+            props.setRecipientPhone(digitsOnly(e.target.value))
+          }
           maxLength={props.iltineraire.countryTo.TelMaxNumber}
           aria-label="Téléphone du destinataire"
         />

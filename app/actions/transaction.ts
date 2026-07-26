@@ -9,12 +9,10 @@ import type {
 } from "../../types/transaction";
 
 const TRANSACTION_HISTORY_MONTHS = 6;
+const MONTHS_PER_PAGE = 3;
 
 function getTransactionHistoryMinDate() {
-  return moment()
-    .utc()
-    .subtract(TRANSACTION_HISTORY_MONTHS, "months")
-    .startOf("day");
+  return moment().subtract(TRANSACTION_HISTORY_MONTHS, "months").startOf("day");
 }
 
 export type TransactionDayBatch = {
@@ -25,6 +23,21 @@ export type TransactionDayBatch = {
   nextCursor: string;
   hasMore: boolean;
 };
+
+export type TransactionPeriodBatch = {
+  transactions: ITrasanctionResponse[];
+  startDate: string;
+  endDate: string;
+  nextCursor: string;
+  hasMore: boolean;
+};
+
+export interface ITransactionStatsMonthlyResponse {
+  transactions: ITrasanctionResponse[];
+  total: number;
+  send: number;
+  receive: number;
+}
 
 export const createTransaction = async (
   transaction: ITrasanctionData,
@@ -89,6 +102,116 @@ export const getTransactionByClientEmail = async (
   return data;
 };
 
+function normalizeTransactionList(data: unknown): ITrasanctionResponse[] {
+  if (Array.isArray(data)) {
+    return data as ITrasanctionResponse[];
+  }
+
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  for (const key of [
+    "transaction",
+    "transactions",
+    "data",
+    "items",
+    "results",
+    "content",
+  ]) {
+    const value = obj[key];
+    if (Array.isArray(value)) {
+      return value as ITrasanctionResponse[];
+    }
+    // nested: { data: { transaction: [...] } }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const nested = value as Record<string, unknown>;
+      for (const nestedKey of [
+        "transaction",
+        "transactions",
+        "data",
+        "items",
+        "results",
+      ]) {
+        if (Array.isArray(nested[nestedKey])) {
+          return nested[nestedKey] as ITrasanctionResponse[];
+        }
+      }
+    }
+  }
+
+  // API sometimes returns a single transaction object
+  if ("id" in obj || "txid" in obj || "amountToSend" in obj) {
+    return [obj as unknown as ITrasanctionResponse];
+  }
+
+  return [];
+}
+
+export const getTransactionByPeriod = async (
+  startDate: string,
+  endDate: string,
+): Promise<ITrasanctionResponse[]> => {
+  const accessToken = getCookie("accessToken");
+  const { data } = await instanceV2.get(
+    `transactions/client/transactions?startDate=${startDate}&endDate=${endDate}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+
+  return normalizeTransactionList(data);
+};
+
+/** One 3-month window per call so the UI can append results progressively. */
+export const fetchTransactionsByThreeMonths = async (
+  endDateCursor: string | undefined,
+): Promise<TransactionPeriodBatch> => {
+  const minDate = getTransactionHistoryMinDate();
+
+  // endDate = aujourd'hui (ou curseur de la page précédente) — fuseau local
+  let end = endDateCursor
+    ? moment(endDateCursor, "DD-MM-YYYY", true).startOf("day")
+    : moment().startOf("day");
+
+  if (!end.isValid()) {
+    end = moment().startOf("day");
+  }
+
+  if (end.isBefore(minDate, "day")) {
+    const empty = end.format("DD-MM-YYYY");
+    return {
+      transactions: [],
+      startDate: empty,
+      endDate: empty,
+      nextCursor: empty,
+      hasMore: false,
+    };
+  }
+
+  let start = end.clone().subtract(MONTHS_PER_PAGE, "months").startOf("day");
+  if (start.isBefore(minDate, "day")) {
+    start = minDate.clone();
+  }
+
+  const startDate = start.format("DD-MM-YYYY");
+  const endDate = end.format("DD-MM-YYYY");
+  const transactions = await getTransactionByPeriod(startDate, endDate);
+
+  // page suivante : la veille de startDate
+  const next = start.clone().subtract(1, "day").startOf("day");
+
+  return {
+    transactions,
+    startDate,
+    endDate,
+    nextCursor: next.format("DD-MM-YYYY"),
+    hasMore: next.isSameOrAfter(minDate, "day"),
+  };
+};
+
 export const fetchTransactionsForActiveDays = async (
   clientEmail: string,
   startFromDate: string | undefined,
@@ -150,3 +273,12 @@ export const getCardsByNetworkId = async (
 
   return cards[Math.floor(Math.random() * cards.length)];
 };
+
+export const getTransactionsStatsMonthly =
+  async (): Promise<ITransactionStatsMonthlyResponse> => {
+    const accessToken = getCookie("accessToken");
+    const { data } = await instanceV2.get(`stats/clients-monthly-stats`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return data;
+  };

@@ -31,6 +31,7 @@ import { Auth } from "@/providers/AuthContext";
 import {
   useGetTransactonById,
   useUpdateTransaction,
+  invalidateTransactionQueries,
 } from "@/hooks/useTransaction";
 import { uploadFiles } from "@/app/actions/file";
 import {
@@ -44,6 +45,7 @@ import { useGetCards, useGetCountries } from "@/hooks/useCountry";
 import { ICountry } from "@/types/country";
 import type { IResponseCard } from "@/types/networks";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 
 function TransferProgressIcon() {
   return (
@@ -79,6 +81,7 @@ function ValidateFlow() {
     useGetTransactonById(txId);
 
   const { isUpdatingTransaction } = useUpdateTransaction();
+  const queryClient = useQueryClient();
 
   const [paidLocally, setPaidLocally] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -168,8 +171,9 @@ function ValidateFlow() {
     }
   };
 
-  const markPaymentConfirmed = () => {
+  const markPaymentConfirmed = async () => {
     setPaidLocally(true);
+    await invalidateTransactionQueries(queryClient);
     toast.success("Paiement enregistré, votre transfert est en cours.");
   };
 
@@ -201,7 +205,7 @@ function ValidateFlow() {
       }
 
       await uploadFiles(compressedFiles, transactionId, "Preuve de paiement");
-      markPaymentConfirmed();
+      await markPaymentConfirmed();
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 413) {
         toast.error(
@@ -212,7 +216,7 @@ function ValidateFlow() {
 
       const { data: updatedTx } = await refetch();
       if (updatedTx && !isWaitingStatus(updatedTx.status)) {
-        markPaymentConfirmed();
+        await markPaymentConfirmed();
         return;
       }
       toast.error("Impossible de confirmer le paiement. Réessayez.");
