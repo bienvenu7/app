@@ -222,7 +222,7 @@ function TransferFlow() {
   const handleNext = async () => {
     if (!canNext()) return;
 
-    // Étape 2 (index 1) : vérifier les horaires de travail (heure de Moscou)
+    // Étape 2 (index 1) : vérifier les horaires de travail (heure locale)
     if (step === 1 && isOutsideWorkingSchedule(activeShedule)) {
       setScheduleModalOpen(true);
       return;
