@@ -63,7 +63,7 @@ export function ScheduleUnavailableModal({
           <p>
             Nous vous informons que notre service sera indisponible dans la
             période de <strong>{fromLabel}</strong> à{" "}
-            <strong>{toLabel}</strong> de Moscou en raison des travaux
+            <strong>{toLabel}</strong> (heure locale) en raison des travaux
             techniques planifiés. Nous nous excusons pour les désagréments
             temporaires.
           </p>
