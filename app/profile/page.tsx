@@ -10,13 +10,11 @@ import Loading from "@/components/Loading";
 import { Auth } from "@/providers/AuthContext";
 import { updateClient } from "@/app/actions/auth";
 import { useGetCountries } from "@/hooks/useCountry";
-import { useGetTransactonByEmail } from "@/hooks/useTransaction";
-import { actualDate } from "@/utils/moment";
+import { useGetTransactionStatsMonthly } from "@/hooks/useTransaction";
 import { countryFlagEmoji } from "@/lib/flags";
 import { clearPinAuth } from "@/lib/storage";
 import { useLogout } from "@/hooks/useAuthentication";
 import type { ICountry } from "@/types/country";
-import type { ITrasanctionResponse } from "@/types/transaction";
 
 function splitFullName(fullName?: string) {
   const parts = fullName?.trim().split(/\s+/) ?? [];
@@ -34,10 +32,7 @@ export default function ProfilePage() {
   } = Auth();
 
   const { countries, isLoading: loadingCountries } = useGetCountries();
-  const { transactions, isGettingTransaction } = useGetTransactonByEmail(
-    user?.email,
-    actualDate,
-  );
+  const { stats, isGettingStats } = useGetTransactionStatsMonthly(user?.email);
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -78,25 +73,6 @@ export default function ProfilePage() {
     const q = countrySearch.trim().toLowerCase();
     return list.filter((c) => c.pubicName?.toLowerCase().includes(q));
   }, [countries, countrySearch]);
-
-  const totalCount = useMemo(() => {
-    return (transactions as ITrasanctionResponse[])?.length ?? 0;
-  }, [transactions]);
-
-  const sendCount = useMemo(() => {
-    return (
-      (transactions as ITrasanctionResponse[])?.filter((t) => t.type === "SEND")
-        .length ?? 0
-    );
-  }, [transactions]);
-
-  const receiveCount = useMemo(() => {
-    return (
-      (transactions as ITrasanctionResponse[])?.filter(
-        (t) => t.type === "RECEIVE",
-      ).length ?? 0
-    );
-  }, [transactions]);
 
   const { mutateAsync: saveProfile, isPending: isSaving } = useMutation({
     mutationKey: ["update-profile", user?.id],
@@ -174,32 +150,32 @@ export default function ProfilePage() {
 
         <div className={styles.stats}>
           <div className={styles.stat}>
-            {isGettingTransaction ? (
+            {isGettingStats ? (
               <Loading />
             ) : (
               <>
-                <div className={styles.n}>{totalCount}</div>
-                <div className={styles.l}>Transferts</div>
+                <div className={styles.n}>{stats?.total ?? 0}</div>
+                <div className={styles.l}>Transferts ce mois</div>
               </>
             )}
           </div>
           <div className={styles.stat}>
-            {isGettingTransaction ? (
+            {isGettingStats ? (
               <Loading />
             ) : (
               <>
-                <div className={styles.n}>{sendCount}</div>
-                <div className={styles.l}>Envoyés</div>
+                <div className={styles.n}>{stats?.send ?? 0}</div>
+                <div className={styles.l}>Envois ce mois</div>
               </>
             )}
           </div>
           <div className={styles.stat}>
-            {isGettingTransaction ? (
+            {isGettingStats ? (
               <Loading />
             ) : (
               <>
-                <div className={styles.n}>{receiveCount}</div>
-                <div className={styles.l}>Reçus</div>
+                <div className={styles.n}>{stats?.receive ?? 0}</div>
+                <div className={styles.l}>Réceptions ce mois</div>
               </>
             )}
           </div>
