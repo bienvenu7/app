@@ -49,7 +49,16 @@ export default function AmountStep({
 
   const isAmountOutOfRange =
     !!iltineraire &&
+    amountNum > 0 &&
     (amountNum < iltineraire.min || amountNum > iltineraire.max);
+
+  const amountError = !iltineraire
+    ? null
+    : amountNum > 0 && amountNum < iltineraire.min
+      ? `Le montant minimum est ${formatMoney(iltineraire.min, from)}.`
+      : amountNum > iltineraire.max
+        ? `Le montant maximum est ${formatMoney(iltineraire.max, from)}.`
+        : null;
 
   return (
     <div>
@@ -93,7 +102,7 @@ export default function AmountStep({
         )}
       </div>
 
-      <div className={styles.amountBox}>
+      <div className={`${styles.amountBox} ${isAmountOutOfRange ? styles.amountBoxInvalid : ""}`}>
         <div className={styles.amountLabel}>
           <span>Vous envoyez ({from.name})</span>
         </div>
@@ -101,14 +110,21 @@ export default function AmountStep({
           <input
             type="number"
             inputMode="decimal"
-            placeholder={`minimun ${iltineraire?.min || 0}`}
+            placeholder={`minimum ${iltineraire?.min || 0}`}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             aria-label="Montant à envoyer"
+            aria-invalid={isAmountOutOfRange}
+            aria-describedby={amountError ? "amount-range-error" : undefined}
             className={isAmountOutOfRange ? styles.amountInvalid : undefined}
           />
           <span className={styles.cur}>{from.currency}</span>
         </div>
+        {amountError && (
+          <p id="amount-range-error" className={styles.amountError} role="alert">
+            {amountError}
+          </p>
+        )}
       </div>
 
       <div className={styles.swapLine}>
