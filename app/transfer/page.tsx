@@ -166,13 +166,18 @@ function TransferFlow() {
         amountNum >= iltineraire.min &&
         amountNum <= iltineraire.max
       );
-    if (step === 2)
+    if (step === 2) {
+      const expectedDigits = Number(iltineraire?.countryTo?.TelMaxNumber);
+      const phoneDigits = recipientPhone.replace(/\D/g, "");
       return (
-        senderName.trim() &&
-        recipientName.trim() &&
-        recipientPhone.trim().length >= 6 &&
+        !!senderName.trim() &&
+        !!recipientName.trim() &&
+        Number.isFinite(expectedDigits) &&
+        expectedDigits > 0 &&
+        phoneDigits.length === expectedDigits &&
         !!payment
       );
+    }
     if (step === 3) return accepted;
     return false;
   };

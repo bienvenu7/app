@@ -72,8 +72,13 @@ export default function FormStep(props: {
           onChange={(e) =>
             props.setRecipientPhone(digitsOnly(e.target.value))
           }
-          maxLength={props.iltineraire.countryTo.TelMaxNumber}
+          maxLength={Number(props.iltineraire.countryTo.TelMaxNumber) || undefined}
           aria-label="Téléphone du destinataire"
+          aria-invalid={
+            props.recipientPhone.length > 0 &&
+            props.recipientPhone.length !==
+              Number(props.iltineraire.countryTo.TelMaxNumber)
+          }
         />
       </div>
 
