@@ -58,6 +58,8 @@ export const useGetTransactonById = (id: string | undefined) => {
     queryKey: ["transaction", id],
     queryFn: () => getTransactionById(id!),
     enabled: !!id,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 5,
   });
   return { transaction, isGettingTransaction, isTransactionError, refetch };
 };

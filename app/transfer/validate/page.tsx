@@ -41,26 +41,79 @@ import {
 } from "@/lib/compress-image";
 import axios from "axios";
 import type { ITrasanctionResponse } from "@/types/transaction";
+import { Status } from "@/types/transaction";
 import { useGetCards, useGetCountries } from "@/hooks/useCountry";
 import { ICountry } from "@/types/country";
 import type { IResponseCard } from "@/types/networks";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 
-function TransferProgressIcon() {
+type StatusVariant = "progress" | "confirmed" | "success" | "error";
+
+function isErrorStatus(status: Status | string | undefined) {
+  return status === Status.ERROR || status === "ERROR";
+}
+
+function getTransferStatusView(
+  status: Status | string | undefined,
+  amountLabel: string,
+) {
+  if (isErrorStatus(status)) {
+    return {
+      variant: "error" as StatusVariant,
+      titleEm: "échoué",
+      text: `Votre transfert de ${amountLabel} a échoué. Veuillez réessayer ou contacter le support.`,
+    };
+  }
+
+  if (status === Status.FINISH || status === "FINISH") {
+    return {
+      variant: "success" as StatusVariant,
+      titleEm: "réussi",
+      text: `Votre transfert de ${amountLabel} a été effectué avec succès.`,
+    };
+  }
+
+  if (status === Status.CONFIRMED || status === "CONFIRMED") {
+    return {
+      variant: "confirmed" as StatusVariant,
+      titleEm: "confirmé",
+      text: `Votre transfert de ${amountLabel} a été confirmé et sera bientôt finalisé.`,
+    };
+  }
+
+  return {
+    variant: "progress" as StatusVariant,
+    titleEm: "en cours",
+    text: `Votre transfert de ${amountLabel} est en cours de traitement. Vous serez notifié dès qu'il sera terminé.`,
+  };
+}
+
+function TransferStatusIcon({ variant }: { variant: StatusVariant }) {
   return (
-    <div className={styles.progressRing} aria-hidden>
+    <div
+      className={`${styles.progressRing} ${styles[`ring_${variant}`]}`}
+      aria-hidden
+    >
       <svg className={styles.progressRingSvg} viewBox="0 0 96 96">
         <circle className={styles.progressTrack} cx="48" cy="48" r="42" />
         <circle className={styles.progressArc} cx="48" cy="48" r="42" />
       </svg>
       <div className={styles.progressInner}>
-        <Hourglass size={26} strokeWidth={1.75} />
-        <div className={styles.progressDots}>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <span key={index} className={styles.progressDot} />
-          ))}
-        </div>
+        {variant === "progress" ? (
+          <>
+            <Hourglass size={26} strokeWidth={1.75} />
+            <div className={styles.progressDots}>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <span key={index} className={styles.progressDot} />
+              ))}
+            </div>
+          </>
+        ) : variant === "error" ? (
+          <X size={34} strokeWidth={2.25} />
+        ) : (
+          <Check size={34} strokeWidth={2.25} />
+        )}
       </div>
     </div>
   );
@@ -125,11 +178,13 @@ function ValidateFlow() {
 
   const isWaiting = isWaitingStatus(tx?.status);
   const isProcessing = isProcessingStatus(tx?.status);
+  const isError = isErrorStatus(tx?.status);
+  const isPaid = tx ? isTransactionPaid(tx.status) : false;
 
-  const showSuccess =
-    paidLocally || (tx ? isTransactionPaid(tx.status) : false);
+  const showStatusScreen =
+    paidLocally || isProcessing || isPaid || isError;
 
-  const canPay = tx && isWaiting && !showSuccess;
+  const canPay = tx && isWaiting && !showStatusScreen;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -272,29 +327,29 @@ function ValidateFlow() {
   const sourceCountry = from ?? RUSSIA;
   const destCountry = to ?? RUSSIA;
 
-  if (showSuccess) {
+  if (showStatusScreen) {
+    const amountLabel = formatMoney(tx.amountToPayOut, destCountry);
+    const statusView = getTransferStatusView(tx.status, amountLabel);
+
     return (
       <main>
         <motion.div
-          className={styles.success}
+          className={`${styles.success} ${styles[`status_${statusView.variant}`]}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
           <motion.div
+            key={statusView.variant}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 220, damping: 15 }}
           >
-            <TransferProgressIcon />
+            <TransferStatusIcon variant={statusView.variant} />
           </motion.div>
           <h1 className={styles.successTitle}>
-            Transfert <em>en cours</em>
+            Transfert <em>{statusView.titleEm}</em>
           </h1>
-          <p className={styles.successText}>
-            Votre transfert de {formatMoney(tx.amountToPayOut, destCountry)} est
-            en cours de traitement. Vous serez notifié dès qu&apos;il sera
-            terminé.
-          </p>
+          <p className={styles.successText}>{statusView.text}</p>
           <span className={styles.txidPill}>{tx.txid}</span>
 
           <div className={styles.successActions}>
@@ -402,7 +457,7 @@ function ValidateFlow() {
           </div>
         )}
 
-        {isProcessing && !showSuccess && (
+        {isProcessing && !showStatusScreen && (
           <div className={styles.processing}>
             <span className={styles.spinner} />
             <p>Paiement en cours de validation par notre équipe.</p>
@@ -427,18 +482,23 @@ function ValidateFlow() {
                 <div className={styles.payMethodsList}>
                   {paymentCards.map((el) => {
                     const networkFlag = getLinks(el.network.name);
+                    const isSbpLogo = networkFlag?.includes("sbp-logo");
 
                     return el.isLink ? (
                       <Link
                         key={el.id}
-                        className={styles.payLink}
+                        className={`${styles.payLink} ${isSbpLogo ? styles.payLinkSbp : ""}`}
                         href={el.content || "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
                         {networkFlag ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={networkFlag} alt={el.network.pubicName} />
+                          <img
+                            src={networkFlag}
+                            alt={el.network.pubicName}
+                            className={isSbpLogo ? styles.payLinkSbpImg : undefined}
+                          />
                         ) : (
                           `Payez avec ${el.network.pubicName}`
                         )}
@@ -451,7 +511,11 @@ function ValidateFlow() {
                             <img
                               src={networkFlag}
                               alt={el.network.name}
-                              className={styles.payNetworkImg}
+                              className={
+                                isSbpLogo
+                                  ? styles.payNetworkImgSbp
+                                  : styles.payNetworkImg
+                              }
                             />
                           ) : (
                             <strong>{el.network.name} : </strong>

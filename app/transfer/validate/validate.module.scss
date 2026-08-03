@@ -203,19 +203,16 @@
 
 .payMethodsList {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 12px;
-
-  @include desktop {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
 }
 
 .payLink {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   width: 110px;
   height: 110px;
   border-radius: 18px;
@@ -232,10 +229,6 @@
     border-color 0.2s,
     background 0.2s;
 
-  @include desktop {
-    flex: 0 0 110px;
-  }
-
   &:hover {
     border-color: rgba($gold, 0.45);
     background: rgba($gold, 0.06);
@@ -247,6 +240,20 @@
     object-fit: cover;
     object-position: contain;
   }
+}
+
+.payLinkSbp {
+  flex: 0 0 auto;
+  width: 180px;
+  height: 90px;
+  padding: 10px 14px;
+}
+
+.payLinkSbpImg {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
 }
 
 .payContainer {
@@ -288,6 +295,16 @@
   height: 42px;
   border-radius: 10px;
   object-fit: cover;
+  flex-shrink: 0;
+}
+
+.payNetworkImgSbp {
+  width: 88px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #fff;
+  padding: 4px 6px;
   flex-shrink: 0;
 }
 
@@ -375,6 +392,57 @@
   color: $gold;
 }
 
+.ring_progress {
+  .progressArc {
+    stroke-dasharray: 198 264;
+  }
+}
+
+.ring_confirmed {
+  .progressTrack {
+    stroke: rgba($gold, 0.28);
+  }
+
+  .progressArc {
+    stroke: $gold;
+    stroke-dasharray: 264 264;
+  }
+
+  .progressInner {
+    color: $gold;
+  }
+}
+
+.ring_success {
+  .progressTrack {
+    stroke: rgba(#34d399, 0.28);
+  }
+
+  .progressArc {
+    stroke: #34d399;
+    stroke-dasharray: 264 264;
+  }
+
+  .progressInner {
+    color: #34d399;
+  }
+}
+
+.ring_error {
+  .progressTrack {
+    stroke: rgba($danger, 0.28);
+  }
+
+  .progressArc {
+    stroke: $danger;
+    stroke-dasharray: 264 264;
+  }
+
+  .progressInner {
+    color: $danger;
+  }
+}
+
 .progressDots {
   display: flex;
   align-items: center;
@@ -418,6 +486,18 @@
     font-family: var(--font-serif), Georgia, serif;
     font-style: italic;
     font-weight: 500;
+  }
+}
+
+.status_success {
+  .successTitle em {
+    color: #34d399;
+  }
+}
+
+.status_error {
+  .successTitle em {
+    color: $danger;
   }
 }
 
