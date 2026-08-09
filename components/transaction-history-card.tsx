@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatMoney, getCountry } from "@/lib/data";
@@ -8,6 +10,7 @@ import {
 import type { ITrasanctionResponse } from "@/types/transaction";
 import { Status } from "@/types/transaction";
 import styles from "./transaction-history-card.module.scss";
+import { useI18n, useT } from "@/lib/i18n";
 
 function parseRoute(code?: string) {
   const [fromCode, toCode] = (code ?? "").split("-");
@@ -41,11 +44,15 @@ export function TransactionHistoryCard({
   tx: ITrasanctionResponse;
   onSelect?: (tx: ITrasanctionResponse) => void;
 }) {
+  const t = useT();
+  const { locale } = useI18n();
+  const dateLocale = locale === "ru" ? "ru-RU" : "fr-FR";
+
   const isSend = tx.type === "SEND";
   const { from, to } = parseRoute(tx.code);
 
   const counterpart = isSend ? tx.receiverName : tx.senderName;
-  const prefix = isSend ? "Vers" : "De";
+  const prefix = isSend ? t("txCard.to") : t("txCard.from");
 
   const primaryCountry = isSend ? from : to;
   const secondaryCountry = isSend ? to : from;
@@ -54,13 +61,19 @@ export function TransactionHistoryCard({
 
   const time =
     tx.hour ||
-    new Date(tx.createdAt).toLocaleTimeString("fr-FR", {
+    new Date(tx.createdAt).toLocaleTimeString(dateLocale, {
       hour: "2-digit",
       minute: "2-digit",
     });
 
   const isPending = isWaitingStatus(tx.status);
-  const statusLabel = formatTransactionStatus(tx.status);
+  const statusLabel = formatTransactionStatus(tx.status, {
+    WAITING: t("status.WAITING"),
+    INPROGRESS: t("status.INPROGRESS"),
+    CONFIRMED: t("status.CONFIRMED"),
+    ERROR: t("status.ERROR"),
+    FINISH: t("status.FINISH"),
+  });
   const statusClass = getStatusClass(tx.status);
 
   const content = (
@@ -115,7 +128,7 @@ export function TransactionHistoryCard({
       <Link
         href={`/transfer/validate?id=${encodeURIComponent(tx.id ?? tx.txid)}`}
         className={`${styles.card} ${styles.clickable}`}
-        aria-label={`Confirmer le transfert ${tx.txid}`}
+        aria-label={t("txCard.confirmTransfer", { txid: tx.txid })}
       >
         {content}
       </Link>
@@ -127,7 +140,7 @@ export function TransactionHistoryCard({
       type="button"
       className={`${styles.card} ${styles.clickable}`}
       onClick={() => onSelect?.(tx)}
-      aria-label={`Voir les détails du transfert ${tx.txid}`}
+      aria-label={t("txCard.viewDetails", { txid: tx.txid })}
     >
       {content}
     </button>

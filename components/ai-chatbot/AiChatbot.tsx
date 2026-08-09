@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { getChatbotReply } from "@/app/actions/chatbot";
 import { useSendMessage } from "@/hooks/useFile";
 import styles from "./ai-chatbot.module.scss";
+import { useI18n, useT } from "@/lib/i18n";
 
 const FAB_SIZE_MOBILE = 44;
 const FAB_SIZE_DESKTOP = 56;
@@ -24,16 +25,6 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
 };
-
-const WELCOME_MESSAGE: ChatMessage = {
-  id: "welcome",
-  role: "assistant",
-  content:
-    "Bonjour ! Je suis l'assistant AFRU-E. Posez-moi vos questions sur les transferts, les frais ou votre compte.",
-};
-
-const ERROR_REPLY =
-  "Désolé, une erreur s'est produite. Veuillez réessayer dans un instant.";
 
 function getBottomOffset() {
   if (typeof window === "undefined") return 100;
@@ -74,11 +65,19 @@ function loadStoredPosition(): { x: number; y: number } | null {
 }
 
 export function AiChatbot() {
+  const t = useT();
+  const { locale } = useI18n();
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
   );
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: t("chatbot.greeting"),
+    },
+  ]);
   const [input, setInput] = useState("");
   const { mutateAsync, isPending } = useSendMessage("chatbot");
 
@@ -92,6 +91,21 @@ export function AiChatbot() {
     originY: 0,
     moved: false,
   });
+
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0]?.id === "welcome") {
+        return [
+          {
+            id: "welcome",
+            role: "assistant",
+            content: t("chatbot.greeting"),
+          },
+        ];
+      }
+      return prev;
+    });
+  }, [locale, t]);
 
   useEffect(() => {
     const stored = loadStoredPosition();
@@ -187,17 +201,17 @@ export function AiChatbot() {
         },
       ]);
     } catch {
-      toast.error("Impossible d'envoyer le message. Réessayez.");
+      toast.error(t("chatbot.sendError"));
       setMessages((prev) => [
         ...prev,
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: ERROR_REPLY,
+          content: t("chatbot.errorFallback"),
         },
       ]);
     }
-  }, [input, isPending, mutateAsync]);
+  }, [input, isPending, mutateAsync, t]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,7 +238,9 @@ export function AiChatbot() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        aria-label={isOpen ? "Fermer l'assistant" : "Ouvrir l'assistant"}
+        aria-label={
+          isOpen ? t("chatbot.closeAssistant") : t("chatbot.openAssistant")
+        }
         aria-expanded={isOpen}
         aria-haspopup="dialog"
       >
@@ -260,16 +276,16 @@ export function AiChatbot() {
                   </div>
                   <div>
                     <h2 id="ai-chat-title" className={styles.title}>
-                      Assistant AFRU-E
+                      {t("chatbot.title")}
                     </h2>
-                    <p className={styles.subtitle}>En ligne</p>
+                    <p className={styles.subtitle}>{t("chatbot.online")}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   className={styles.close}
                   onClick={() => setIsOpen(false)}
-                  aria-label="Fermer le chat"
+                  aria-label={t("chatbot.closeChat")}
                 >
                   <X />
                 </button>
@@ -286,7 +302,7 @@ export function AiChatbot() {
                 ))}
                 {isPending && (
                   <div className={`${styles.message} ${styles.assistant}`}>
-                    <div className={styles.typing} aria-label="L'assistant écrit">
+                    <div className={styles.typing} aria-label={t("chatbot.typing")}>
                       <span />
                       <span />
                       <span />
@@ -302,15 +318,15 @@ export function AiChatbot() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleInputKeyDown}
-                  placeholder="Écrivez votre message…"
+                  placeholder={t("chatbot.placeholder")}
                   rows={1}
-                  aria-label="Message à l'assistant"
+                  aria-label={t("chatbot.messageAria")}
                 />
                 <button
                   type="submit"
                   className={styles.send}
                   disabled={!input.trim() || isPending}
-                  aria-label="Envoyer"
+                  aria-label={t("chatbot.sendAria")}
                 >
                   <Send />
                 </button>

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Auth } from "@/providers/AuthContext";
+import { useT } from "@/lib/i18n";
 import styles from "./app-header.module.scss";
 
 function getInitials(fullName?: string) {
@@ -17,6 +19,7 @@ function getInitials(fullName?: string) {
 }
 
 export function AppHeader() {
+  const t = useT();
   const {
     state: { user },
   } = Auth();
@@ -24,13 +27,16 @@ export function AppHeader() {
   return (
     <header className={styles.header}>
       <Brand />
-      <Link
-        href="/profile"
-        className={styles.avatar}
-        aria-label="Voir le profil"
-      >
-        {getInitials(user?.fullName)}
-      </Link>
+      <div className={styles.actions}>
+        <LanguageSwitcher compact variant="select" />
+        <Link
+          href="/profile"
+          className={styles.avatar}
+          aria-label={t("common.viewProfile")}
+        >
+          {getInitials(user?.fullName)}
+        </Link>
+      </div>
     </header>
   );
 }

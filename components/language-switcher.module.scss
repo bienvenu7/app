@@ -1,0 +1,96 @@
+@use "../styles/variables" as *;
+
+.switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid $border-strong;
+  background: rgba(255, 255, 255, 0.04);
+  color: $text-muted;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  cursor: pointer;
+  @include tap;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
+
+  &:hover {
+    border-color: $gold;
+    color: $gold;
+    background: $gold-soft;
+  }
+}
+
+.current {
+  color: $gold;
+}
+
+.divider {
+  opacity: 0.45;
+}
+
+.next {
+  opacity: 0.75;
+}
+
+.compact {
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+.selectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 118px;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 9px 30px 9px 12px;
+  border-radius: $r-sm;
+  border: 1px solid $border-strong;
+  background: rgba(255, 255, 255, 0.04);
+  color: $text;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  @include tap;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+
+  &:hover,
+  &:focus {
+    border-color: $gold;
+    background: $gold-soft;
+    outline: none;
+  }
+
+  option {
+    background: #0e1320;
+    color: $text;
+  }
+}
+
+.selectIcon {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: $gold;
+}
+
+.selectWrap.compact .select {
+  padding: 8px 28px 8px 10px;
+  font-size: 12px;
+  min-width: 108px;
+}

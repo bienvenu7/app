@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import moment from "moment";
 import "moment/locale/fr";
+import "moment/locale/ru";
 import { getTransactionByClientEmail } from "@/app/actions/transaction";
 import type { ITrasanctionResponse } from "@/types/transaction";
 
+// Locale is applied dynamically via LocaleProvider
 moment.locale("fr");
 
 const ACTIVE_DAYS_PER_PAGE = 3;

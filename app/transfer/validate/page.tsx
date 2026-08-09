@@ -47,6 +47,8 @@ import { ICountry } from "@/types/country";
 import type { IResponseCard } from "@/types/networks";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
+import { useT } from "@/lib/i18n";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 type StatusVariant = "progress" | "confirmed" | "success" | "error";
 
@@ -57,35 +59,36 @@ function isErrorStatus(status: Status | string | undefined) {
 function getTransferStatusView(
   status: Status | string | undefined,
   amountLabel: string,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
 ) {
   if (isErrorStatus(status)) {
     return {
       variant: "error" as StatusVariant,
-      titleEm: "échoué",
-      text: `Votre transfert de ${amountLabel} a échoué. Veuillez réessayer ou contacter le support.`,
+      titleEm: t("validate.failedEm"),
+      text: t("validate.failedText", { amount: amountLabel }),
     };
   }
 
   if (status === Status.FINISH || status === "FINISH") {
     return {
       variant: "success" as StatusVariant,
-      titleEm: "réussi",
-      text: `Votre transfert de ${amountLabel} a été effectué avec succès.`,
+      titleEm: t("validate.successEm"),
+      text: t("validate.successText", { amount: amountLabel }),
     };
   }
 
   if (status === Status.CONFIRMED || status === "CONFIRMED") {
     return {
       variant: "confirmed" as StatusVariant,
-      titleEm: "confirmé",
-      text: `Votre transfert de ${amountLabel} a été confirmé et sera bientôt finalisé.`,
+      titleEm: t("validate.confirmedEm"),
+      text: t("validate.confirmedText", { amount: amountLabel }),
     };
   }
 
   return {
     variant: "progress" as StatusVariant,
-    titleEm: "en cours",
-    text: `Votre transfert de ${amountLabel} est en cours de traitement. Vous serez notifié dès qu'il sera terminé.`,
+    titleEm: t("validate.progressEm"),
+    text: t("validate.progressText", { amount: amountLabel }),
   };
 }
 
@@ -120,6 +123,7 @@ function TransferStatusIcon({ variant }: { variant: StatusVariant }) {
 }
 
 function ValidateFlow() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const txId = params.get("id") ?? undefined;
@@ -192,9 +196,7 @@ function ValidateFlow() {
 
     const invalid = files.find((file) => !file.type.startsWith("image/"));
     if (invalid) {
-      toast.error(
-        "Veuillez sélectionner uniquement des images (JPG, PNG, etc.).",
-      );
+      toast.error(t("validate.imagesOnly"));
       return;
     }
 
@@ -220,22 +222,22 @@ function ValidateFlow() {
 
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copié dans le presse-papiers");
+      toast.success(t("validate.copied"));
     } catch {
-      toast.error("Impossible de copier");
+      toast.error(t("validate.copyError"));
     }
   };
 
   const markPaymentConfirmed = async () => {
     setPaidLocally(true);
     await invalidateTransactionQueries(queryClient);
-    toast.success("Paiement enregistré, votre transfert est en cours.");
+    toast.success(t("validate.paymentSaved"));
   };
 
   const handleConfirm = async () => {
     if (!tx || !txId || isSubmitting) return;
     if (!proofFiles.length) {
-      toast.error("Ajoutez au moins une capture d'écran de votre paiement.");
+      toast.error(t("validate.addProof"));
       return;
     }
 
@@ -254,18 +256,16 @@ function ValidateFlow() {
 
       if (totalBytes > MAX_SINGLE_REQUEST_BYTES) {
         toast.error(
-          `Les images restent trop volumineuses (${formatFileSize(totalBytes)}). Réduisez le nombre de fichiers.`,
+          t("validate.tooLarge", { size: formatFileSize(totalBytes) }),
         );
         return;
       }
 
-      await uploadFiles(compressedFiles, transactionId, "Preuve de paiement");
+      await uploadFiles(compressedFiles, transactionId, t("validate.proofLabel"));
       await markPaymentConfirmed();
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 413) {
-        toast.error(
-          "Les images sont trop volumineuses. Essayez avec moins de fichiers ou des captures plus légères.",
-        );
+        toast.error(t("validate.tooLargeRetry"));
         return;
       }
 
@@ -274,7 +274,7 @@ function ValidateFlow() {
         await markPaymentConfirmed();
         return;
       }
-      toast.error("Impossible de confirmer le paiement. Réessayez.");
+      toast.error(t("validate.confirmError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -292,13 +292,13 @@ function ValidateFlow() {
     return (
       <main>
         <div className={styles.empty}>
-          <p>Aucun transfert en attente de validation.</p>
+          <p>{t("validate.noPending")}</p>
           <button
             className={styles.ghostBtn}
             style={{ marginTop: 20 }}
             onClick={() => router.push("/transfer")}
           >
-            Nouveau transfert
+            {t("transfer.newTransfer")}
           </button>
         </div>
       </main>
@@ -309,13 +309,13 @@ function ValidateFlow() {
     return (
       <main>
         <div className={styles.empty}>
-          <p>Transfert introuvable ou inaccessible.</p>
+          <p>{t("validate.notFound")}</p>
           <button
             className={styles.ghostBtn}
             style={{ marginTop: 20 }}
             onClick={() => router.push("/transfer")}
           >
-            Nouveau transfert
+            {t("transfer.newTransfer")}
           </button>
         </div>
       </main>
@@ -329,7 +329,7 @@ function ValidateFlow() {
 
   if (showStatusScreen) {
     const amountLabel = formatMoney(tx.amountToPayOut, destCountry);
-    const statusView = getTransferStatusView(tx.status, amountLabel);
+    const statusView = getTransferStatusView(tx.status, amountLabel, t);
 
     return (
       <main>
@@ -347,7 +347,7 @@ function ValidateFlow() {
             <TransferStatusIcon variant={statusView.variant} />
           </motion.div>
           <h1 className={styles.successTitle}>
-            Transfert <em>{statusView.titleEm}</em>
+            {t("validate.transferLabel")} <em>{statusView.titleEm}</em>
           </h1>
           <p className={styles.successText}>{statusView.text}</p>
           <span className={styles.txidPill}>{tx.txid}</span>
@@ -357,13 +357,13 @@ function ValidateFlow() {
               className={styles.payBtn}
               onClick={() => setShowDetails(true)}
             >
-              <Eye size={18} /> Voir les détails
+              <Eye size={18} /> {t("validate.viewDetails")}
             </button>
             <button
               className={styles.ghostBtn}
               onClick={() => router.push("/transactions")}
             >
-              <Receipt size={18} /> Voir mes transactions
+              <Receipt size={18} /> {t("validate.viewMyTransactions")}
             </button>
           </div>
         </motion.div>
@@ -384,15 +384,13 @@ function ValidateFlow() {
           className={styles.back}
           onClick={() => router.push("/transfer")}
         >
-          <ArrowLeft size={16} /> Retour
+          <ArrowLeft size={16} /> {t("common.back")}
         </button>
 
         <h1 className={styles.title}>
-          Valider le <em>transfert</em>
+          {t("validate.title")} <em>{t("validate.titleEm")}</em>
         </h1>
-        <p className={styles.subtitle}>
-          Vérifiez les informations avant de confirmer le paiement.
-        </p>
+        <p className={styles.subtitle}>{t("validate.subtitle")}</p>
 
         <div className={styles.card}>
           <div className={styles.route}>
@@ -409,13 +407,13 @@ function ValidateFlow() {
 
           <div className={styles.route}>
             <div className={styles.amountBlock}>
-              <span className={styles.amountLabel}>Envoyé</span>
+              <span className={styles.amountLabel}>{t("validate.sent")}</span>
               <span className={styles.amountValue}>
-                {formatMoney(amounts.baseAmount, sourceCountry)}
+                {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
             <div className={styles.amountBlock} style={{ textAlign: "right" }}>
-              <span className={styles.amountLabel}>Reçu</span>
+              <span className={styles.amountLabel}>{t("validate.received")}</span>
               <span className={`${styles.amountValue} ${styles.gold}`}>
                 {formatMoney(amounts.received, destCountry)}
               </span>
@@ -424,18 +422,18 @@ function ValidateFlow() {
         </div>
 
         <div className={styles.card}>
-          <p className={styles.cardTitle}>Destinataire</p>
+          <p className={styles.cardTitle}>{t("txDetails.recipient")}</p>
           <div className={styles.rows}>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Nom</span>
+              <span className={styles.rowLabel}>{t("common.lastName")}</span>
               <span className={styles.rowValue}>{tx.receiverName}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Téléphone</span>
+              <span className={styles.rowLabel}>{t("common.phone")}</span>
               <span className={styles.rowValue}>{tx.receiverPhone}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Réseau</span>
+              <span className={styles.rowLabel}>{t("txDetails.network")}</span>
               <span className={styles.rowValue}>{paymentLabel}</span>
             </div>
           </div>
@@ -443,14 +441,14 @@ function ValidateFlow() {
 
         {tx.card && (
           <div className={styles.card}>
-            <p className={styles.cardTitle}>Compte de paiement</p>
+            <p className={styles.cardTitle}>{t("validate.paymentAccount")}</p>
             <div className={styles.rows}>
               <div className={styles.row}>
-                <span className={styles.rowLabel}>Titulaire</span>
+                <span className={styles.rowLabel}>{t("validate.holder")}</span>
                 <span className={styles.rowValue}>{tx.card.fullName}</span>
               </div>
               <div className={styles.row}>
-                <span className={styles.rowLabel}>Numéro</span>
+                <span className={styles.rowLabel}>{t("validate.number")}</span>
                 <span className={styles.rowValue}>{tx.card.phone}</span>
               </div>
             </div>
@@ -460,23 +458,23 @@ function ValidateFlow() {
         {isProcessing && !showStatusScreen && (
           <div className={styles.processing}>
             <span className={styles.spinner} />
-            <p>Paiement en cours de validation par notre équipe.</p>
+            <p>{t("validate.processing")}</p>
           </div>
         )}
 
         {canPay && (
           <div className={styles.payBar}>
             <div className={styles.total}>
-              <span className={styles.totalLabel}>Total à payer</span>
+              <span className={styles.totalLabel}>{t("transfer.totalToPay")}</span>
               <span className={styles.totalValue}>
                 {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
             <div className={styles.payMethods}>
-              <p className={styles.payMethodsTitle}>Moyen de paiement</p>
+              <p className={styles.payMethodsTitle}>{t("validate.paymentMethod")}</p>
               {isLoadingCards ? (
                 <p className={styles.payMethodsHint}>
-                  Chargement des options de paiement...
+                  {t("validate.loadingPayment")}
                 </p>
               ) : paymentCards?.length ? (
                 <div className={styles.payMethodsList}>
@@ -500,7 +498,7 @@ function ValidateFlow() {
                             className={isSbpLogo ? styles.payLinkSbpImg : undefined}
                           />
                         ) : (
-                          `Payez avec ${el.network.pubicName}`
+                          t("validate.payWith", { name: el.network.pubicName })
                         )}
                       </Link>
                     ) : (
@@ -525,7 +523,7 @@ function ValidateFlow() {
                         <button
                           type="button"
                           className={styles.copyBtn}
-                          aria-label="Copier les instructions de paiement"
+                          aria-label={t("validate.copyPaymentAria")}
                           onClick={() => handleCopyPayment(el.content || "")}
                         >
                           <Copy size={16} />
@@ -536,17 +534,14 @@ function ValidateFlow() {
                 </div>
               ) : (
                 <p className={styles.payMethodsHint}>
-                  Aucun moyen de paiement disponible pour ce pays.
+                  {t("validate.noPaymentMethods")}
                 </p>
               )}
             </div>
 
             <div className={styles.proofSection}>
-              <p className={styles.proofLabel}>Preuve de paiement</p>
-              <p className={styles.proofHint}>
-                Ajoutez une ou plusieurs captures d&apos;écran de votre
-                transaction.
-              </p>
+              <p className={styles.proofLabel}>{t("validate.proofLabel")}</p>
+              <p className={styles.proofHint}>{t("validate.proofHint")}</p>
 
               <input
                 ref={fileInputRef}
@@ -565,14 +560,14 @@ function ValidateFlow() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={previewUrl}
-                        alt={`Aperçu de la preuve de paiement ${index + 1}`}
+                        alt={t("validate.proofPreview", { n: index + 1 })}
                         className={styles.previewImage}
                       />
                       <button
                         type="button"
                         className={styles.removePreview}
                         onClick={() => removeProof(index)}
-                        aria-label={`Supprimer l'image ${index + 1}`}
+                        aria-label={t("validate.removeImage", { n: index + 1 })}
                       >
                         <X size={16} />
                       </button>
@@ -585,8 +580,8 @@ function ValidateFlow() {
                 <ImageIcon size={28} className={styles.uploadIcon} />
                 <span>
                   {proofFiles.length > 0
-                    ? "Ajouter d'autres images"
-                    : "Choisir des images"}
+                    ? t("validate.addMoreImages")
+                    : t("validate.chooseImages")}
                 </span>
                 <span className={styles.uploadFormats}>JPG, PNG, WEBP</span>
               </label>
@@ -602,11 +597,11 @@ function ValidateFlow() {
             >
               {isSubmitting || isUpdatingTransaction ? (
                 <>
-                  <span className={styles.spinner} /> Confirmation en cours...
+                  <span className={styles.spinner} /> {t("validate.confirming")}
                 </>
               ) : (
                 <>
-                  <Check size={18} /> Confirmer
+                  <Check size={18} /> {t("common.confirm")}
                 </>
               )}
             </button>

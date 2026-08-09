@@ -428,10 +428,21 @@
   }
 }
 
+.networkAutoHint {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: $text-muted;
+}
+
 .payGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.payGridLocked {
+  opacity: 0.95;
 }
 
 .payChip {
@@ -455,6 +466,19 @@
   &.selected {
     border-color: $gold;
     background: $gold-soft;
+  }
+
+  &.locked {
+    cursor: not-allowed;
+    pointer-events: none;
+
+    &:not(.selected) {
+      opacity: 0.45;
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
   }
 }
 

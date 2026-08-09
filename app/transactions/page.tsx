@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import moment from "moment";
 import "moment/locale/fr";
+import "moment/locale/ru";
 import { Inbox } from "lucide-react";
 import styles from "./transactions.module.scss";
 import Loading from "@/components/Loading";
@@ -11,8 +12,7 @@ import { TransactionDetailsModal } from "@/components/transaction-details-modal"
 import { Auth } from "@/providers/AuthContext";
 import { useInfiniteTransactionsByEmail } from "@/hooks/useTransaction";
 import type { ITrasanctionResponse } from "@/types/transaction";
-
-moment.locale("fr");
+import { useI18n } from "@/lib/i18n";
 
 function txKey(tx: ITrasanctionResponse) {
   return String(tx.id ?? tx.txid ?? "");
@@ -35,7 +35,10 @@ function dedupeTransactions(transactions: ITrasanctionResponse[]) {
   });
 }
 
-function groupByDay(transactions: ITrasanctionResponse[]) {
+function groupByDay(
+  transactions: ITrasanctionResponse[],
+  unknownDateLabel: string,
+) {
   const map = new Map<string, ITrasanctionResponse[]>();
 
   for (const tx of transactions) {
@@ -51,7 +54,7 @@ function groupByDay(transactions: ITrasanctionResponse[]) {
       dateKey,
       label:
         dateKey === "unknown"
-          ? "DATE INCONNUE"
+          ? unknownDateLabel
           : moment(dateKey, "DD-MM-YYYY").format("D MMMM YYYY").toUpperCase(),
       transactions: [...txs].sort(
         (a, b) => txMoment(b).valueOf() - txMoment(a).valueOf(),
@@ -68,6 +71,7 @@ function groupByDay(transactions: ITrasanctionResponse[]) {
 }
 
 export default function TransactionsPage() {
+  const { locale, t } = useI18n();
   const {
     state: { user, isLoading },
   } = Auth();
@@ -87,6 +91,10 @@ export default function TransactionsPage() {
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    moment.locale(locale);
+  }, [locale]);
+
   const transactions = useMemo(() => {
     const pages = data?.pages ?? [];
     const collected: ITrasanctionResponse[] = [];
@@ -103,15 +111,18 @@ export default function TransactionsPage() {
     return dedupeTransactions(collected);
   }, [data]);
 
-  const days = useMemo(() => groupByDay(transactions), [transactions]);
+  const days = useMemo(
+    () => groupByDay(transactions, t("transactions.unknownDate")),
+    [transactions, t, locale],
+  );
   const total = transactions.length;
 
   const totalLabel =
     total === 0
-      ? "Aucune transaction"
+      ? t("transactions.none")
       : total === 1
-        ? "1 transaction au total"
-        : `${total} transactions au total`;
+        ? t("transactions.oneTotal")
+        : t("transactions.manyTotal", { count: total });
 
   const isFetching = isGettingTransaction || isFetchingNextPage;
   const hasMore = !!hasNextPage;
@@ -152,10 +163,10 @@ export default function TransactionsPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>
-          Mes <em>transactions</em>
+          {t("transactions.title")} <em>{t("transactions.titleEm")}</em>
         </h1>
         <p className={styles.subtitle}>
-          {showInitialLoader ? "Chargement..." : totalLabel}
+          {showInitialLoader ? t("common.loading") : totalLabel}
         </p>
       </header>
 
@@ -168,8 +179,8 @@ export default function TransactionsPage() {
           <Inbox aria-hidden="true" />
           <div>
             {isTransactionError
-              ? "Impossible de charger vos transactions."
-              : "Aucune transaction pour l&apos;instant."}
+              ? t("transactions.loadError")
+              : t("transactions.noTransactions")}
           </div>
         </div>
       ) : (

@@ -11,10 +11,11 @@ import {
 } from "@/lib/transaction-utils";
 import type { ITrasanctionResponse } from "@/types/transaction";
 import styles from "./transaction-details-modal.module.scss";
+import { useI18n, useT } from "@/lib/i18n";
 
-function formatTxDate(tx: ITrasanctionResponse) {
+function formatTxDate(tx: ITrasanctionResponse, dateLocale: string) {
   if (tx.createdAt) {
-    return new Date(tx.createdAt).toLocaleDateString("fr-FR", {
+    return new Date(tx.createdAt).toLocaleDateString(dateLocale, {
       day: "2-digit",
       month: "long",
       year: "numeric",
@@ -34,6 +35,10 @@ export function TransactionDetailsModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
+  const { locale } = useI18n();
+  const dateLocale = locale === "ru" ? "ru-RU" : "fr-FR";
+
   const { from, to } = parseTransactionRoute(tx.code);
   const sourceCountry = from ?? RUSSIA;
   const destCountry = to ?? RUSSIA;
@@ -72,13 +77,13 @@ export function TransactionDetailsModal({
       >
         <div className={styles.header}>
           <h2 id="tx-details-title" className={styles.title}>
-            Détails du transfert
+            {t("txDetails.title")}
           </h2>
           <button
             type="button"
             className={styles.close}
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t("common.close")}
           >
             <X size={20} />
           </button>
@@ -99,39 +104,47 @@ export function TransactionDetailsModal({
 
           <div className={styles.rows}>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Référence</span>
+              <span className={styles.rowLabel}>{t("txDetails.reference")}</span>
               <span className={styles.rowValue}>{tx.txid}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Type</span>
+              <span className={styles.rowLabel}>{t("txDetails.type")}</span>
               <span className={styles.rowValue}>
-                {tx.type === "SEND" ? "Envoi" : "Réception"}
+                {tx.type === "SEND" ? t("txDetails.send") : t("txDetails.receive")}
               </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Statut</span>
+              <span className={styles.rowLabel}>{t("txDetails.status")}</span>
               <span className={styles.rowValue}>
-                {formatTransactionStatus(tx.status)}
+                {formatTransactionStatus(tx.status, {
+                  WAITING: t("status.WAITING"),
+                  INPROGRESS: t("status.INPROGRESS"),
+                  CONFIRMED: t("status.CONFIRMED"),
+                  ERROR: t("status.ERROR"),
+                  FINISH: t("status.FINISH"),
+                })}
               </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Date</span>
-              <span className={styles.rowValue}>{formatTxDate(tx)}</span>
+              <span className={styles.rowLabel}>{t("txDetails.date")}</span>
+              <span className={styles.rowValue}>
+                {formatTxDate(tx, dateLocale)}
+              </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Expéditeur</span>
+              <span className={styles.rowLabel}>{t("txDetails.sender")}</span>
               <span className={styles.rowValue}>{tx.senderName}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Destinataire</span>
+              <span className={styles.rowLabel}>{t("txDetails.recipient")}</span>
               <span className={styles.rowValue}>{tx.receiverName}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Téléphone</span>
+              <span className={styles.rowLabel}>{t("txDetails.phone")}</span>
               <span className={styles.rowValue}>{tx.receiverPhone}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Réseau</span>
+              <span className={styles.rowLabel}>{t("txDetails.network")}</span>
               <span className={styles.rowValue}>{paymentLabel}</span>
             </div>
           </div>
@@ -140,25 +153,27 @@ export function TransactionDetailsModal({
 
           <div className={styles.rows}>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Montant</span>
+              <span className={styles.rowLabel}>{t("txDetails.amount")}</span>
               <span className={styles.rowValue}>
                 {formatMoney(amounts.baseAmount, sourceCountry)}
               </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Frais</span>
+              <span className={styles.rowLabel}>{t("txDetails.fees")}</span>
               <span className={styles.rowValue}>
                 {formatMoney(amounts.fees, sourceCountry)}
               </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Total payé</span>
+              <span className={styles.rowLabel}>{t("txDetails.totalPaid")}</span>
               <span className={`${styles.rowValue} ${styles.gold}`}>
                 {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.rowLabel}>Montant reçu</span>
+              <span className={styles.rowLabel}>
+                {t("txDetails.amountReceived")}
+              </span>
               <span className={`${styles.rowValue} ${styles.gold}`}>
                 {formatMoney(amounts.received, destCountry)}
               </span>

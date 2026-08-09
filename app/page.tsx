@@ -8,13 +8,10 @@ import { ArrowUpRight, ArrowDownLeft, Inbox } from "lucide-react";
 import { TransactionHistoryCard } from "@/components/transaction-history-card";
 import styles from "./home.module.scss";
 import { Auth } from "@/providers/AuthContext";
-import {
-  useGetTransactionStatsMonthly,
-  useGetTransactonByEmail,
-} from "@/hooks/useTransaction";
-import { actualDate } from "@/utils/moment";
+import { useGetTransactionStatsMonthly } from "@/hooks/useTransaction";
 import Loading from "@/components/Loading";
 import { ITrasanctionResponse } from "@/types/transaction";
+import { useT } from "@/lib/i18n";
 
 function sortKey(tx: ITrasanctionResponse) {
   const raw = tx.createdAt ?? tx.dateTime;
@@ -23,6 +20,7 @@ function sortKey(tx: ITrasanctionResponse) {
 }
 
 export default function HomePage() {
+  const t = useT();
   const {
     state: { user, isLoading },
   } = Auth();
@@ -55,8 +53,6 @@ export default function HomePage() {
     );
   }
 
-  //
-
   return (
     <motion.div
       className={styles.page}
@@ -70,17 +66,14 @@ export default function HomePage() {
       >
         <span className={styles.badge}>
           <span className={styles.pulse} aria-hidden="true" />
-          Fiabilité · Rapidité · Sécurité
+          {t("home.badge")}
         </span>
         <h1 className={styles.heroTitle}>
-          Transferts d&apos;argent entre <br />
-          <span className={styles.ru}>la Russie</span> et{" "}
-          <span className={`${styles.af} serif`}>l&apos;Afrique.</span>
+          {t("home.titleBefore")} <br />
+          <span className={styles.ru}>{t("home.russia")}</span> {t("home.and")}{" "}
+          <span className={`${styles.af} serif`}>{t("home.africa")}</span>
         </h1>
-        <p className={styles.heroSub}>
-          Envoyez ou recevez de l&apos;argent en quelques secondes, au meilleur
-          taux.
-        </p>
+        <p className={styles.heroSub}>{t("home.subtitle")}</p>
       </motion.section>
 
       <motion.div
@@ -92,8 +85,8 @@ export default function HomePage() {
             <ArrowUpRight aria-hidden="true" />
           </span>
           <div>
-            <div className={styles.label}>Envoyer</div>
-            <div className={styles.desc}>Vers l&apos;Afrique</div>
+            <div className={styles.label}>{t("common.send")}</div>
+            <div className={styles.desc}>{t("home.sendDesc")}</div>
           </div>
         </Link>
         <Link
@@ -104,8 +97,8 @@ export default function HomePage() {
             <ArrowDownLeft aria-hidden="true" />
           </span>
           <div>
-            <div className={styles.label}>Recevoir</div>
-            <div className={styles.desc}>Depuis la Russie</div>
+            <div className={styles.label}>{t("common.receive")}</div>
+            <div className={styles.desc}>{t("home.receiveDesc")}</div>
           </div>
         </Link>
       </motion.div>
@@ -120,7 +113,7 @@ export default function HomePage() {
           ) : (
             <>
               <div className={styles.value}>{stats?.total ?? 0}</div>
-              <div className={styles.caption}>Transferts ce mois</div>
+              <div className={styles.caption}>{t("home.transfersThisMonth")}</div>
             </>
           )}
         </div>
@@ -130,7 +123,7 @@ export default function HomePage() {
           ) : (
             <>
               <div className={styles.value}>{stats?.send ?? 0}</div>
-              <div className={styles.caption}>Envois ce mois</div>
+              <div className={styles.caption}>{t("home.sendsThisMonth")}</div>
             </>
           )}
         </div>
@@ -140,7 +133,7 @@ export default function HomePage() {
           ) : (
             <>
               <div className={styles.value}>{stats?.receive ?? 0}</div>
-              <div className={styles.caption}>Réceptions ce mois</div>
+              <div className={styles.caption}>{t("home.receivesThisMonth")}</div>
             </>
           )}
         </div>
@@ -148,8 +141,10 @@ export default function HomePage() {
 
       <motion.section variants={item} className={styles.pageRecent}>
         <div className={styles.sectionHead}>
-          <h2>Transactions récentes</h2>
-          {stats?.total > 0 && <Link href="/transactions">Tout voir</Link>}
+          <h2>{t("home.recentTransactions")}</h2>
+          {stats?.total > 0 && (
+            <Link href="/transactions">{t("home.seeAll")}</Link>
+          )}
         </div>
 
         <div className={styles.recentPanel}>
@@ -160,7 +155,7 @@ export default function HomePage() {
           ) : stats?.total === 0 ? (
             <div className={styles.empty}>
               <Inbox aria-hidden="true" />
-              <div>Aucune transaction pour l&apos;instant.</div>
+              <div>{t("home.noTransactions")}</div>
             </div>
           ) : (
             <div className={styles.recentList}>

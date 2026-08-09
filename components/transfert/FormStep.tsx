@@ -1,6 +1,14 @@
+"use client";
+
+import { useEffect } from "react";
 import styles from "@/app/transfer/transfer.module.scss";
 import { IDirection } from "@/types/country";
 import { INetworkResponse } from "@/types/networks";
+import { useT } from "@/lib/i18n";
+import {
+  detectNetworkFromPhone,
+  supportsAutoNetworkDetection,
+} from "@/lib/detect-network";
 
 /** Letters (incl. accents), spaces, hyphens and apostrophes — works on paste + all keyboards. */
 function lettersOnly(value: string) {
@@ -24,42 +32,69 @@ export default function FormStep(props: {
   networks: INetworkResponse[];
   iltineraire: IDirection;
 }) {
+  const t = useT();
+  const countryCode = props.iltineraire?.countryTo?.name;
+  const lockedNetworks = supportsAutoNetworkDetection(countryCode);
+
+  useEffect(() => {
+    if (!lockedNetworks) return;
+
+    const networkId = detectNetworkFromPhone(
+      props.recipientPhone,
+      countryCode,
+      props.networks,
+    );
+
+    if (networkId) {
+      if (networkId !== props.payment) props.setPayment(networkId);
+      return;
+    }
+
+    // Prefix unknown / incomplete → clear locked selection
+    if (props.payment) props.setPayment("");
+  }, [
+    lockedNetworks,
+    props.recipientPhone,
+    countryCode,
+    props.networks,
+    props.payment,
+    props.setPayment,
+  ]);
+
   return (
     <div>
-      <h2 className={styles.stepTitle}>Détails du transfert</h2>
-      <p className={styles.stepDesc}>
-        Renseignez l&apos;expéditeur et le destinataire.
-      </p>
+      <h2 className={styles.stepTitle}>{t("transfer.detailsTitle")}</h2>
+      <p className={styles.stepDesc}>{t("transfer.detailsDesc")}</p>
 
-      <span className={styles.label}>Expéditeur</span>
+      <span className={styles.label}>{t("transfer.sender")}</span>
       <div className={styles.field}>
         <input
           className={styles.input}
           type="text"
           inputMode="text"
           autoComplete="name"
-          placeholder="Nom(s) et Prénom(s)"
+          placeholder={t("transfer.fullNamePlaceholder")}
           value={props.senderName}
           onChange={(e) => props.setSenderName(lettersOnly(e.target.value))}
-          aria-label="Prénom de l'expéditeur"
+          aria-label={t("transfer.senderNameAria")}
         />
       </div>
 
-      <span className={styles.label}>Destinataire</span>
+      <span className={styles.label}>{t("transfer.recipient")}</span>
       <div className={styles.field}>
         <input
           className={styles.input}
           type="text"
           inputMode="text"
           autoComplete="name"
-          placeholder="Nom(s) et Prénom(s)"
+          placeholder={t("transfer.fullNamePlaceholder")}
           value={props.recipientName}
           onChange={(e) => props.setRecipientName(lettersOnly(e.target.value))}
-          aria-label="Prénom du destinataire"
+          aria-label={t("transfer.recipientNameAria")}
         />
       </div>
 
-      <span className={styles.label}>Téléphone du destinataire</span>
+      <span className={styles.label}>{t("transfer.recipientPhone")}</span>
       <div className={styles.field}>
         <input
           className={styles.input}
@@ -73,7 +108,7 @@ export default function FormStep(props: {
             props.setRecipientPhone(digitsOnly(e.target.value))
           }
           maxLength={Number(props.iltineraire.countryTo.TelMaxNumber) || undefined}
-          aria-label="Téléphone du destinataire"
+          aria-label={t("transfer.recipientPhone")}
           aria-invalid={
             props.recipientPhone.length > 0 &&
             props.recipientPhone.length !==
@@ -82,19 +117,36 @@ export default function FormStep(props: {
         />
       </div>
 
-      <span className={styles.label}>Moyen de paiement du destinataire</span>
-      <div className={styles.payGrid}>
+      <span className={styles.label}>{t("transfer.paymentMethod")}</span>
+      {lockedNetworks && (
+        <p className={styles.networkAutoHint}>{t("transfer.networkAutoHint")}</p>
+      )}
+      <div
+        className={`${styles.payGrid} ${lockedNetworks ? styles.payGridLocked : ""}`}
+      >
         {props.networks &&
-          props.networks.map((m) => (
-            <button
-              key={m.id}
-              className={`${styles.payChip} ${props.payment === m.id ? styles.selected : ""}`}
-              onClick={() => props.setPayment(m.id)}
-            >
-              <div className={styles.pLabel}>{m.name}</div>
-              <div className={styles.pHint}>{m.pubicName}</div>
-            </button>
-          ))}
+          props.networks.map((m) => {
+            const selected = props.payment === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                className={`${styles.payChip} ${selected ? styles.selected : ""} ${lockedNetworks ? styles.locked : ""}`}
+                onClick={() => {
+                  if (lockedNetworks) return;
+                  props.setPayment(m.id);
+                }}
+                disabled={lockedNetworks}
+                aria-disabled={lockedNetworks}
+                title={
+                  lockedNetworks ? t("transfer.networkAutoHint") : undefined
+                }
+              >
+                <div className={styles.pLabel}>{m.name}</div>
+                <div className={styles.pHint}>{m.pubicName}</div>
+              </button>
+            );
+          })}
       </div>
     </div>
   );

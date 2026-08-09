@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/brand";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
@@ -22,12 +23,14 @@ import { countryFlagEmoji } from "@/lib/flags";
 import { savePinAuth } from "@/lib/storage";
 import { Auth } from "@/providers/AuthContext";
 import type { ICountry } from "@/types/country";
+import { useT } from "@/lib/i18n";
 
 const TOTAL_STEPS = 5;
 
 export default function RegisterPage() {
   const router = useRouter();
   const { fillState } = Auth();
+  const t = useT();
   const { countries, isLoading: loadingCountries } = useGetCountries();
 
   const [step, setStep] = useState(0);
@@ -111,7 +114,7 @@ export default function RegisterPage() {
     async (message?: string) => {
       const user = await getAuth();
       fillState(user);
-      toast.success(message ?? "Votre compte a été créé avec succès !");
+      toast.success(message ?? t("auth.accountCreated"));
       router.replace("/");
     },
     [fillState, router],
@@ -144,9 +147,9 @@ export default function RegisterPage() {
     try {
       await resend();
       resetOtpBuffer();
-      toast.success("Un nouveau code a été envoyé.");
+      toast.success(t("auth.otpResent"));
     } catch {
-      toast.error("Impossible de renvoyer le code.");
+      toast.error(t("auth.otpResendError"));
     }
   };
 
@@ -164,9 +167,9 @@ export default function RegisterPage() {
       await registerFn();
       resetOtpBuffer();
       go(2);
-      toast.success("Un code à 6 chiffres vous a été envoyé par email.");
+      toast.success(t("auth.otpSent"));
     } catch {
-      toast.error("Une erreur s'est produite, veuillez réessayer.");
+      toast.error(t("auth.registerError"));
     }
   };
 
@@ -183,13 +186,13 @@ export default function RegisterPage() {
         resetOtpBuffer();
         resetPinBuffers();
         go(3);
-        toast.success("Code vérifié !");
+        toast.success(t("auth.otpVerified"));
       } catch {
         if (otpSubmittedRef.current !== otp) return;
         otpSubmittedRef.current = null;
         setOtpVerifying(false);
         setOtpError(true);
-        toast.error("Code incorrect, réessayez.");
+        toast.error(t("auth.otpIncorrect"));
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
@@ -200,12 +203,12 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (step !== 3 || pin.length !== 5) return;
-    const t = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setFirstPin(pin);
       setPin("");
       go(4);
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeoutId);
   }, [pin, step]);
 
   useEffect(() => {
@@ -222,10 +225,10 @@ export default function RegisterPage() {
           lastUnlockAt: now,
         });
         try {
-          await completeSessionAndGoHome("Votre code a été créé avec succès !");
+          await completeSessionAndGoHome(t("auth.pinCreated"));
         } catch {
           if (cancelled) return;
-          toast.error("Impossible de charger votre session.");
+          toast.error(t("auth.sessionLoadError"));
         }
       })();
       return () => {
@@ -234,15 +237,15 @@ export default function RegisterPage() {
     }
 
     setPinError(true);
-    const t = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setPinError(false);
       setPin("");
       setFirstPin("");
       go(3);
-      toast.error("Les codes ne correspondent pas, réessayez.");
+      toast.error(t("auth.pinsMismatch"));
     }, 500);
-    return () => clearTimeout(t);
-  }, [pin, step, firstPin, email, completeSessionAndGoHome]);
+    return () => clearTimeout(timeoutId);
+  }, [pin, step, firstPin, email, completeSessionAndGoHome, t]);
 
   const variants = {
     enter: (d: number) => ({ x: d > 0 ? 40 : -40, opacity: 0 }),
@@ -254,6 +257,7 @@ export default function RegisterPage() {
     <div>
       <div className={styles.brandRow}>
         <Brand size="auth" />
+        <LanguageSwitcher compact />
       </div>
 
       <div className={styles.progress}>
@@ -282,16 +286,14 @@ export default function RegisterPage() {
             <>
               <div className={styles.header}>
                 <h1 className={styles.title}>
-                  Vos <em>informations</em>
+                  {t("auth.yourInfo")} <em>{t("auth.yourInfoEm")}</em>
                 </h1>
-                <p className={styles.subtitle}>
-                  Commençons par apprendre à vous connaître.
-                </p>
+                <p className={styles.subtitle}>{t("auth.infoSubtitle")}</p>
               </div>
 
               <div className={styles.form}>
                 <div className={styles.selectField} ref={selectRef}>
-                  <span className={styles.label}>Pays</span>
+                  <span className={styles.label}>{t("common.country")}</span>
                   <button
                     type="button"
                     className={`${styles.selectTrigger} ${countryOpen ? styles.open : ""}`}
@@ -306,8 +308,8 @@ export default function RegisterPage() {
                       className={`${styles.selVal} ${!selectedCountry ? styles.selPlaceholder : ""}`}
                     >
                       {loadingCountries
-                        ? "Chargement..."
-                        : (selectedCountry?.pubicName ?? "Sélectionnez un pays")}
+                        ? t("common.loading")
+                        : (selectedCountry?.pubicName ?? t("common.selectCountry"))}
                     </span>
                     <span className={styles.chev}>
                       <ChevronDown aria-hidden="true" />
@@ -318,14 +320,14 @@ export default function RegisterPage() {
                     <div className={styles.selectMenu} role="listbox">
                       <input
                         className={styles.selectSearch}
-                        placeholder="Rechercher un pays..."
+                        placeholder={t("common.searchCountry")}
                         value={countrySearch}
                         onChange={(e) => setCountrySearch(e.target.value)}
                         autoFocus
                       />
                       {filteredCountries.length === 0 && (
                         <div className={styles.selectEmpty}>
-                          Aucun pays trouvé
+                          {t("common.noCountryFound")}
                         </div>
                       )}
                       {filteredCountries.map((c) => (
@@ -352,43 +354,43 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <span className={styles.label}>Prénom</span>
+                  <span className={styles.label}>{t("common.firstName")}</span>
                   <input
                     className={styles.input}
                     placeholder="Amadou"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    aria-label="Prénom"
+                    aria-label={t("common.firstName")}
                   />
                 </div>
 
                 <div>
-                  <span className={styles.label}>Nom</span>
+                  <span className={styles.label}>{t("common.lastName")}</span>
                   <input
                     className={styles.input}
                     placeholder="Diallo"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    aria-label="Nom"
+                    aria-label={t("common.lastName")}
                   />
                 </div>
 
                 <div>
-                  <span className={styles.label}>Genre</span>
+                  <span className={styles.label}>{t("auth.gender")}</span>
                   <div className={styles.genderRow}>
                     <button
                       type="button"
                       className={`${styles.genderBtn} ${gender === "Masculin" ? styles.selected : ""}`}
                       onClick={() => setGender("Masculin")}
                     >
-                      <span aria-hidden="true">♂</span> Masculin
+                      <span aria-hidden="true">♂</span> {t("auth.male")}
                     </button>
                     <button
                       type="button"
                       className={`${styles.genderBtn} ${gender === "Féminin" ? styles.selected : ""}`}
                       onClick={() => setGender("Féminin")}
                     >
-                      <span aria-hidden="true">♀</span> Féminin
+                      <span aria-hidden="true">♀</span> {t("auth.female")}
                     </button>
                   </div>
                 </div>
@@ -400,10 +402,10 @@ export default function RegisterPage() {
             <>
               <div className={styles.pinHeader}>
                 <h1 className={styles.title}>
-                  Vérifiez votre <em>code</em>
+                  {t("auth.verifyCode")} <em>{t("auth.verifyCodeEm")}</em>
                 </h1>
                 <p className={styles.subtitle}>
-                  Entrez le code à 6 chiffres envoyé à{" "}
+                  {t("auth.enterOtpSentTo")}{" "}
                   <span className={styles.otpEmail}>{email.trim()}</span>
                 </p>
               </div>
@@ -417,13 +419,13 @@ export default function RegisterPage() {
               />
 
               <p className={styles.resendOtp}>
-                Vous n&apos;avez pas reçu le code ?{" "}
+                {t("auth.noCodeReceived")}{" "}
                 <button
                   type="button"
                   onClick={handleResendOtp}
                   disabled={isResending || otpVerifying}
                 >
-                  {isResending ? "Envoi..." : "Renvoyer"}
+                  {isResending ? t("auth.sending") : t("auth.resend")}
                 </button>
               </p>
             </>
@@ -433,11 +435,9 @@ export default function RegisterPage() {
             <>
               <div className={styles.pinHeader}>
                 <h1 className={styles.title}>
-                  Créez votre <em>code</em>
+                  {t("auth.createCode")} <em>{t("auth.createCodeEm")}</em>
                 </h1>
-                <p className={styles.subtitle}>
-                  Choisissez un code à 5 chiffres pour vos prochaines connexions.
-                </p>
+                <p className={styles.subtitle}>{t("auth.createPinSubtitle")}</p>
               </div>
 
               <PinPad length={5} value={pin} onChange={setPin} error={pinError} />
@@ -448,11 +448,9 @@ export default function RegisterPage() {
             <>
               <div className={styles.pinHeader}>
                 <h1 className={styles.title}>
-                  Confirmez votre <em>code</em>
+                  {t("auth.confirmCode")} <em>{t("auth.confirmCodeEm")}</em>
                 </h1>
-                <p className={styles.subtitle}>
-                  Ressaisissez le même code pour le confirmer.
-                </p>
+                <p className={styles.subtitle}>{t("auth.confirmPinSubtitle")}</p>
               </div>
 
               <PinPad length={5} value={pin} onChange={setPin} error={pinError} />
@@ -463,35 +461,36 @@ export default function RegisterPage() {
             <>
               <div className={styles.header}>
                 <h1 className={styles.title}>
-                  Vos <em>identifiants</em>
+                  {t("auth.yourCredentials")}{" "}
+                  <em>{t("auth.yourCredentialsEm")}</em>
                 </h1>
                 <p className={styles.subtitle}>
-                  Créez vos accès pour vous connecter.
+                  {t("auth.credentialsSubtitle")}
                 </p>
               </div>
 
               <div className={styles.form}>
                 <div>
-                  <span className={styles.label}>Email</span>
+                  <span className={styles.label}>{t("common.email")}</span>
                   <input
                     className={styles.input}
                     type="email"
-                    placeholder="vous@exemple.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    aria-label="Email"
+                    aria-label={t("common.email")}
                   />
                 </div>
 
                 <div className={styles.passwordField}>
-                  <span className={styles.label}>Mot de passe</span>
+                  <span className={styles.label}>{t("common.password")}</span>
                   <input
                     className={styles.input}
                     type={showPassword ? "text" : "password"}
-                    placeholder="Au moins 6 caractères"
+                    placeholder={t("auth.minChars")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    aria-label="Mot de passe"
+                    aria-label={t("common.password")}
                   />
                   <button
                     type="button"
@@ -499,8 +498,8 @@ export default function RegisterPage() {
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={
                       showPassword
-                        ? "Masquer le mot de passe"
-                        : "Afficher le mot de passe"
+                        ? t("common.hidePassword")
+                        : t("common.showPassword")
                     }
                   >
                     {showPassword ? (
@@ -512,14 +511,14 @@ export default function RegisterPage() {
                 </div>
 
                 <div className={styles.passwordField}>
-                  <span className={styles.label}>Confirmer</span>
+                  <span className={styles.label}>{t("common.confirm")}</span>
                   <input
                     className={styles.input}
                     type={showConfirm ? "text" : "password"}
-                    placeholder="Retapez votre mot de passe"
+                    placeholder={t("auth.retypePassword")}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    aria-label="Confirmer le mot de passe"
+                    aria-label={t("common.confirm")}
                   />
                   <button
                     type="button"
@@ -527,8 +526,8 @@ export default function RegisterPage() {
                     onClick={() => setShowConfirm((v) => !v)}
                     aria-label={
                       showConfirm
-                        ? "Masquer le mot de passe"
-                        : "Afficher le mot de passe"
+                        ? t("common.hidePassword")
+                        : t("common.showPassword")
                     }
                   >
                     {showConfirm ? (
@@ -540,7 +539,7 @@ export default function RegisterPage() {
                   {confirmPassword.length > 0 &&
                     confirmPassword !== password && (
                       <p className={styles.hint}>
-                        Les mots de passe ne correspondent pas.
+                        {t("auth.passwordsMismatch")}
                       </p>
                     )}
                 </div>
@@ -557,14 +556,18 @@ export default function RegisterPage() {
           disabled={!canNextStep0}
           style={{ marginTop: 26 }}
         >
-          Suivant
+          {t("common.next")}
           <ArrowRight aria-hidden="true" />
         </button>
       )}
 
       {step === 1 && (
         <div className={styles.stepFooter} style={{ marginTop: 26 }}>
-          <button className={ui.back} onClick={handleBack} aria-label="Retour">
+          <button
+            className={ui.back}
+            onClick={handleBack}
+            aria-label={t("common.back")}
+          >
             <ArrowLeft aria-hidden="true" />
           </button>
           <button
@@ -572,14 +575,18 @@ export default function RegisterPage() {
             onClick={handleSubmit}
             disabled={!canNextStep1 || isRegistering}
           >
-            {isRegistering ? "Création..." : "Créer le compte"}
+            {isRegistering ? t("auth.creating") : t("auth.createAccount")}
           </button>
         </div>
       )}
 
       {step === 2 && (
         <div className={styles.stepFooter} style={{ marginTop: 26 }}>
-          <button className={ui.back} onClick={handleBack} aria-label="Retour">
+          <button
+            className={ui.back}
+            onClick={handleBack}
+            aria-label={t("common.back")}
+          >
             <ArrowLeft aria-hidden="true" />
           </button>
         </div>
@@ -587,9 +594,9 @@ export default function RegisterPage() {
 
       {step < 2 && (
         <p className={styles.footerLink}>
-          Déjà un compte ?{" "}
+          {t("auth.alreadyAccount")}{" "}
           <button type="button" onClick={() => router.push("/auth/login")}>
-            Se connecter
+            {t("auth.login")}
           </button>
         </p>
       )}
