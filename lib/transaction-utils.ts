@@ -30,8 +30,11 @@ export function isProcessingStatus(status: Status | string | undefined) {
   return status === Status.INPROGRESS || status === "INPROGRESS";
 }
 
-export function formatTransactionStatus(status: Status | string) {
-  const map: Record<string, string> = {
+export function formatTransactionStatus(
+  status: Status | string,
+  labels?: Partial<Record<string, string>>,
+) {
+  const defaults: Record<string, string> = {
     [Status.WAITING]: "En attente",
     [Status.INPROGRESS]: "En cours",
     [Status.CONFIRMED]: "Confirmé",
@@ -43,7 +46,8 @@ export function formatTransactionStatus(status: Status | string) {
     ERROR: "Erreur",
     FINISH: "Terminé",
   };
-  return map[status as string] ?? "En attente";
+  const map = { ...defaults, ...labels };
+  return map[status as string] ?? labels?.WAITING ?? defaults.WAITING;
 }
 
 export function isTransactionPaid(status: Status | string) {

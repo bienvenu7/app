@@ -46,10 +46,12 @@ import { toast } from "sonner";
 import { ScheduleUnavailableModal } from "@/components/schedule-unavailable-modal";
 import { isOutsideWorkingSchedule } from "@/lib/working-hours";
 import type { IShedule } from "@/types/country";
+import { useT } from "@/lib/i18n";
 
 const TOTAL_STEPS = 4;
 
 function TransferFlow() {
+  const t = useT();
   const {
     state: { user, isLoading },
   } = Auth();
@@ -191,10 +193,10 @@ function TransferFlow() {
   };
 
   const stepTitles = [
-    "Type de transfert",
-    "Montant & pays",
-    "Détails du transfert",
-    "Conditions",
+    t("transfer.stepType"),
+    t("transfer.stepAmount"),
+    t("transfer.stepDetails"),
+    t("transfer.stepTerms"),
   ];
 
   const variants = {
@@ -240,12 +242,12 @@ function TransferFlow() {
     // last step -> save draft, go to validation
     await mutateAsync()
       .then((e) => {
-        toast.success(`transfert ${e.txid} enregistré avec succèss!`);
+        toast.success(t("transfer.successToast", { txid: e.txid }));
         const txId = e.id ?? e.txid;
         router.push(`/transfer/validate?id=${encodeURIComponent(txId)}`);
       })
       .catch(() => {
-        toast.error("Une erreur s'est produit, veuillez ressayer plkutard!");
+        toast.error(t("transfer.errorToast"));
       });
   };
 
@@ -266,13 +268,21 @@ function TransferFlow() {
   return (
     <div className={styles.page}>
       <header className={ui.pageHeader}>
-        <button className={ui.back} onClick={handleBack} aria-label="Retour">
+        <button
+          className={ui.back}
+          onClick={handleBack}
+          aria-label={t("common.back")}
+        >
           <ArrowLeft aria-hidden="true" />
         </button>
         <div>
-          <div className={ui.title}>Nouveau transfert</div>
+          <div className={ui.title}>{t("transfer.newTransfer")}</div>
           <div className={ui.subtitle}>
-            Étape {step + 1} sur {TOTAL_STEPS} · {stepTitles[step]}
+            {t("transfer.stepOf", {
+              current: step + 1,
+              total: TOTAL_STEPS,
+              title: stepTitles[step],
+            })}
           </div>
         </div>
       </header>
@@ -380,9 +390,9 @@ function TransferFlow() {
                 ) : (
                   <ArrowDownLeft size={13} aria-hidden="true" />
                 )}
-                {type === "send" ? "Envoi" : "Réception"}
+                {type === "send" ? t("transfer.send") : t("transfer.receive")}
               </span>
-              <span>Récapitulatif</span>
+              <span>{t("transfer.recap")}</span>
             </div>
             <div className={styles.route}>
               <div className={styles.routeCountry}>
@@ -418,7 +428,7 @@ function TransferFlow() {
       <div className={styles.footer}>
         {step > 0 && (
           <button className={`${ui.btn} ${ui.btnGhost}`} onClick={handleBack}>
-            Retour
+            {t("common.back")}
           </button>
         )}
         <button
@@ -426,7 +436,7 @@ function TransferFlow() {
           onClick={handleNext}
           disabled={!canNext() || isCreatingTransaction}
         >
-          {step === TOTAL_STEPS - 1 ? "Sauvegarder" : "Suivant"}
+          {step === TOTAL_STEPS - 1 ? t("common.save") : t("common.next")}
           <ArrowRight aria-hidden="true" />
         </button>
       </div>

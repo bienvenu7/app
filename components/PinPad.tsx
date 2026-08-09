@@ -2,6 +2,7 @@
 
 import { Delete } from "lucide-react";
 import styles from "./PinPad.module.scss";
+import { useT } from "@/lib/i18n";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
 
@@ -18,6 +19,8 @@ export function PinPad({
   error?: boolean;
   disabled?: boolean;
 }) {
+  const t = useT();
+
   const handlePress = (key: string) => {
     if (disabled) return;
     if (key === "del") {
@@ -69,7 +72,7 @@ export function PinPad({
               className={styles.key}
               onClick={() => handlePress(key)}
               disabled={disabled}
-              aria-label={`Chiffre ${key}`}
+              aria-label={t("pinPad.digit", { key })}
             >
               {key}
             </button>

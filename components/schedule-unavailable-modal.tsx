@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import styles from "./schedule-unavailable-modal.module.scss";
 import { formatScheduleHour } from "@/lib/working-hours";
+import { useT } from "@/lib/i18n";
 
 export function ScheduleUnavailableModal({
   open,
@@ -17,6 +18,8 @@ export function ScheduleUnavailableModal({
   workingFrom: number;
   workingTo: number;
 }) {
+  const t = useT();
+
   useEffect(() => {
     if (!open) return;
 
@@ -32,6 +35,9 @@ export function ScheduleUnavailableModal({
 
   const fromLabel = formatScheduleHour(workingFrom);
   const toLabel = formatScheduleHour(workingTo);
+  const bodyTemplate = t("schedule.body", { from: "\u0001", to: "\u0002" });
+  const [bodyBefore, bodyRest = ""] = bodyTemplate.split("\u0001");
+  const [bodyMid, bodyAfter = ""] = bodyRest.split("\u0002");
 
   return (
     <div className={styles.overlay} onClick={onClose} role="presentation">
@@ -47,13 +53,13 @@ export function ScheduleUnavailableModal({
       >
         <div className={styles.header}>
           <h2 id="schedule-unavailable-title" className={styles.title}>
-            Chers clients !
+            {t("schedule.title")}
           </h2>
           <button
             type="button"
             className={styles.close}
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t("common.close")}
           >
             <X size={20} />
           </button>
@@ -61,22 +67,22 @@ export function ScheduleUnavailableModal({
 
         <div className={styles.body}>
           <p>
-            Nous vous informons que notre service sera indisponible dans la
-            période de <strong>{fromLabel}</strong> à{" "}
-            <strong>{toLabel}</strong> (heure locale) en raison des travaux
-            techniques planifiés. Nous nous excusons pour les désagréments
-            temporaires.
+            {bodyBefore}
+            <strong>{fromLabel}</strong>
+            {bodyMid}
+            <strong>{toLabel}</strong>
+            {bodyAfter}
           </p>
           <p className={styles.signoff}>
-            Très respectueusement,
+            {t("schedule.signoff")}
             <br />
-            L&apos;équipe AfruE.
+            {t("schedule.team")}
           </p>
         </div>
 
         <div className={styles.footer}>
           <button type="button" className={styles.okBtn} onClick={onClose}>
-            J&apos;ai compris
+            {t("schedule.understood")}
           </button>
         </div>
       </motion.div>

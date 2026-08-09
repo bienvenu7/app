@@ -1,6 +1,9 @@
+"use client";
+
 import styles from "@/app/transfer/transfer.module.scss";
 import { TransferType } from "@/lib/storage";
 import { ArrowDownLeft, ArrowUpRight, Check } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 export default function TypeStep({
   type,
@@ -11,7 +14,8 @@ export default function TypeStep({
   setType: (t: TransferType) => void;
   userCountryName: string;
 }) {
-  const country = userCountryName.trim() || "votre pays";
+  const t = useT();
+  const country = userCountryName.trim() || t("transfer.yourCountry");
 
   const options: {
     id: TransferType;
@@ -21,22 +25,22 @@ export default function TypeStep({
   }[] = [
     {
       id: "send",
-      label: "Envoyer de l'argent",
-      desc: `De ${country} vers…`,
+      label: t("transfer.sendMoney"),
+      desc: t("transfer.sendFrom", { country }),
       icon: ArrowUpRight,
     },
     {
       id: "receive",
-      label: "Recevoir de l'argent",
-      desc: `Vers ${country} depuis…`,
+      label: t("transfer.receiveMoney"),
+      desc: t("transfer.receiveTo", { country }),
       icon: ArrowDownLeft,
     },
   ];
 
   return (
     <div>
-      <h2 className={styles.stepTitle}>Que souhaitez-vous faire ?</h2>
-      <p className={styles.stepDesc}>Choisissez le type d&apos;opération.</p>
+      <h2 className={styles.stepTitle}>{t("transfer.typeTitle")}</h2>
+      <p className={styles.stepDesc}>{t("transfer.typeDesc")}</p>
       <div className={styles.typeGrid}>
         {options.map((o) => {
           const Icon = o.icon;

@@ -5,6 +5,8 @@ import { Playfair_Display } from "next/font/google";
 import "./globals.scss";
 import { AppShell } from "@/components/app-shell";
 import GlobalProvider from "@/providers/GlobalProvider";
+import { getRequestLocale } from "@/lib/i18n/server";
+import { dictionaries } from "@/lib/i18n/dictionaries";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,15 +16,18 @@ const geistSans = Geist({
 const playfair = Playfair_Display({
   variable: "--font-serif",
   style: ["italic", "normal"],
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "AFRU-E · Transfert d'argent Russie ↔ Afrique",
-  description:
-    "Transférez de l'argent entre la Russie et l'Afrique, rapidement et en toute sécurité.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const messages = dictionaries[locale];
+  return {
+    title: messages.meta.title,
+    description: messages.meta.description,
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#0b0f1a",
@@ -33,15 +38,17 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getRequestLocale();
+
   return (
-    <html lang="fr" className={`${geistSans.variable} ${playfair.variable}`}>
+    <html lang={locale} className={`${geistSans.variable} ${playfair.variable}`}>
       <body>
-        <GlobalProvider>
+        <GlobalProvider locale={locale}>
           <AppShell>{children}</AppShell>
         </GlobalProvider>
 

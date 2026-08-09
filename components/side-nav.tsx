@@ -4,32 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUp, Home, List, User } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Auth } from "@/providers/AuthContext";
+import { useT } from "@/lib/i18n";
 import styles from "./side-nav.module.scss";
 
 const ICON_STROKE = 1.5;
-
-const items = [
-  { href: "/", label: "Accueil", icon: Home, match: (p: string) => p === "/" },
-  {
-    href: "/transfer",
-    label: "Transfert",
-    icon: ArrowUp,
-    match: (p: string) => p.startsWith("/transfer"),
-  },
-  {
-    href: "/transactions",
-    label: "Historique",
-    icon: List,
-    match: (p: string) => p.startsWith("/transactions"),
-  },
-  {
-    href: "/profile",
-    label: "Profil",
-    icon: User,
-    match: (p: string) => p.startsWith("/profile"),
-  },
-];
 
 function getInitials(fullName?: string) {
   if (!fullName?.trim()) return "··";
@@ -44,18 +24,41 @@ function getInitials(fullName?: string) {
 
 export function SideNav() {
   const pathname = usePathname();
+  const t = useT();
   const {
     state: { user },
   } = Auth();
 
+  const items = [
+    { href: "/", label: t("nav.home"), icon: Home, match: (p: string) => p === "/" },
+    {
+      href: "/transfer",
+      label: t("nav.transfer"),
+      icon: ArrowUp,
+      match: (p: string) => p.startsWith("/transfer"),
+    },
+    {
+      href: "/transactions",
+      label: t("nav.history"),
+      icon: List,
+      match: (p: string) => p.startsWith("/transactions"),
+    },
+    {
+      href: "/profile",
+      label: t("nav.profile"),
+      icon: User,
+      match: (p: string) => p.startsWith("/profile"),
+    },
+  ];
+
   if (pathname?.startsWith("/auth")) return null;
 
   return (
-    <nav className={styles.nav} aria-label="Navigation principale">
+    <nav className={styles.nav} aria-label={t("nav.mainNav")}>
       <div className={styles.glow} aria-hidden="true" />
       <div className={styles.brandWrap}>
         <Brand size="lg" />
-        <p className={styles.tagline}>Transferts sécurisés Russie ↔ Afrique</p>
+        <p className={styles.tagline}>{t("nav.tagline")}</p>
       </div>
 
       <div className={styles.links}>
@@ -76,17 +79,18 @@ export function SideNav() {
       </div>
 
       <div className={styles.footer}>
+        <LanguageSwitcher className={styles.langSwitcher} />
         <Link
           href="/profile"
           className={styles.profile}
-          aria-label="Voir le profil"
+          aria-label={t("common.viewProfile")}
         >
           <span className={styles.avatar}>{getInitials(user?.fullName)}</span>
           <span className={styles.profileInfo}>
             <span className={styles.profileName}>
-              {user?.fullName?.trim() || "Mon compte"}
+              {user?.fullName?.trim() || t("common.myAccount")}
             </span>
-            <span className={styles.profileHint}>Voir le profil</span>
+            <span className={styles.profileHint}>{t("common.viewProfile")}</span>
           </span>
         </Link>
       </div>

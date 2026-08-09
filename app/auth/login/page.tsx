@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/brand";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
@@ -18,6 +19,7 @@ import {
 import { Auth } from "@/providers/AuthContext";
 import { isAuthEntryRoute } from "@/lib/auth-routes";
 import Loading from "@/components/Loading";
+import { useT } from "@/lib/i18n";
 import {
   clearPinAuth,
   getValidPinAuth,
@@ -47,6 +49,7 @@ function LoginFlow() {
   const searchParams = useSearchParams();
   const returnTo = safeReturnPath(searchParams.get("from"));
   const { fillState } = Auth();
+  const t = useT();
 
   const [mode, setMode] = useState<Mode>("checking");
   const [savedAuth, setSavedAuth] = useState<PinAuth | null>(null);
@@ -117,7 +120,7 @@ function LoginFlow() {
       try {
         const user = await getAuth();
         if (cancelled) return;
-        const firstName = user.fullName?.split(" ")[0] || "cher client";
+        const firstName = user.fullName?.split(" ")[0] || t("common.dearClient");
         setGreetingName(firstName);
       } catch {
         if (cancelled) return;
@@ -126,7 +129,7 @@ function LoginFlow() {
         setGreetingName(null);
         setEmail(savedAuth.email);
         setMode("credentials");
-        toast.error("Votre session a expiré, veuillez vous reconnecter.");
+        toast.error(t("auth.sessionExpired"));
       } finally {
         if (!cancelled) setLoadingProfile(false);
       }
@@ -201,9 +204,9 @@ function LoginFlow() {
       setNewPassword("");
       setConfirmNewPassword("");
       setMode("credentials");
-      toast.success("Votre mot de passe a été mis à jour. Connectez-vous.");
+      toast.success(t("auth.passwordUpdated"));
     } catch {
-      toast.error("Impossible de réinitialiser le mot de passe.");
+      toast.error(t("auth.passwordResetError"));
     }
   };
 
@@ -217,9 +220,9 @@ function LoginFlow() {
       resetOtpBuffer();
       resetPinBuffers();
       setMode("verify-otp");
-      toast.success("Un code à 6 chiffres vous a été envoyé par email.");
+      toast.success(t("auth.otpSent"));
     } catch {
-      toast.error("Email ou mot de passe incorrect.");
+      toast.error(t("auth.badCredentials"));
     } finally {
       setVerifying(false);
     }
@@ -230,9 +233,9 @@ function LoginFlow() {
     try {
       await resend();
       resetOtpBuffer();
-      toast.success("Un nouveau code a été envoyé.");
+      toast.success(t("auth.otpResent"));
     } catch {
-      toast.error("Impossible de renvoyer le code.");
+      toast.error(t("auth.otpResendError"));
     }
   };
 
@@ -250,14 +253,14 @@ function LoginFlow() {
         resetOtpBuffer();
         resetPinBuffers();
         setMode("create-pin");
-        toast.success("Code vérifié !");
+        toast.success(t("auth.otpVerified"));
       } catch {
         // Allow retry only if this OTP hasn't already succeeded elsewhere
         if (otpSubmittedRef.current !== otp) return;
         otpSubmittedRef.current = null;
         setOtpVerifying(false);
         setOtpError(true);
-        toast.error("Code incorrect, réessayez.");
+        toast.error(t("auth.otpIncorrect"));
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
@@ -269,12 +272,12 @@ function LoginFlow() {
   // PIN creation — step 1
   useEffect(() => {
     if (mode !== "create-pin" || pin.length !== 5) return;
-    const t = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setFirstPin(pin);
       setPin("");
       setMode("confirm-pin");
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeoutId);
   }, [pin, mode]);
 
   // PIN creation — confirmation
@@ -293,11 +296,11 @@ function LoginFlow() {
         });
         try {
           await completeSessionAndGoHome(
-            "Votre code a été créé avec succès !",
+            t("auth.pinCreated"),
           );
         } catch {
           if (cancelled) return;
-          toast.error("Impossible de charger votre session.");
+          toast.error(t("auth.sessionLoadError"));
         }
       })();
       return () => {
@@ -306,15 +309,15 @@ function LoginFlow() {
     }
 
     setPinError(true);
-    const t = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setPinError(false);
       setPin("");
       setFirstPin("");
       setMode("create-pin");
-      toast.error("Les codes ne correspondent pas, réessayez.");
+      toast.error(t("auth.pinsMismatch"));
     }, 500);
-    return () => clearTimeout(t);
-  }, [pin, mode, firstPin, pendingEmail, completeSessionAndGoHome]);
+    return () => clearTimeout(timeoutId);
+  }, [pin, mode, firstPin, pendingEmail, completeSessionAndGoHome, t]);
 
   // Returning user — PIN unlock
   useEffect(() => {
@@ -322,11 +325,11 @@ function LoginFlow() {
 
     if (pin !== savedAuth.pin) {
       setPinError(true);
-      const t = setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         setPinError(false);
         setPin("");
       }, 500);
-      return () => clearTimeout(t);
+      return () => clearTimeout(timeoutId);
     }
 
     let cancelled = false;
@@ -334,12 +337,12 @@ function LoginFlow() {
       try {
         touchPinUnlock(savedAuth);
         const greeting = greetingName
-          ? `Bon retour, ${greetingName} 👋`
+          ? t("auth.welcomeBackToast", { name: greetingName })
           : undefined;
         await completeSessionAndGoHome(greeting);
       } catch {
         if (cancelled) return;
-        toast.error("Votre session a expiré, veuillez vous reconnecter.");
+        toast.error(t("auth.sessionExpired"));
         setEmail(savedAuth.email);
         clearPinAuth();
         setSavedAuth(null);
@@ -366,6 +369,7 @@ function LoginFlow() {
     <div>
       <div className={styles.brandRow}>
         <Brand size="auth" />
+        <LanguageSwitcher compact />
       </div>
 
       <AnimatePresence mode="wait">
@@ -380,34 +384,34 @@ function LoginFlow() {
           >
             <div className={styles.header}>
               <h1 className={styles.title}>
-                Bon <em>retour</em>
+                {t("auth.welcomeBack")} <em>{t("auth.welcomeBackEm")}</em>
               </h1>
-              <p className={styles.subtitle}>Connectez-vous à votre compte.</p>
+              <p className={styles.subtitle}>{t("auth.loginSubtitle")}</p>
             </div>
 
             <div className={styles.form}>
               <div>
-                <span className={styles.label}>Email</span>
+                <span className={styles.label}>{t("common.email")}</span>
                 <input
                   className={styles.input}
                   type="email"
-                  placeholder="vous@exemple.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  aria-label="Email"
+                  aria-label={t("common.email")}
                   autoFocus
                 />
               </div>
 
               <div className={styles.passwordField}>
-                <span className={styles.label}>Mot de passe</span>
+                <span className={styles.label}>{t("common.password")}</span>
                 <input
                   className={styles.input}
                   type={showPassword ? "text" : "password"}
-                  placeholder="Votre mot de passe"
+                  placeholder={t("auth.passwordPlaceholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  aria-label="Mot de passe"
+                  aria-label={t("common.password")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleLoginSubmit();
                   }}
@@ -418,8 +422,8 @@ function LoginFlow() {
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={
                     showPassword
-                      ? "Masquer le mot de passe"
-                      : "Afficher le mot de passe"
+                      ? t("common.hidePassword")
+                      : t("common.showPassword")
                   }
                 >
                   {showPassword ? (
@@ -432,7 +436,7 @@ function LoginFlow() {
 
               <p className={styles.forgotPassword}>
                 <button type="button" onClick={handleOpenForgotPassword}>
-                  Mot de passe oublié ?
+                  {t("auth.forgotPassword")}
                 </button>
               </p>
             </div>
@@ -448,16 +452,16 @@ function LoginFlow() {
               }
               style={{ marginTop: 26 }}
             >
-              {isLogin || verifying ? "Connexion..." : "Se connecter"}
+              {isLogin || verifying ? t("auth.loggingIn") : t("auth.login")}
             </button>
 
             <p className={styles.footerLink}>
-              Pas encore de compte ?{" "}
+              {t("auth.noAccount")}{" "}
               <button
                 type="button"
                 onClick={() => router.push("/auth/register")}
               >
-                S&apos;inscrire
+                {t("auth.signUp")}
               </button>
             </p>
           </motion.div>
@@ -474,36 +478,34 @@ function LoginFlow() {
           >
             <div className={styles.header}>
               <h1 className={styles.title}>
-                Mot de passe <em>oublié</em>
+                {t("auth.forgotTitle")} <em>{t("auth.forgotTitleEm")}</em>
               </h1>
-              <p className={styles.subtitle}>
-                Entrez votre email et choisissez un nouveau mot de passe.
-              </p>
+              <p className={styles.subtitle}>{t("auth.forgotSubtitle")}</p>
             </div>
 
             <div className={styles.form}>
               <div>
-                <span className={styles.label}>Email</span>
+                <span className={styles.label}>{t("common.email")}</span>
                 <input
                   className={styles.input}
                   type="email"
-                  placeholder="vous@exemple.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  aria-label="Email"
+                  aria-label={t("common.email")}
                   autoFocus
                 />
               </div>
 
               <div className={styles.passwordField}>
-                <span className={styles.label}>Nouveau mot de passe</span>
+                <span className={styles.label}>{t("auth.newPassword")}</span>
                 <input
                   className={styles.input}
                   type={showNewPassword ? "text" : "password"}
-                  placeholder="Au moins 6 caractères"
+                  placeholder={t("auth.minChars")}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  aria-label="Nouveau mot de passe"
+                  aria-label={t("auth.newPassword")}
                 />
                 <button
                   type="button"
@@ -511,8 +513,8 @@ function LoginFlow() {
                   onClick={() => setShowNewPassword((v) => !v)}
                   aria-label={
                     showNewPassword
-                      ? "Masquer le mot de passe"
-                      : "Afficher le mot de passe"
+                      ? t("common.hidePassword")
+                      : t("common.showPassword")
                   }
                 >
                   {showNewPassword ? (
@@ -524,14 +526,14 @@ function LoginFlow() {
               </div>
 
               <div className={styles.passwordField}>
-                <span className={styles.label}>Confirmer</span>
+                <span className={styles.label}>{t("common.confirm")}</span>
                 <input
                   className={styles.input}
                   type={showConfirmNewPassword ? "text" : "password"}
-                  placeholder="Retapez votre mot de passe"
+                  placeholder={t("auth.retypePassword")}
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  aria-label="Confirmer le mot de passe"
+                  aria-label={t("common.confirm")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleForgotPasswordSubmit();
                   }}
@@ -542,8 +544,8 @@ function LoginFlow() {
                   onClick={() => setShowConfirmNewPassword((v) => !v)}
                   aria-label={
                     showConfirmNewPassword
-                      ? "Masquer le mot de passe"
-                      : "Afficher le mot de passe"
+                      ? t("common.hidePassword")
+                      : t("common.showPassword")
                   }
                 >
                   {showConfirmNewPassword ? (
@@ -555,7 +557,7 @@ function LoginFlow() {
                 {confirmNewPassword.length > 0 &&
                   confirmNewPassword !== newPassword && (
                     <p className={styles.hint}>
-                      Les mots de passe ne correspondent pas.
+                      {t("auth.passwordsMismatch")}
                     </p>
                   )}
               </div>
@@ -565,7 +567,7 @@ function LoginFlow() {
               <button
                 className={ui.back}
                 onClick={handleBackToLogin}
-                aria-label="Retour"
+                aria-label={t("common.back")}
               >
                 <ArrowLeft aria-hidden="true" />
               </button>
@@ -574,7 +576,7 @@ function LoginFlow() {
                 onClick={handleForgotPasswordSubmit}
                 disabled={!canResetPassword || isResettingPassword}
               >
-                {isResettingPassword ? "Mise à jour..." : "Réinitialiser"}
+                {isResettingPassword ? t("auth.updating") : t("auth.reset")}
               </button>
             </div>
           </motion.div>
@@ -591,10 +593,10 @@ function LoginFlow() {
           >
             <div className={styles.pinHeader}>
               <h1 className={styles.title}>
-                Vérifiez votre <em>code</em>
+                {t("auth.verifyCode")} <em>{t("auth.verifyCodeEm")}</em>
               </h1>
               <p className={styles.subtitle}>
-                Entrez le code à 6 chiffres envoyé à{" "}
+                {t("auth.enterOtpSentTo")}{" "}
                 <span className={styles.otpEmail}>{pendingEmail}</span>
               </p>
             </div>
@@ -608,13 +610,13 @@ function LoginFlow() {
             />
 
             <p className={styles.resendOtp}>
-              Vous n&apos;avez pas reçu le code ?{" "}
+              {t("auth.noCodeReceived")}{" "}
               <button
                 type="button"
                 onClick={handleResendOtp}
                 disabled={isResending || otpVerifying}
               >
-                {isResending ? "Envoi..." : "Renvoyer"}
+                {isResending ? t("auth.sending") : t("auth.resend")}
               </button>
             </p>
           </motion.div>
@@ -633,18 +635,18 @@ function LoginFlow() {
               <h1 className={styles.title}>
                 {mode === "create-pin" ? (
                   <>
-                    Créez votre <em>code</em>
+                    {t("auth.createCode")} <em>{t("auth.createCodeEm")}</em>
                   </>
                 ) : (
                   <>
-                    Confirmez votre <em>code</em>
+                    {t("auth.confirmCode")} <em>{t("auth.confirmCodeEm")}</em>
                   </>
                 )}
               </h1>
               <p className={styles.subtitle}>
                 {mode === "create-pin"
-                  ? "Choisissez un code à 5 chiffres pour vos prochaines connexions."
-                  : "Ressaisissez le même code pour le confirmer."}
+                  ? t("auth.createPinSubtitle")
+                  : t("auth.confirmPinSubtitle")}
               </p>
             </div>
 
@@ -665,21 +667,19 @@ function LoginFlow() {
               <h1 className={styles.title}>
                 {loadingProfile ? (
                   <>
-                    Bon <em>retour</em>
+                    {t("auth.welcomeBack")} <em>{t("auth.welcomeBackEm")}</em>
                   </>
                 ) : (
                   <>
-                    Bon retour, <em>{greetingName || "cher client"}</em>
+                    {t("auth.welcomeBackName")}{" "}
+                    <em>{greetingName || t("common.dearClient")}</em>
                     <span className={styles.greetingWave} aria-hidden="true">
                       👋
                     </span>
                   </>
                 )}
               </h1>
-              <p className={styles.subtitle}>
-                Votre session a expiré. Entrez votre code à 5 chiffres pour
-                continuer.
-              </p>
+              <p className={styles.subtitle}>{t("auth.pinExpiredSubtitle")}</p>
             </div>
 
             <PinPad
@@ -692,7 +692,7 @@ function LoginFlow() {
 
             <div className={styles.switchAccount}>
               <button type="button" onClick={handleUseAnotherAccount}>
-                Se connecter avec un autre compte
+                {t("auth.useAnotherAccount")}
               </button>
             </div>
           </motion.div>

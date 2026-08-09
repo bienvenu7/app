@@ -1,9 +1,12 @@
+"use client";
+
 import { AFRICAN_COUNTRIES, Country, formatMoney, computeTransferAmounts } from "@/lib/data";
 import { TransferType } from "@/lib/storage";
 import styles from "@/app/transfer/transfer.module.scss";
 import { ArrowDown, Lock } from "lucide-react";
 import { IClientResponse } from "@/types/user";
 import { IDirection, IRate } from "@/types/country";
+import { useT } from "@/lib/i18n";
 
 export default function AmountStep({
   type,
@@ -36,8 +39,11 @@ export default function AmountStep({
   feesIncluded: boolean;
   setFeesIncluded: (v: boolean) => void;
 }) {
+  const t = useT();
   const pickerLabel =
-    type === "send" ? "Pays du destinataire" : "Pays de l'expéditeur";
+    type === "send"
+      ? t("transfer.recipientCountry")
+      : t("transfer.senderCountry");
 
   const rate = parseFloat(rateData?.taux ?? "0");
   const { fee, totalToPay, amountToPayOut } = computeTransferAmounts(
@@ -55,9 +61,13 @@ export default function AmountStep({
   const amountError = !iltineraire
     ? null
     : amountNum > 0 && amountNum < iltineraire.min
-      ? `Le montant minimum est ${formatMoney(iltineraire.min, from)}.`
+      ? t("transfer.minError", {
+          amount: formatMoney(iltineraire.min, from),
+        })
       : amountNum > iltineraire.max
-        ? `Le montant maximum est ${formatMoney(iltineraire.max, from)}.`
+        ? t("transfer.maxError", {
+            amount: formatMoney(iltineraire.max, from),
+          })
         : null;
 
   return (
@@ -65,8 +75,8 @@ export default function AmountStep({
       <h2 className={styles.stepTitle}>{pickerLabel}</h2>
       <p className={styles.stepDesc}>
         {type === "send"
-          ? "Sélectionnez le pays qui recevra les fonds."
-          : "Sélectionnez le pays d'où proviennent les fonds."}
+          ? t("transfer.selectRecipientCountry")
+          : t("transfer.selectSenderCountry")}
       </p>
 
       <div className={styles.fixedSide}>
@@ -75,7 +85,7 @@ export default function AmountStep({
         </span>
         <div>
           <div className={styles.fLabel}>
-            {type === "send" ? "Expéditeur" : "Destinataire"}
+            {type === "send" ? t("transfer.sender") : t("transfer.recipient")}
           </div>
           <div className={styles.fName}>
             {type === "send" ? from.name : to.name}
@@ -104,16 +114,18 @@ export default function AmountStep({
 
       <div className={`${styles.amountBox} ${isAmountOutOfRange ? styles.amountBoxInvalid : ""}`}>
         <div className={styles.amountLabel}>
-          <span>Vous envoyez ({from.name})</span>
+          <span>{t("transfer.youSend", { country: from.name })}</span>
         </div>
         <div className={styles.amountInput}>
           <input
             type="number"
             inputMode="decimal"
-            placeholder={`minimum ${iltineraire?.min || 0}`}
+            placeholder={t("transfer.minPlaceholder", {
+              min: iltineraire?.min || 0,
+            })}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            aria-label="Montant à envoyer"
+            aria-label={t("transfer.amountAria")}
             aria-invalid={isAmountOutOfRange}
             aria-describedby={amountError ? "amount-range-error" : undefined}
             className={isAmountOutOfRange ? styles.amountInvalid : undefined}
@@ -135,7 +147,9 @@ export default function AmountStep({
 
       <div className={`${styles.amountBox} ${styles.received}`}>
         <div className={styles.amountLabel}>
-          <span>Le destinataire reçoit ({to.name})</span>
+          <span>
+            {t("transfer.recipientReceives", { country: to.name })}
+          </span>
         </div>
         <div className={styles.amountInput}>
           <span className={styles.amountValue}>
@@ -148,16 +162,18 @@ export default function AmountStep({
 
       {amountNum > 0 && (
         <>
-          <span className={styles.label}>Frais de transfert</span>
+          <span className={styles.label}>{t("transfer.transferFees")}</span>
           <div className={styles.feeOptions}>
             <button
               type="button"
               className={`${styles.feeOption} ${!feesIncluded ? styles.selected : ""}`}
               onClick={() => setFeesIncluded(false)}
             >
-              <span className={styles.feeOptionTitle}>Frais en plus</span>
+              <span className={styles.feeOptionTitle}>
+                {t("transfer.feesExtra")}
+              </span>
               <span className={styles.feeOptionHint}>
-                Vous payez les frais en supplément
+                {t("transfer.feesExtraHint")}
               </span>
             </button>
             <button
@@ -165,25 +181,27 @@ export default function AmountStep({
               className={`${styles.feeOption} ${feesIncluded ? styles.selected : ""}`}
               onClick={() => setFeesIncluded(true)}
             >
-              <span className={styles.feeOptionTitle}>Frais inclus</span>
+              <span className={styles.feeOptionTitle}>
+                {t("transfer.feesIncluded")}
+              </span>
               <span className={styles.feeOptionHint}>
-                Les frais sont déduits du montant
+                {t("transfer.feesIncludedHint")}
               </span>
             </button>
           </div>
 
           <div className={styles.breakdown}>
             <div className={styles.brow}>
-              <span>Montant</span>
+              <span>{t("transfer.amount")}</span>
               <strong>{formatMoney(amountToPayOut, to)}</strong>
             </div>
             <div className={styles.brow}>
-              <span>Frais ({iltineraire?.fee})%</span>
+              <span>{t("transfer.feesPercent", { fee: iltineraire?.fee })}</span>
               <strong>{formatMoney(fee, from)}</strong>
             </div>
             <div className={styles.divider} />
             <div className={styles.brow}>
-              <span>Total à payer</span>
+              <span>{t("transfer.totalToPay")}</span>
               <strong>{formatMoney(totalToPay, from)}</strong>
             </div>
           </div>

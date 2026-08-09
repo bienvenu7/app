@@ -15,6 +15,7 @@ import { countryFlagEmoji } from "@/lib/flags";
 import { clearPinAuth } from "@/lib/storage";
 import { useLogout } from "@/hooks/useAuthentication";
 import type { ICountry } from "@/types/country";
+import { useT } from "@/lib/i18n";
 
 function splitFullName(fullName?: string) {
   const parts = fullName?.trim().split(/\s+/) ?? [];
@@ -25,6 +26,7 @@ function splitFullName(fullName?: string) {
 }
 
 export default function ProfilePage() {
+  const t = useT();
   const router = useRouter();
   const {
     state: { user, isLoading },
@@ -107,7 +109,7 @@ export default function ProfilePage() {
       resetState();
       setTimeout(() => router.push("/auth/login"), 1500);
     } catch {
-      toast.error("Impossible d'enregistrer les modifications.");
+      toast.error(t("profile.saveError"));
     }
   };
 
@@ -135,7 +137,7 @@ export default function ProfilePage() {
     <div className={styles.page}>
       <header className={`${styles.header} ${styles.pageHeader}`}>
         <h1 className={styles.title}>
-          Mon <em>profil</em>
+          {t("profile.title")} <em>{t("profile.titleEm")}</em>
         </h1>
       </header>
 
@@ -155,7 +157,7 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div className={styles.n}>{stats?.total ?? 0}</div>
-                <div className={styles.l}>Transferts ce mois</div>
+                <div className={styles.l}>{t("home.transfersThisMonth")}</div>
               </>
             )}
           </div>
@@ -165,7 +167,7 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div className={styles.n}>{stats?.send ?? 0}</div>
-                <div className={styles.l}>Envois ce mois</div>
+                <div className={styles.l}>{t("home.sendsThisMonth")}</div>
               </>
             )}
           </div>
@@ -175,7 +177,7 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div className={styles.n}>{stats?.receive ?? 0}</div>
-                <div className={styles.l}>Réceptions ce mois</div>
+                <div className={styles.l}>{t("home.receivesThisMonth")}</div>
               </>
             )}
           </div>
@@ -183,31 +185,36 @@ export default function ProfilePage() {
       </div>
 
       <section className={`${styles.section} ${styles.pageForm}`}>
-        <h2 className={styles.sectionTitle}>Informations personnelles</h2>
+        <h2 className={styles.sectionTitle}>{t("profile.personalInfo")}</h2>
 
         <div className={styles.field}>
-          <label>Prénom</label>
+          <label>{t("common.firstName")}</label>
           <div className={styles.value}>{firstName || "—"}</div>
         </div>
 
         <div className={styles.field}>
-          <label>Nom</label>
+          <label>{t("common.lastName")}</label>
           <div className={styles.value}>{lastName || "—"}</div>
         </div>
 
         <div className={styles.field}>
-          <label>Email</label>
-          <input type="email" value={email} readOnly aria-label="Email" />
+          <label>{t("common.email")}</label>
+          <input
+            type="email"
+            value={email}
+            readOnly
+            aria-label={t("common.email")}
+          />
         </div>
 
         <div className={styles.field}>
-          <label>Téléphone</label>
+          <label>{t("common.phone")}</label>
           <input
             type="tel"
             placeholder="+242 06 123 4567"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            aria-label="Téléphone"
+            aria-label={t("common.phone")}
           />
         </div>
 
@@ -219,15 +226,15 @@ export default function ProfilePage() {
             aria-haspopup="listbox"
             aria-expanded={countryOpen}
           >
-            <label>Pays de résidence</label>
+            <label>{t("profile.residenceCountry")}</label>
             <div className={styles.row}>
               <span className={styles.flag} aria-hidden="true">
                 {countryFlagEmoji(selectedCountry?.pubicName)}
               </span>
               <span className={styles.selVal}>
                 {loadingCountries
-                  ? "Chargement..."
-                  : (selectedCountry?.pubicName ?? "Sélectionnez un pays")}
+                  ? t("common.loading")
+                  : (selectedCountry?.pubicName ?? t("common.selectCountry"))}
               </span>
               <span className={styles.chev}>
                 <ChevronDown aria-hidden="true" />
@@ -239,13 +246,15 @@ export default function ProfilePage() {
             <div className={styles.selectMenu} role="listbox">
               <input
                 className={styles.selectSearch}
-                placeholder="Rechercher un pays..."
+                placeholder={t("common.searchCountry")}
                 value={countrySearch}
                 onChange={(e) => setCountrySearch(e.target.value)}
                 autoFocus
               />
               {filteredCountries.length === 0 && (
-                <div className={styles.selectEmpty}>Aucun pays trouvé</div>
+                <div className={styles.selectEmpty}>
+                  {t("common.noCountryFound")}
+                </div>
               )}
               {filteredCountries.map((c) => (
                 <button
@@ -276,7 +285,7 @@ export default function ProfilePage() {
           onClick={handleSave}
           disabled={isSaving || !canSave}
         >
-          {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+          {isSaving ? t("profile.saving") : t("profile.saveChanges")}
         </button>
 
         <button
@@ -286,7 +295,7 @@ export default function ProfilePage() {
           disabled={islogout}
         >
           <LogOut size={18} aria-hidden="true" />
-          {islogout ? "Déconnexion..." : "Se déconnecter"}
+          {islogout ? t("profile.loggingOut") : t("profile.logout")}
         </button>
       </section>
     </div>

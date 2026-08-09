@@ -1,8 +1,11 @@
+"use client";
+
 import { Country, formatMoney, computeTransferAmounts } from "@/lib/data";
 import { IDirection, IRate } from "@/types/country";
 import styles from "@/app/transfer/transfer.module.scss";
 import { Check } from "lucide-react";
 import { INetworkResponse } from "@/types/networks";
+import { useT } from "@/lib/i18n";
 
 export default function TermsStep({
   accepted,
@@ -33,6 +36,7 @@ export default function TermsStep({
   selectedNetwork: INetworkResponse;
   recipientPhone: string;
 }) {
+  const t = useT();
   const rate = parseFloat(rateData?.taux ?? "0");
   const { fee, totalToPay, convertAmount, amountToPayOut } =
     computeTransferAmounts(
@@ -43,37 +47,44 @@ export default function TermsStep({
     );
   return (
     <div>
-      <h2 className={styles.stepTitle}>Conditions du transfert</h2>
-      <p className={styles.stepDesc}>
-        Veuillez lire et accepter avant de continuer.
-      </p>
+      <h2 className={styles.stepTitle}>{t("transfer.termsTitle")}</h2>
+      <p className={styles.stepDesc}>{t("transfer.termsDesc")}</p>
 
       <div className={styles.terms}>
-        <h3>Contrat de transfert</h3>
+        <h3>{t("transfer.contractTitle")}</h3>
         <ul>
           <li>
-            Vous payez <strong>{formatMoney(totalToPay, from)}</strong> depuis{" "}
-            {from.name}
+            {t("transfer.payFrom", {
+              amount: formatMoney(totalToPay, from),
+              country: from.name,
+            })}
             {feesIncluded
-              ? " (frais inclus)."
-              : ` (${formatMoney(convertAmount, from)} + ${formatMoney(fee, from)} de frais).`}
+              ? t("transfer.feesIncludedSuffix")
+              : t("transfer.feesExtraSuffix", {
+                  convert: formatMoney(convertAmount, from),
+                  fee: formatMoney(fee, from),
+                })}
           </li>
           <li>
-            Le destinataire <strong>{recipientName}</strong> recevra{" "}
-            <strong>{formatMoney(amountToPayOut, to)}</strong> en {to.name} via{" "}
-            <strong>{selectedNetwork?.name}</strong> au{" "}
-            <strong>{recipientPhone}</strong>
+            {t("transfer.recipientWillReceive", {
+              name: recipientName,
+              amount: formatMoney(amountToPayOut, to),
+              country: to.name,
+              network: selectedNetwork?.name ?? "",
+              phone: recipientPhone,
+            })}
           </li>
           <li>
-            Des frais de service de <strong>{formatMoney(fee, from)}</strong>{" "}
-            s&apos;appliquent
+            {t("transfer.serviceFees", {
+              fee: formatMoney(fee, from),
+            })}
             {feesIncluded
-              ? " et sont déduits du montant envoyé."
-              : " et sont payés en supplément."}
+              ? t("transfer.feesDeducted")
+              : t("transfer.feesPaidExtra")}
           </li>
-          <li>Le taux de change est garanti pendant 30 minutes.</li>
-          <li>Les informations fournies sont exactes et vérifiables.</li>
-          <li>Le transfert est irréversible une fois validé et payé.</li>
+          <li>{t("transfer.rateGuaranteed")}</li>
+          <li>{t("transfer.infoAccurate")}</li>
+          <li>{t("transfer.irreversible")}</li>
         </ul>
       </div>
 
@@ -85,10 +96,7 @@ export default function TermsStep({
         <span className={styles.box}>
           {accepted && <Check aria-hidden="true" />}
         </span>
-        <span className={styles.cbText}>
-          J&apos;accepte les <span>conditions générales</span> et le contrat de
-          transfert d&apos;AFRU-E.
-        </span>
+        <span className={styles.cbText}>{t("transfer.acceptTerms")}</span>
       </button>
     </div>
   );
