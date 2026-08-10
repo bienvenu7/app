@@ -7,7 +7,6 @@ import {
   formatMoney,
   computeTransferAmounts,
   computeSendAmountFromPayout,
-  roundAmountForCountry,
 } from "@/lib/data";
 import { TransferType } from "@/lib/storage";
 import styles from "@/app/transfer/transfer.module.scss";
@@ -16,9 +15,13 @@ import { IClientResponse } from "@/types/user";
 import { IDirection, IRate } from "@/types/country";
 import { useT } from "@/lib/i18n";
 
-function amountInputString(value: number, country: Country): string {
+function integerAmountInput(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function amountInputString(value: number): string {
   if (value <= 0) return "";
-  return String(roundAmountForCountry(value, country));
+  return String(Math.round(value));
 }
 
 export default function AmountStep({
@@ -76,7 +79,7 @@ export default function AmountStep({
 
   useEffect(() => {
     if (lastEdited.current === "receive") {
-      const payout = parseFloat(receiveAmount) || 0;
+      const payout = parseInt(receiveAmount, 10) || 0;
       if (payout > 0 && rate > 0) {
         const send = computeSendAmountFromPayout(
           payout,
@@ -84,13 +87,13 @@ export default function AmountStep({
           rate,
           feesIncluded,
         );
-        setAmount(amountInputString(send, from));
+        setAmount(amountInputString(send));
       }
       return;
     }
 
     if (amountNum > 0) {
-      setReceiveAmount(amountInputString(amountToPayOut, to));
+      setReceiveAmount(amountInputString(amountToPayOut));
     } else {
       setReceiveAmount("");
     }
@@ -126,9 +129,10 @@ export default function AmountStep({
 
   const handleSendChange = (value: string) => {
     lastEdited.current = "send";
-    setAmount(value);
+    const next = integerAmountInput(value);
+    setAmount(next);
 
-    const num = parseFloat(value) || 0;
+    const num = parseInt(next, 10) || 0;
     if (num > 0) {
       const { amountToPayOut: payout } = computeTransferAmounts(
         num,
@@ -136,7 +140,7 @@ export default function AmountStep({
         rate,
         feesIncluded,
       );
-      setReceiveAmount(amountInputString(payout, to));
+      setReceiveAmount(amountInputString(payout));
     } else {
       setReceiveAmount("");
     }
@@ -144,9 +148,10 @@ export default function AmountStep({
 
   const handleReceiveChange = (value: string) => {
     lastEdited.current = "receive";
-    setReceiveAmount(value);
+    const next = integerAmountInput(value);
+    setReceiveAmount(next);
 
-    const payout = parseFloat(value) || 0;
+    const payout = parseInt(next, 10) || 0;
     if (payout > 0 && rate > 0) {
       const send = computeSendAmountFromPayout(
         payout,
@@ -154,7 +159,7 @@ export default function AmountStep({
         rate,
         feesIncluded,
       );
-      setAmount(amountInputString(send, from));
+      setAmount(amountInputString(send));
     } else {
       setAmount("");
     }
@@ -208,8 +213,9 @@ export default function AmountStep({
         </div>
         <div className={styles.amountInput}>
           <input
-            type="number"
-            inputMode="decimal"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             placeholder={t("transfer.minPlaceholder", {
               min: iltineraire?.min || 0,
             })}
@@ -243,8 +249,9 @@ export default function AmountStep({
         </div>
         <div className={styles.amountInput}>
           <input
-            type="number"
-            inputMode="decimal"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             placeholder="0"
             value={receiveAmount}
             onChange={(e) => handleReceiveChange(e.target.value)}

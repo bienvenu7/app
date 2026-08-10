@@ -136,7 +136,7 @@ function TransferFlow() {
     return (networks as INetworkResponse[])?.find((el) => el.id === payment);
   }, [networks, payment]);
 
-  const amountNum = parseFloat(amount) || 0;
+  const amountNum = parseInt(amount, 10) || 0;
   const rate = parseFloat(rateData?.taux ?? "0");
   const transferAmounts = useMemo(
     () =>

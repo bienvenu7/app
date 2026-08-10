@@ -100,15 +100,10 @@ export function computeQuote(amountSource: number, from: Country, to: Country) {
 }
 
 export function formatMoney(value: number, country: Country) {
-  const rounded =
-    country.currency === "XOF" ||
-    country.currency === "XAF" ||
-    country.currency === "NGN"
-      ? Math.round(value)
-      : Math.round(value * 100) / 100;
+  const rounded = Math.round(value);
   const formatted = new Intl.NumberFormat("fr-FR", {
-    maximumFractionDigits: 2,
-  }).format(value);
+    maximumFractionDigits: 0,
+  }).format(rounded);
   return `${formatted} ${country.symbol}`;
 }
 
@@ -132,22 +127,22 @@ export function computeTransferAmounts(
   const feeRate = feePercent / 100;
 
   if (feesIncluded) {
-    const fee = amount * feeRate;
+    const fee = Math.round(amount * feeRate);
     const convertAmount = amount - fee;
     return {
       fee,
       totalToPay: amount,
       convertAmount,
-      amountToPayOut: convertAmount * rate,
+      amountToPayOut: Math.round(convertAmount * rate),
     };
   }
 
-  const fee = amount * feeRate;
+  const fee = Math.round(amount * feeRate);
   return {
     fee,
     totalToPay: amount + fee,
     convertAmount: amount,
-    amountToPayOut: amount * rate,
+    amountToPayOut: Math.round(amount * rate),
   };
 }
 
@@ -165,19 +160,12 @@ export function computeSendAmountFromPayout(
   if (feesIncluded) {
     const divisor = rate * (1 - feeRate);
     if (divisor <= 0) return 0;
-    return payout / divisor;
+    return Math.round(payout / divisor);
   }
 
-  return payout / rate;
+  return Math.round(payout / rate);
 }
 
-export function roundAmountForCountry(value: number, country: Country): number {
-  if (
-    country.currency === "XOF" ||
-    country.currency === "XAF" ||
-    country.currency === "NGN"
-  ) {
-    return Math.round(value);
-  }
-  return Math.round(value * 100) / 100;
+export function roundAmountForCountry(value: number, _country?: Country): number {
+  return Math.round(value);
 }
