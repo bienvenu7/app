@@ -150,3 +150,34 @@ export function computeTransferAmounts(
     amountToPayOut: amount * rate,
   };
 }
+
+/** Inverse of computeTransferAmounts: payout → send-side amount. */
+export function computeSendAmountFromPayout(
+  payout: number,
+  feePercent: number,
+  rate: number,
+  feesIncluded: boolean,
+): number {
+  if (payout <= 0 || rate <= 0) return 0;
+
+  const feeRate = feePercent / 100;
+
+  if (feesIncluded) {
+    const divisor = rate * (1 - feeRate);
+    if (divisor <= 0) return 0;
+    return payout / divisor;
+  }
+
+  return payout / rate;
+}
+
+export function roundAmountForCountry(value: number, country: Country): number {
+  if (
+    country.currency === "XOF" ||
+    country.currency === "XAF" ||
+    country.currency === "NGN"
+  ) {
+    return Math.round(value);
+  }
+  return Math.round(value * 100) / 100;
+}

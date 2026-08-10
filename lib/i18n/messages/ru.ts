@@ -202,6 +202,7 @@ const ru: Messages = {
     youSend: "Вы отправляете ({country})",
     recipientReceives: "Получатель получит ({country})",
     amountAria: "Сумма к отправке",
+    receiveAmountAria: "Сумма, которую получит получатель",
     minPlaceholder: "минимум {min}",
     minError: "Минимальная сумма — {amount}.",
     maxError: "Максимальная сумма — {amount}.",

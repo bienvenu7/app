@@ -201,6 +201,7 @@ const fr = {
     youSend: "Vous envoyez ({country})",
     recipientReceives: "Le destinataire reçoit ({country})",
     amountAria: "Montant à envoyer",
+    receiveAmountAria: "Montant reçu par le destinataire",
     minPlaceholder: "minimum {min}",
     minError: "Le montant minimum est {amount}.",
     maxError: "Le montant maximum est {amount}.",

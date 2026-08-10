@@ -1,12 +1,25 @@
 "use client";
 
-import { AFRICAN_COUNTRIES, Country, formatMoney, computeTransferAmounts } from "@/lib/data";
+import { useEffect, useRef, useState } from "react";
+import {
+  AFRICAN_COUNTRIES,
+  Country,
+  formatMoney,
+  computeTransferAmounts,
+  computeSendAmountFromPayout,
+  roundAmountForCountry,
+} from "@/lib/data";
 import { TransferType } from "@/lib/storage";
 import styles from "@/app/transfer/transfer.module.scss";
 import { ArrowDown, Lock } from "lucide-react";
 import { IClientResponse } from "@/types/user";
 import { IDirection, IRate } from "@/types/country";
 import { useT } from "@/lib/i18n";
+
+function amountInputString(value: number, country: Country): string {
+  if (value <= 0) return "";
+  return String(roundAmountForCountry(value, country));
+}
 
 export default function AmountStep({
   type,
@@ -40,18 +53,59 @@ export default function AmountStep({
   setFeesIncluded: (v: boolean) => void;
 }) {
   const t = useT();
+  const lastEdited = useRef<"send" | "receive">("send");
+  const [receiveAmount, setReceiveAmount] = useState("");
+
   const pickerLabel =
     type === "send"
       ? t("transfer.recipientCountry")
       : t("transfer.senderCountry");
 
+  const feePercent = iltineraire?.fee || 0;
   const rate = parseFloat(rateData?.taux ?? "0");
   const { fee, totalToPay, amountToPayOut } = computeTransferAmounts(
     amountNum,
-    iltineraire?.fee || 0,
+    feePercent,
     rate,
     feesIncluded,
   );
+
+  useEffect(() => {
+    lastEdited.current = "send";
+  }, [iltineraire?.code]);
+
+  useEffect(() => {
+    if (lastEdited.current === "receive") {
+      const payout = parseFloat(receiveAmount) || 0;
+      if (payout > 0 && rate > 0) {
+        const send = computeSendAmountFromPayout(
+          payout,
+          feePercent,
+          rate,
+          feesIncluded,
+        );
+        setAmount(amountInputString(send, from));
+      }
+      return;
+    }
+
+    if (amountNum > 0) {
+      setReceiveAmount(amountInputString(amountToPayOut, to));
+    } else {
+      setReceiveAmount("");
+    }
+  }, [
+    feesIncluded,
+    feePercent,
+    rate,
+    iltineraire?.code,
+    amountNum,
+    amountToPayOut,
+    from,
+    to,
+    setAmount,
+    receiveAmount,
+  ]);
 
   const isAmountOutOfRange =
     !!iltineraire &&
@@ -69,6 +123,42 @@ export default function AmountStep({
             amount: formatMoney(iltineraire.max, from),
           })
         : null;
+
+  const handleSendChange = (value: string) => {
+    lastEdited.current = "send";
+    setAmount(value);
+
+    const num = parseFloat(value) || 0;
+    if (num > 0) {
+      const { amountToPayOut: payout } = computeTransferAmounts(
+        num,
+        feePercent,
+        rate,
+        feesIncluded,
+      );
+      setReceiveAmount(amountInputString(payout, to));
+    } else {
+      setReceiveAmount("");
+    }
+  };
+
+  const handleReceiveChange = (value: string) => {
+    lastEdited.current = "receive";
+    setReceiveAmount(value);
+
+    const payout = parseFloat(value) || 0;
+    if (payout > 0 && rate > 0) {
+      const send = computeSendAmountFromPayout(
+        payout,
+        feePercent,
+        rate,
+        feesIncluded,
+      );
+      setAmount(amountInputString(send, from));
+    } else {
+      setAmount("");
+    }
+  };
 
   return (
     <div>
@@ -124,7 +214,7 @@ export default function AmountStep({
               min: iltineraire?.min || 0,
             })}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => handleSendChange(e.target.value)}
             aria-label={t("transfer.amountAria")}
             aria-invalid={isAmountOutOfRange}
             aria-describedby={amountError ? "amount-range-error" : undefined}
@@ -152,11 +242,16 @@ export default function AmountStep({
           </span>
         </div>
         <div className={styles.amountInput}>
-          <span className={styles.amountValue}>
-            {amountNum > 0
-              ? formatMoney(amountToPayOut, to)
-              : `0 ${to.symbol}`}
-          </span>
+          <input
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={receiveAmount}
+            onChange={(e) => handleReceiveChange(e.target.value)}
+            aria-label={t("transfer.receiveAmountAria")}
+            className={styles.receiveInput}
+          />
+          <span className={styles.cur}>{to.currency}</span>
         </div>
       </div>
 
