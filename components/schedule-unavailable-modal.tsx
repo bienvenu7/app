@@ -68,9 +68,9 @@ export function ScheduleUnavailableModal({
         <div className={styles.body}>
           <p>
             {bodyBefore}
-            <strong>{fromLabel}</strong>
-            {bodyMid}
             <strong>{toLabel}</strong>
+            {bodyMid}
+            <strong>{fromLabel}</strong>
             {bodyAfter}
           </p>
           <p className={styles.signoff}>

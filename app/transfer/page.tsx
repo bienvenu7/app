@@ -444,8 +444,8 @@ function TransferFlow() {
       <ScheduleUnavailableModal
         open={scheduleModalOpen}
         onClose={() => setScheduleModalOpen(false)}
-        workingFrom={activeShedule?.workingTo ?? 10}
-        workingTo={activeShedule?.workingFrom ?? 20}
+        workingFrom={activeShedule?.workingFrom ?? 10}
+        workingTo={activeShedule?.workingTo ?? 20}
       />
     </div>
   );
