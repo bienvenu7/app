@@ -68,6 +68,9 @@ const ru: Messages = {
     loggingOut: "Выход...",
     logout: "Выйти",
     saveError: "Не удалось сохранить изменения.",
+    saveSuccess: "Профиль обновлён.",
+    reloginRequired:
+      "Ваши данные изменены. Войдите снова.",
   },
   transactions: {
     title: "Мои",
@@ -122,13 +125,25 @@ const ru: Messages = {
     signUp: "Зарегистрироваться",
     forgotTitle: "Забыли",
     forgotTitleEm: "пароль",
-    forgotSubtitle: "Введите email и выберите новый пароль.",
+    forgotSubtitle:
+      "Введите email. Если аккаунт существует, мы отправим код сброса.",
+    forgotResetTitle: "Новый",
+    forgotResetTitleEm: "пароль",
+    forgotResetSubtitle:
+      "Введите код из письма (действителен 10 мин) и новый пароль.",
+    sendResetCode: "Отправить код",
+    sendingResetCode: "Отправка кода...",
+    resetCodeSent:
+      "Если аккаунт с этим email существует, код отправлен.",
     newPassword: "Новый пароль",
     minChars: "Не менее 6 символов",
     retypePassword: "Повторите пароль",
     passwordsMismatch: "Пароли не совпадают.",
     updating: "Обновление...",
     reset: "Сбросить",
+    passwordResetOtpInvalid: "Неверный или просроченный код.",
+    passwordResetValidation:
+      "Проверьте код (6 символов) и пароль.",
     verifyCode: "Проверьте ваш",
     verifyCodeEm: "код",
     enterOtpSentTo: "Введите 6-значный код, отправленный на",
@@ -151,6 +166,8 @@ const ru: Messages = {
     passwordResetError: "Не удалось сбросить пароль.",
     otpSent: "6-значный код отправлен на вашу почту.",
     badCredentials: "Неверный email или пароль.",
+    rateLimited:
+      "Слишком много попыток. Попробуйте снова через несколько минут.",
     otpResent: "Новый код отправлен.",
     otpResendError: "Не удалось отправить код повторно.",
     otpVerified: "Код подтверждён!",
@@ -159,6 +176,8 @@ const ru: Messages = {
     sessionLoadError: "Не удалось загрузить сессию.",
     pinsMismatch: "Коды не совпадают, попробуйте снова.",
     welcomeBackToast: "С возвращением, {name} 👋",
+    resetCodeLabel: "Код сброса",
+    otpSixDigits: "6 цифр",
     yourInfo: "Ваши",
     yourInfoEm: "данные",
     infoSubtitle: "Начнём с знакомства.",
@@ -261,22 +280,32 @@ const ru: Messages = {
     progressText:
       "Ваш перевод на сумму {amount} обрабатывается. Вы получите уведомление, когда он будет завершён.",
     imagesOnly: "Выберите только изображения (JPG, PNG и т.д.).",
+    invalidFileType:
+      "Допустимые форматы: JPG, PNG, WEBP или PDF.",
+    fileTooLarge: "Каждый файл должен быть меньше 10 МБ.",
+    tooManyFiles: "Максимум {max} файлов за одну отправку.",
+    ownershipDenied:
+      "Этот перевод не найден или вам не принадлежит.",
+    ownershipHint:
+      "Вы можете просматривать только свои переводы.",
     copied: "Скопировано в буфер обмена",
     copyError: "Не удалось скопировать",
     paymentSaved: "Платёж сохранён, перевод обрабатывается.",
-    addProof: "Добавьте хотя бы один скриншот вашего платежа.",
+    addProof: "Добавьте хотя бы одно подтверждение оплаты.",
     tooLarge:
-      "Изображения слишком большие ({size}). Уменьшите количество файлов.",
+      "Файлы слишком большие ({size}). Уменьшите количество файлов.",
     proofLabel: "Подтверждение оплаты",
     tooLargeRetry:
-      "Изображения слишком большие. Попробуйте меньше файлов или более лёгкие снимки.",
+      "Файлы слишком большие. Попробуйте меньше файлов или более лёгкие снимки.",
     confirmError: "Не удалось подтвердить платёж. Попробуйте снова.",
     payWith: "Оплатить через {name}",
     copyPaymentAria: "Скопировать инструкции по оплате",
     proofPreview: "Превью подтверждения оплаты {n}",
-    removeImage: "Удалить изображение {n}",
+    removeImage: "Удалить файл {n}",
     addMoreImages: "Добавить другие изображения",
     chooseImages: "Выбрать изображения",
+    addMoreFiles: "Добавить другие файлы",
+    chooseFiles: "Выбрать файлы",
     noPending: "Нет перевода, ожидающего подтверждения.",
     notFound: "Перевод не найден или недоступен.",
     transferLabel: "Перевод",
@@ -294,7 +323,8 @@ const ru: Messages = {
     paymentMethod: "Способ оплаты",
     loadingPayment: "Загрузка вариантов оплаты...",
     noPaymentMethods: "Нет доступных способов оплаты для этой страны.",
-    proofHint: "Добавьте один или несколько скриншотов вашей транзакции.",
+    proofHint:
+      "Добавьте одно или несколько подтверждений (JPG, PNG, WEBP или PDF, макс. 10 МБ).",
     confirming: "Подтверждение...",
   },
   chatbot: {
@@ -303,6 +333,10 @@ const ru: Messages = {
     errorFallback:
       "Извините, произошла ошибка. Попробуйте снова через мгновение.",
     sendError: "Не удалось отправить сообщение. Попробуйте снова.",
+    rateLimited:
+      "Слишком много сообщений. Попробуйте снова через несколько минут.",
+    authRequired: "Войдите, чтобы пользоваться помощником.",
+    messageTooLong: "Сообщение слишком длинное (макс. 2000 символов).",
     openAssistant: "Открыть помощника",
     closeAssistant: "Закрыть помощника",
     title: "Помощник AFRU-E",

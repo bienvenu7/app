@@ -5,8 +5,9 @@ import {
   login,
   logout,
   register,
+  requestPasswordReset,
   resendOtp,
-  updatePassword,
+  resetPassword,
 } from "@/app/actions/auth";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -47,15 +48,58 @@ export const useResendOtp = (email: string) => {
   return { resend, isResending, resendError };
 };
 
-export const useUpdatePassword = (email: string, password: string) => {
+export const useRequestPasswordReset = () => {
+  const {
+    mutateAsync: requestReset,
+    isPending: isRequestingReset,
+    isError: requestResetError,
+  } = useMutation({
+    mutationKey: ["forgot-password"],
+    mutationFn: (email: string) => requestPasswordReset(email),
+  });
+  return { requestReset, isRequestingReset, requestResetError };
+};
+
+export const useResetPassword = () => {
+  const {
+    mutateAsync: submitReset,
+    isPending: isResettingPassword,
+    isError: resetPasswordError,
+    isSuccess: resetPasswordSuccess,
+  } = useMutation({
+    mutationKey: ["reset-password"],
+    mutationFn: ({
+      email,
+      otp,
+      password,
+    }: {
+      email: string;
+      otp: string;
+      password: string;
+    }) => resetPassword(email, otp, password),
+  });
+  return {
+    submitReset,
+    isResettingPassword,
+    resetPasswordError,
+    resetPasswordSuccess,
+  };
+};
+
+/** @deprecated Prefer useResetPassword — kept for call-site compatibility. */
+export const useUpdatePassword = (
+  email: string,
+  otp: string,
+  password: string,
+) => {
   const {
     mutateAsync: changeOtp,
     isPending: loadingChangeOtp,
     isError: otpChangeError,
     isSuccess: successChangeOtp,
   } = useMutation({
-    mutationKey: ["update", password, email],
-    mutationFn: () => updatePassword(email, password),
+    mutationKey: ["update", email, otp, password],
+    mutationFn: () => resetPassword(email, otp, password),
   });
   return { changeOtp, loadingChangeOtp, otpChangeError, successChangeOtp };
 };

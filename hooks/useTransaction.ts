@@ -114,7 +114,9 @@ export const useGetTransactionStatsMonthly = (email: string | undefined) => {
   } = useQuery({
     queryKey: ["transaction-stats-monthly", email],
     queryFn: () => getTransactionsStatsMonthly(),
-    refetchInterval: 1000 * 5,
+    enabled: !!email,
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: true,
   });
   return { stats, isGettingStats, isStatsError };
 };

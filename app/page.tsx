@@ -142,7 +142,7 @@ export default function HomePage() {
       <motion.section variants={item} className={styles.pageRecent}>
         <div className={styles.sectionHead}>
           <h2>{t("home.recentTransactions")}</h2>
-          {stats?.total > 0 && (
+          {stats && stats.total > 0 && (
             <Link href="/transactions">{t("home.seeAll")}</Link>
           )}
         </div>
@@ -152,7 +152,7 @@ export default function HomePage() {
             <div className={styles.recentLoading}>
               <Loading />
             </div>
-          ) : stats?.total === 0 ? (
+          ) : !stats || stats.total === 0 ? (
             <div className={styles.empty}>
               <Inbox aria-hidden="true" />
               <div>{t("home.noTransactions")}</div>

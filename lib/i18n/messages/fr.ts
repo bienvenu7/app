@@ -66,6 +66,9 @@ const fr = {
     loggingOut: "Déconnexion...",
     logout: "Se déconnecter",
     saveError: "Impossible d'enregistrer les modifications.",
+    saveSuccess: "Profil mis à jour.",
+    reloginRequired:
+      "Vos identifiants ont changé. Veuillez vous reconnecter.",
   },
   transactions: {
     title: "Mes",
@@ -121,13 +124,23 @@ const fr = {
     forgotTitle: "Mot de passe",
     forgotTitleEm: "oublié",
     forgotSubtitle:
-      "Entrez votre email et choisissez un nouveau mot de passe.",
+      "Entrez votre email. Si un compte existe, un code de réinitialisation vous sera envoyé.",
+    forgotResetTitle: "Nouveau",
+    forgotResetTitleEm: "mot de passe",
+    forgotResetSubtitle:
+      "Saisissez le code reçu par email (valide 10 min) et choisissez un nouveau mot de passe.",
+    sendResetCode: "Envoyer le code",
+    sendingResetCode: "Envoi du code...",
+    resetCodeSent:
+      "Si un compte existe pour cet email, un code a été envoyé.",
     newPassword: "Nouveau mot de passe",
     minChars: "Au moins 6 caractères",
     retypePassword: "Retapez votre mot de passe",
     passwordsMismatch: "Les mots de passe ne correspondent pas.",
     updating: "Mise à jour...",
     reset: "Réinitialiser",
+    passwordResetOtpInvalid: "Code invalide ou expiré.",
+    passwordResetValidation: "Vérifiez le code (6 caractères) et le mot de passe.",
     verifyCode: "Vérifiez votre",
     verifyCodeEm: "code",
     enterOtpSentTo: "Entrez le code à 6 chiffres envoyé à",
@@ -150,6 +163,8 @@ const fr = {
     passwordResetError: "Impossible de réinitialiser le mot de passe.",
     otpSent: "Un code à 6 chiffres vous a été envoyé par email.",
     badCredentials: "Email ou mot de passe incorrect.",
+    rateLimited:
+      "Trop de tentatives. Réessayez dans quelques minutes.",
     otpResent: "Un nouveau code a été envoyé.",
     otpResendError: "Impossible de renvoyer le code.",
     otpVerified: "Code vérifié !",
@@ -158,6 +173,8 @@ const fr = {
     sessionLoadError: "Impossible de charger votre session.",
     pinsMismatch: "Les codes ne correspondent pas, réessayez.",
     welcomeBackToast: "Bon retour, {name} 👋",
+    resetCodeLabel: "Code de réinitialisation",
+    otpSixDigits: "6 chiffres",
     yourInfo: "Vos",
     yourInfoEm: "informations",
     infoSubtitle: "Commençons par apprendre à vous connaître.",
@@ -260,22 +277,32 @@ const fr = {
     progressText:
       "Votre transfert de {amount} est en cours de traitement. Vous serez notifié dès qu'il sera terminé.",
     imagesOnly: "Veuillez sélectionner uniquement des images (JPG, PNG, etc.).",
+    invalidFileType:
+      "Formats acceptés : JPG, PNG, WEBP ou PDF uniquement.",
+    fileTooLarge: "Chaque fichier doit faire moins de 10 Mo.",
+    tooManyFiles: "Maximum {max} fichiers par envoi.",
+    ownershipDenied:
+      "Ce transfert est introuvable ou ne vous appartient pas.",
+    ownershipHint:
+      "Vous ne pouvez consulter que vos propres transferts.",
     copied: "Copié dans le presse-papiers",
     copyError: "Impossible de copier",
     paymentSaved: "Paiement enregistré, votre transfert est en cours.",
-    addProof: "Ajoutez au moins une capture d'écran de votre paiement.",
+    addProof: "Ajoutez au moins une preuve de paiement.",
     tooLarge:
-      "Les images restent trop volumineuses ({size}). Réduisez le nombre de fichiers.",
+      "Les fichiers restent trop volumineux ({size}). Réduisez le nombre de fichiers.",
     proofLabel: "Preuve de paiement",
     tooLargeRetry:
-      "Les images sont trop volumineuses. Essayez avec moins de fichiers ou des captures plus légères.",
+      "Les fichiers sont trop volumineux. Essayez avec moins de fichiers ou des captures plus légères.",
     confirmError: "Impossible de confirmer le paiement. Réessayez.",
     payWith: "Payez avec {name}",
     copyPaymentAria: "Copier les instructions de paiement",
     proofPreview: "Aperçu de la preuve de paiement {n}",
-    removeImage: "Supprimer l'image {n}",
+    removeImage: "Supprimer le fichier {n}",
     addMoreImages: "Ajouter d'autres images",
     chooseImages: "Choisir des images",
+    addMoreFiles: "Ajouter d'autres fichiers",
+    chooseFiles: "Choisir des fichiers",
     noPending: "Aucun transfert en attente de validation.",
     notFound: "Transfert introuvable ou inaccessible.",
     transferLabel: "Transfert",
@@ -294,7 +321,7 @@ const fr = {
     loadingPayment: "Chargement des options de paiement...",
     noPaymentMethods: "Aucun moyen de paiement disponible pour ce pays.",
     proofHint:
-      "Ajoutez une ou plusieurs captures d'écran de votre transaction.",
+      "Ajoutez une ou plusieurs preuves (JPG, PNG, WEBP ou PDF, max 10 Mo).",
     confirming: "Confirmation en cours...",
   },
   chatbot: {
@@ -303,6 +330,10 @@ const fr = {
     errorFallback:
       "Désolé, une erreur s'est produite. Veuillez réessayer dans un instant.",
     sendError: "Impossible d'envoyer le message. Réessayez.",
+    rateLimited:
+      "Trop de messages. Réessayez dans quelques minutes.",
+    authRequired: "Connectez-vous pour utiliser l'assistant.",
+    messageTooLong: "Message trop long (max. 2000 caractères).",
     openAssistant: "Ouvrir l'assistant",
     closeAssistant: "Fermer l'assistant",
     title: "Assistant AFRU-E",

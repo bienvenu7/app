@@ -11,6 +11,10 @@ export enum Status {
 export interface ITrasanctionData {
   id?: string;
   code: string;
+  /**
+   * Requis par la validation API ; la valeur est ensuite écrasée par l'email du JWT.
+   * Ne pas s'y fier pour l'ownership.
+   */
   clientEmail: string;
   type: "SEND" | "RECEIVE" | "";
   amountToSend: number;

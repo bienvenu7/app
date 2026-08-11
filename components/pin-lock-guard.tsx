@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getCookie } from "@/config/cookies";
+import { hasAuthSession } from "@/config/cookies";
 import { isPublicRoute } from "@/lib/auth-routes";
 import {
   getValidPinAuth,
@@ -38,8 +38,7 @@ export function PinLockGuard({ children }: { children: React.ReactNode }) {
   const evaluateLock = useCallback(() => {
     if (isPublic || isLoading) return;
 
-    const hasToken = !!getCookie("accessToken");
-    if (!hasToken) return;
+    if (!hasAuthSession()) return;
 
     const auth = getValidPinAuth();
     if (!auth || isPinUnlockRequired(auth)) {
@@ -49,7 +48,7 @@ export function PinLockGuard({ children }: { children: React.ReactNode }) {
 
   const recordActivity = useCallback(() => {
     if (isPublic || isLoading) return;
-    if (!getCookie("accessToken")) return;
+    if (!hasAuthSession()) return;
     touchPinActivity();
   }, [isPublic, isLoading]);
 

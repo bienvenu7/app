@@ -1,7 +1,7 @@
 "use client";
 
 import { getAuth } from "@/app/actions/auth";
-import { deleteCookie, getCookie } from "@/config/cookies";
+import { clearAuthSession, hasAuthSession } from "@/config/cookies";
 import type { IClientResponse } from "@/types/user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -33,13 +33,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function readHasToken() {
-  return !!getCookie("accessToken");
-}
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-  const [hasToken, setHasToken] = useState(readHasToken);
+  const [hasToken, setHasToken] = useState(hasAuthSession);
   const [selectedCode, setSelectedCodeState] = useState<string | null>(null);
 
   const {
@@ -58,13 +54,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!isError) return;
-    deleteCookie(["accessToken", "refreshToken", "uuid"]);
+    clearAuthSession();
     setHasToken(false);
     queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
   }, [isError, queryClient]);
 
   const resetState = useCallback(() => {
-    deleteCookie(["accessToken", "refreshToken", "uuid"]);
+    clearAuthSession();
     setHasToken(false);
     queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
     setSelectedCodeState(null);

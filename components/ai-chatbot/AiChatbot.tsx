@@ -4,10 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Send, X } from "lucide-react";
 import { toast } from "sonner";
-import { getChatbotReply } from "@/app/actions/chatbot";
+import { getChatbotReply, CHATBOT_MESSAGE_MAX_LENGTH } from "@/app/actions/chatbot";
 import { useSendMessage } from "@/hooks/useFile";
 import styles from "./ai-chatbot.module.scss";
 import { useI18n, useT } from "@/lib/i18n";
+import { Auth } from "@/providers/AuthContext";
+import {
+  isForbiddenAuth,
+  isRateLimited,
+  isUnauthorized,
+  isValidationError,
+} from "@/lib/auth-errors";
 
 const FAB_SIZE_MOBILE = 44;
 const FAB_SIZE_DESKTOP = 56;
@@ -67,6 +74,9 @@ function loadStoredPosition(): { x: number; y: number } | null {
 export function AiChatbot() {
   const t = useT();
   const { locale } = useI18n();
+  const {
+    state: { isAuthenticated, isLoading: authLoading },
+  } = Auth();
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
   );
@@ -181,6 +191,11 @@ export function AiChatbot() {
     const trimmed = input.trim();
     if (!trimmed || isPending) return;
 
+    if (trimmed.length > CHATBOT_MESSAGE_MAX_LENGTH) {
+      toast.error(t("chatbot.messageTooLong"));
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -200,14 +215,26 @@ export function AiChatbot() {
           content: getChatbotReply(data),
         },
       ]);
-    } catch {
-      toast.error(t("chatbot.sendError"));
+    } catch (error) {
+      let errorToast = t("chatbot.sendError");
+      let fallback = t("chatbot.errorFallback");
+
+      if (isRateLimited(error)) {
+        errorToast = t("chatbot.rateLimited");
+      } else if (isUnauthorized(error) || isForbiddenAuth(error)) {
+        errorToast = t("chatbot.authRequired");
+        fallback = t("chatbot.authRequired");
+      } else if (isValidationError(error)) {
+        errorToast = t("chatbot.messageTooLong");
+      }
+
+      toast.error(errorToast);
       setMessages((prev) => [
         ...prev,
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: t("chatbot.errorFallback"),
+          content: fallback,
         },
       ]);
     }
@@ -225,7 +252,7 @@ export function AiChatbot() {
     }
   };
 
-  if (!position) return null;
+  if (authLoading || !isAuthenticated || !position) return null;
 
   return (
     <>
@@ -316,10 +343,13 @@ export function AiChatbot() {
                 <textarea
                   className={styles.input}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) =>
+                    setInput(e.target.value.slice(0, CHATBOT_MESSAGE_MAX_LENGTH))
+                  }
                   onKeyDown={handleInputKeyDown}
                   placeholder={t("chatbot.placeholder")}
                   rows={1}
+                  maxLength={CHATBOT_MESSAGE_MAX_LENGTH}
                   aria-label={t("chatbot.messageAria")}
                 />
                 <button

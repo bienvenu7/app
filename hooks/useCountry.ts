@@ -4,7 +4,6 @@ import {
   getCountries,
   getCountryById,
   getRate,
-  getShedule,
 } from "@/app/actions/country";
 import { getDirections } from "@/app/actions/directions";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +28,7 @@ export const useGetCountriesById = (countryId: string) => {
   } = useQuery({
     queryKey: ["country", countryId],
     queryFn: () => getCountryById(countryId),
+    enabled: !!countryId,
   });
   return { country, isLoading, isError };
 };
@@ -58,16 +58,13 @@ export const useGetCards = (networkId: string | undefined) => {
   return { cards, isLoading, isError };
 };
 
-export const useGetShedule = (id: string | undefined) => {
-  const {
-    data: shedule,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["shedule", id],
-    queryFn: () => getShedule(id!),
-    enabled: !!id,
-  });
+/**
+ * Horaires : utiliser `country.shedule` (réponse publique get-countries).
+ * L'ancien GET /v2/setting/shedule est retiré (route interdite).
+ */
+export const useGetSheduleFromCountries = (countryId: string | undefined) => {
+  const { countries, isLoading, isError } = useGetCountries();
+  const shedule = (countries ?? []).find((c) => c.id === countryId)?.shedule;
   return { shedule, isLoading, isError };
 };
 

@@ -1,3 +1,5 @@
+import { isProofImage } from "@/lib/upload-proof";
+
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.75;
 const SKIP_BELOW_BYTES = 150 * 1024;
@@ -17,7 +19,8 @@ export async function compressImageFile(
   const maxDimension = options.maxDimension ?? MAX_DIMENSION;
   const quality = options.quality ?? JPEG_QUALITY;
 
-  if (!file.type.startsWith("image/")) return file;
+  // PDF and other non-images are left untouched.
+  if (!isProofImage(file.type)) return file;
 
   try {
     const bitmap = await createImageBitmap(file);
@@ -72,7 +75,7 @@ const COMPRESSION_LEVELS: CompressOptions[] = [
   { maxDimension: 800, quality: 0.45 },
 ];
 
-/** Compress all images so they can be sent in one request. */
+/** Compress images for upload; PDFs pass through unchanged. */
 export async function compressImageFilesForUpload(
   files: File[],
 ): Promise<File[]> {
@@ -88,11 +91,14 @@ export async function compressImageFilesForUpload(
 
   const budgetPerFile = Math.floor(MAX_SINGLE_REQUEST_BYTES / files.length);
   return Promise.all(
-    files.map((file) => compressImageFile(file, { maxDimension: 720, quality: 0.4 }))
-      .then(async (compressed) => {
-        if (compressed.size <= budgetPerFile) return compressed;
-        return compressImageFile(file, { maxDimension: 640, quality: 0.35 });
-      }),
+    files.map(async (file) => {
+      const compressed = await compressImageFile(file, {
+        maxDimension: 720,
+        quality: 0.4,
+      });
+      if (compressed.size <= budgetPerFile) return compressed;
+      return compressImageFile(file, { maxDimension: 640, quality: 0.35 });
+    }),
   );
 }
 

@@ -17,7 +17,12 @@ export const useGetReceipt = (id: string | undefined) => {
     queryFn: () => getReceipt(id!),
     enabled: !!id,
   });
-  return { isError, isPending, data, isSuccess };
+  return {
+    isError,
+    isPending,
+    data: data ?? null,
+    isSuccess,
+  };
 };
 
 export const useSendMessage = (message: string) => {

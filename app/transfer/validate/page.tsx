@@ -9,6 +9,7 @@ import {
   Check,
   Copy,
   Eye,
+  FileText,
   Hourglass,
   Receipt,
   X,
@@ -39,6 +40,17 @@ import {
   formatFileSize,
   MAX_SINGLE_REQUEST_BYTES,
 } from "@/lib/compress-image";
+import {
+  MAX_PROOF_FILES,
+  PROOF_FILE_ACCEPT,
+  isProofPdf,
+  validateProofFiles,
+} from "@/lib/upload-proof";
+import {
+  isNotFound,
+  isRateLimited,
+  isValidationError,
+} from "@/lib/auth-errors";
 import axios from "axios";
 import type { ITrasanctionResponse } from "@/types/transaction";
 import { Status } from "@/types/transaction";
@@ -194,13 +206,20 @@ function ValidateFlow() {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
 
-    const invalid = files.find((file) => !file.type.startsWith("image/"));
-    if (invalid) {
-      toast.error(t("validate.imagesOnly"));
+    const result = validateProofFiles(files, proofFiles.length);
+    if (!result.ok) {
+      if (result.error === "invalid_type") {
+        toast.error(t("validate.invalidFileType"));
+      } else if (result.error === "file_too_large") {
+        toast.error(t("validate.fileTooLarge"));
+      } else {
+        toast.error(t("validate.tooManyFiles", { max: MAX_PROOF_FILES }));
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    const newEntries = files.map((file) => ({
+    const newEntries = result.files.map((file) => ({
       file,
       previewUrl: URL.createObjectURL(file),
     }));
@@ -261,9 +280,25 @@ function ValidateFlow() {
         return;
       }
 
-      await uploadFiles(compressedFiles, transactionId, t("validate.proofLabel"));
+      await uploadFiles(
+        compressedFiles,
+        transactionId,
+        t("validate.proofLabel"),
+      );
       await markPaymentConfirmed();
     } catch (error) {
+      if (isNotFound(error)) {
+        toast.error(t("validate.ownershipDenied"));
+        return;
+      }
+      if (isValidationError(error)) {
+        toast.error(t("validate.invalidFileType"));
+        return;
+      }
+      if (isRateLimited(error)) {
+        toast.error(t("auth.rateLimited"));
+        return;
+      }
       if (axios.isAxiosError(error) && error.response?.status === 413) {
         toast.error(t("validate.tooLargeRetry"));
         return;
@@ -310,12 +345,15 @@ function ValidateFlow() {
       <main>
         <div className={styles.empty}>
           <p>{t("validate.notFound")}</p>
+          <p className={styles.proofHint} style={{ marginTop: 8 }}>
+            {t("validate.ownershipHint")}
+          </p>
           <button
             className={styles.ghostBtn}
             style={{ marginTop: 20 }}
-            onClick={() => router.push("/transfer")}
+            onClick={() => router.push("/transactions")}
           >
-            {t("transfer.newTransfer")}
+            {t("validate.viewMyTransactions")}
           </button>
         </div>
       </main>
@@ -547,7 +585,7 @@ function ValidateFlow() {
                 ref={fileInputRef}
                 id="proofFile"
                 type="file"
-                accept="image/*"
+                accept={PROOF_FILE_ACCEPT}
                 multiple
                 className={styles.fileInput}
                 onChange={handleFileChange}
@@ -555,14 +593,31 @@ function ValidateFlow() {
 
               {proofFiles.length > 0 && (
                 <div className={styles.previewList}>
-                  {proofFiles.map(({ previewUrl }, index) => (
+                  {proofFiles.map(({ file, previewUrl }, index) => (
                     <div key={previewUrl} className={styles.previewWrap}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={previewUrl}
-                        alt={t("validate.proofPreview", { n: index + 1 })}
-                        className={styles.previewImage}
-                      />
+                      {isProofPdf(file.type) ? (
+                        <div
+                          className={styles.previewImage}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(0,0,0,0.06)",
+                          }}
+                          aria-label={t("validate.proofPreview", {
+                            n: index + 1,
+                          })}
+                        >
+                          <FileText size={28} aria-hidden="true" />
+                        </div>
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={previewUrl}
+                          alt={t("validate.proofPreview", { n: index + 1 })}
+                          className={styles.previewImage}
+                        />
+                      )}
                       <button
                         type="button"
                         className={styles.removePreview}
@@ -576,14 +631,24 @@ function ValidateFlow() {
                 </div>
               )}
 
-              <label htmlFor="proofFile" className={styles.uploadZone}>
+              <label
+                htmlFor="proofFile"
+                className={styles.uploadZone}
+                style={{
+                  opacity: proofFiles.length >= MAX_PROOF_FILES ? 0.5 : 1,
+                  pointerEvents:
+                    proofFiles.length >= MAX_PROOF_FILES ? "none" : undefined,
+                }}
+              >
                 <ImageIcon size={28} className={styles.uploadIcon} />
                 <span>
                   {proofFiles.length > 0
-                    ? t("validate.addMoreImages")
-                    : t("validate.chooseImages")}
+                    ? t("validate.addMoreFiles")
+                    : t("validate.chooseFiles")}
                 </span>
-                <span className={styles.uploadFormats}>JPG, PNG, WEBP</span>
+                <span className={styles.uploadFormats}>
+                  JPG, PNG, WEBP, PDF · max {MAX_PROOF_FILES} · 10 Mo
+                </span>
               </label>
             </div>
 

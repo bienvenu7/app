@@ -1,11 +1,13 @@
+/** Champs publics pays (API Août 2026) — pas de solde / admins / Fund / Cost. */
 export interface ICountry {
   id: string;
   pubicName: string;
   name: string;
-  createdAt?: Date;
+  createdAt?: Date | string;
   currency: string;
   TelIndex: string;
-  TelMaxNumber: string;
+  /** API renvoie un number ; certaines routes historiques envoient une string. */
+  TelMaxNumber: number | string;
   formatNumber: string;
   shedule?: IShedule;
 }
@@ -27,7 +29,16 @@ export interface IShedule {
   workingDate: number[];
   workingFrom: number;
   workingTo: number;
-  CreatedAt: Date;
+  CreatedAt?: Date | string;
+}
+
+export interface ICountrySummary {
+  name: string;
+  pubicName: string;
+  currency: string;
+  TelIndex: string;
+  TelMaxNumber: number | string;
+  formatNumber: string;
 }
 
 export interface IDirection {
@@ -41,20 +52,6 @@ export interface IDirection {
   max: number;
   nameFrom: string;
   nameTo: string;
-  countryFrom: {
-    name: string;
-    pubicName: string;
-    currency: string;
-    TelIndex: string;
-    TelMaxNumber: number;
-    formatNumber: string;
-  };
-  countryTo: {
-    name: string;
-    pubicName: string;
-    currency: string;
-    TelIndex: string;
-    TelMaxNumber: number;
-    formatNumber: true;
-  };
+  countryFrom: ICountrySummary;
+  countryTo: ICountrySummary;
 }

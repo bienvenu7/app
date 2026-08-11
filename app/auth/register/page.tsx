@@ -174,7 +174,7 @@ export default function RegisterPage() {
   };
 
   useEffect(() => {
-    if (step !== 2 || otp.length !== 6 || otpVerifying) return;
+    if (step !== 2 || otp.length !== 6) return;
     if (otpSubmittedRef.current === otp) return;
 
     otpSubmittedRef.current = otp;
@@ -188,18 +188,19 @@ export default function RegisterPage() {
         go(3);
         toast.success(t("auth.otpVerified"));
       } catch {
-        if (otpSubmittedRef.current !== otp) return;
-        otpSubmittedRef.current = null;
+        // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
+        // setting otpVerifying back to false re-triggers this effect in a loop.
         setOtpVerifying(false);
         setOtpError(true);
         toast.error(t("auth.otpIncorrect"));
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
+          otpSubmittedRef.current = null;
         }, 500);
       }
     })();
-  }, [otp, step, otpVerifying, email, resetOtpBuffer, resetPinBuffers]);
+  }, [otp, step, email, resetOtpBuffer, resetPinBuffers, t]);
 
   useEffect(() => {
     if (step !== 3 || pin.length !== 5) return;
