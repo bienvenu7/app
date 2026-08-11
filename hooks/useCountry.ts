@@ -6,7 +6,7 @@ import {
   getRate,
 } from "@/app/actions/country";
 import { getDirections } from "@/app/actions/directions";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 export const useGetCountries = () => {
   const {
@@ -64,7 +64,9 @@ export const useGetCards = (networkId: string | undefined) => {
  */
 export const useGetSheduleFromCountries = (countryId: string | undefined) => {
   const { countries, isLoading, isError } = useGetCountries();
-  const shedule = (countries ?? []).find((c) => c.id === countryId)?.shedule;
+  const shedule = (countries ?? []).find(
+    (c: any) => c.id === countryId,
+  )?.shedule;
   return { shedule, isLoading, isError };
 };
 
@@ -72,6 +74,9 @@ export const useGetDirections = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["get/directions"],
     queryFn: () => getDirections(),
+    refetchInterval: 5000,
+    placeholderData: keepPreviousData,
+    refetchIntervalInBackground: false,
   });
   return { data, isLoading };
 };
