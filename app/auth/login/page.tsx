@@ -28,10 +28,15 @@ import Loading from "@/components/Loading";
 import { useT } from "@/lib/i18n";
 import {
   clearPinAuth,
+  getPinLockRemainingMs,
   getValidPinAuth,
+  isPinLocked,
   isPinUnlockRequired,
+  PIN_MAX_ATTEMPTS,
+  recordPinFailure,
   savePinAuth,
   touchPinUnlock,
+  verifySavedPin,
   type PinAuth,
 } from "@/lib/storage";
 
@@ -89,6 +94,9 @@ function LoginFlow() {
   const [firstPin, setFirstPin] = useState("");
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
+  const [pinLockedUntil, setPinLockedUntil] = useState<number | null>(null);
+  const [lockTick, setLockTick] = useState(0);
+  const pinSubmitRef = useRef<string | null>(null);
 
   const { postLogin, isLogin } = useAuthentication(email.trim(), password);
   const { resend, isResending } = useResendOtp(pendingEmail);
@@ -103,6 +111,9 @@ function LoginFlow() {
     }
 
     setSavedAuth(saved);
+    if (isPinLocked(saved)) {
+      setPinLockedUntil(saved.lockedUntil ?? null);
+    }
 
     if (isPinUnlockRequired(saved)) {
       setMode("pin-login");
@@ -153,7 +164,29 @@ function LoginFlow() {
     setPin("");
     setFirstPin("");
     setPinError(false);
+    pinSubmitRef.current = null;
   };
+
+  const pinLockActive =
+    typeof pinLockedUntil === "number" && pinLockedUntil > Date.now();
+  // `lockTick` forces a re-render every second while locked.
+  const pinLockSeconds =
+    pinLockActive && pinLockedUntil
+      ? Math.max(0, Math.ceil((pinLockedUntil - Date.now()) / 1000) + lockTick * 0)
+      : 0;
+
+  useEffect(() => {
+    if (!pinLockActive) return;
+    const id = window.setInterval(() => {
+      if (pinLockedUntil && pinLockedUntil <= Date.now()) {
+        setPinLockedUntil(null);
+        setLockTick(0);
+        return;
+      }
+      setLockTick((n) => n + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [pinLockActive, pinLockedUntil]);
 
   const resetOtpBuffer = () => {
     setOtp("");
@@ -166,6 +199,7 @@ function LoginFlow() {
     clearPinAuth();
     setSavedAuth(null);
     setGreetingName(null);
+    setPinLockedUntil(null);
     resetPinBuffers();
     resetOtpBuffer();
     setMode("credentials");
@@ -372,16 +406,15 @@ function LoginFlow() {
       let cancelled = false;
       (async () => {
         const now = Date.now();
-        savePinAuth({
-          email: pendingEmail,
-          pin,
-          createdAt: now,
-          lastUnlockAt: now,
-        });
         try {
-          await completeSessionAndGoHome(
-            t("auth.pinCreated"),
-          );
+          await savePinAuth({
+            email: pendingEmail,
+            pin,
+            createdAt: now,
+            lastUnlockAt: now,
+          });
+          if (cancelled) return;
+          await completeSessionAndGoHome(t("auth.pinCreated"));
         } catch {
           if (cancelled) return;
           toast.error(t("auth.sessionLoadError"));
@@ -406,20 +439,62 @@ function LoginFlow() {
   // Returning user — PIN unlock
   useEffect(() => {
     if (mode !== "pin-login" || pin.length !== 5 || !savedAuth) return;
-
-    if (pin !== savedAuth.pin) {
-      setPinError(true);
-      const timeoutId = setTimeout(() => {
-        setPinError(false);
-        setPin("");
-      }, 500);
-      return () => clearTimeout(timeoutId);
+    if (pinSubmitRef.current === pin) return;
+    if (pinLockActive) {
+      setPin("");
+      return;
     }
 
+    pinSubmitRef.current = pin;
     let cancelled = false;
+
     (async () => {
+      const current = getValidPinAuth() ?? savedAuth;
+      if (isPinLocked(current)) {
+        setPinLockedUntil(current.lockedUntil ?? null);
+        setSavedAuth(current);
+        setPin("");
+        pinSubmitRef.current = null;
+        toast.error(
+          t("auth.pinLocked", {
+            seconds: String(Math.ceil(getPinLockRemainingMs(current) / 1000)),
+          }),
+        );
+        return;
+      }
+
+      const ok = await verifySavedPin(pin, current);
+      if (cancelled) return;
+
+      if (!ok) {
+        const updated = recordPinFailure(current);
+        setSavedAuth(updated);
+        setPinError(true);
+        if (isPinLocked(updated)) {
+          setPinLockedUntil(updated.lockedUntil ?? null);
+          toast.error(
+            t("auth.pinLocked", {
+              seconds: String(
+                Math.ceil(getPinLockRemainingMs(updated) / 1000),
+              ),
+            }),
+          );
+        } else {
+          const left = PIN_MAX_ATTEMPTS - (updated.failedAttempts ?? 0);
+          toast.error(t("auth.pinIncorrect", { left: String(left) }));
+        }
+        setTimeout(() => {
+          if (cancelled) return;
+          setPinError(false);
+          setPin("");
+          pinSubmitRef.current = null;
+        }, 500);
+        return;
+      }
+
       try {
-        touchPinUnlock(savedAuth);
+        touchPinUnlock(current);
+        setPinLockedUntil(null);
         const greeting = greetingName
           ? t("auth.welcomeBackToast", { name: greetingName })
           : undefined;
@@ -431,6 +506,7 @@ function LoginFlow() {
         clearPinAuth();
         setSavedAuth(null);
         setGreetingName(null);
+        setPinLockedUntil(null);
         resetPinBuffers();
         setMode("credentials");
       }
@@ -439,7 +515,15 @@ function LoginFlow() {
     return () => {
       cancelled = true;
     };
-  }, [pin, mode, savedAuth, greetingName, completeSessionAndGoHome]);
+  }, [
+    pin,
+    mode,
+    savedAuth,
+    greetingName,
+    completeSessionAndGoHome,
+    pinLockActive,
+    t,
+  ]);
 
   const variants = {
     enter: { opacity: 0, y: 8 },
@@ -831,7 +915,13 @@ function LoginFlow() {
                   </>
                 )}
               </h1>
-              <p className={styles.subtitle}>{t("auth.pinExpiredSubtitle")}</p>
+              <p className={styles.subtitle}>
+                {pinLockActive
+                  ? t("auth.pinLockedSubtitle", {
+                      seconds: String(pinLockSeconds),
+                    })
+                  : t("auth.pinExpiredSubtitle")}
+              </p>
             </div>
 
             <PinPad
@@ -839,7 +929,7 @@ function LoginFlow() {
               value={pin}
               onChange={setPin}
               error={pinError}
-              disabled={loadingProfile}
+              disabled={loadingProfile || pinLockActive}
             />
 
             <div className={styles.switchAccount}>

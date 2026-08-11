@@ -172,6 +172,11 @@ const fr = {
     pinCreated: "Votre code a été créé avec succès !",
     sessionLoadError: "Impossible de charger votre session.",
     pinsMismatch: "Les codes ne correspondent pas, réessayez.",
+    pinIncorrect: "Code incorrect. Il vous reste {left} tentative(s).",
+    pinLocked:
+      "Trop de tentatives. Réessayez dans {seconds} s.",
+    pinLockedSubtitle:
+      "Verrouillé après trop d’essais. Réessayez dans {seconds} s.",
     welcomeBackToast: "Bon retour, {name} 👋",
     resetCodeLabel: "Code de réinitialisation",
     otpSixDigits: "6 chiffres",
