@@ -219,13 +219,14 @@ export default function RegisterPage() {
       let cancelled = false;
       (async () => {
         const now = Date.now();
-        savePinAuth({
-          email: email.trim(),
-          pin,
-          createdAt: now,
-          lastUnlockAt: now,
-        });
         try {
+          await savePinAuth({
+            email: email.trim(),
+            pin,
+            createdAt: now,
+            lastUnlockAt: now,
+          });
+          if (cancelled) return;
           await completeSessionAndGoHome(t("auth.pinCreated"));
         } catch {
           if (cancelled) return;

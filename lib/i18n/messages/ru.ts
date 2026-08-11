@@ -175,6 +175,10 @@ const ru: Messages = {
     pinCreated: "Ваш код успешно создан!",
     sessionLoadError: "Не удалось загрузить сессию.",
     pinsMismatch: "Коды не совпадают, попробуйте снова.",
+    pinIncorrect: "Неверный код. Осталось попыток: {left}.",
+    pinLocked: "Слишком много попыток. Повторите через {seconds} с.",
+    pinLockedSubtitle:
+      "Заблокировано после нескольких попыток. Повторите через {seconds} с.",
     welcomeBackToast: "С возвращением, {name} 👋",
     resetCodeLabel: "Код сброса",
     otpSixDigits: "6 цифр",

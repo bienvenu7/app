@@ -50,6 +50,21 @@ export type Profile = {
 
 export type PinAuth = {
   email: string
+  /** PBKDF2 digest (base64) — never the raw PIN */
+  pinHash: string
+  salt: string
+  iterations: number
+  name?: string
+  createdAt?: number
+  lastUnlockAt?: number
+  failedAttempts?: number
+  /** Epoch ms — PIN pad locked until this time */
+  lockedUntil?: number
+}
+
+/** @deprecated Legacy plaintext shape — wiped on read */
+type LegacyPinAuth = {
+  email: string
   pin: string
   name?: string
   createdAt?: number
@@ -67,6 +82,10 @@ export const PIN_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
 export const PIN_RELOCK_MS = 15 * 60 * 1000
 /** Min interval between activity timestamp writes */
 export const PIN_ACTIVITY_THROTTLE_MS = 30_000
+/** Failed PIN attempts before lockout */
+export const PIN_MAX_ATTEMPTS = 5
+/** Lockout duration after max failed attempts */
+export const PIN_LOCKOUT_MS = 5 * 60 * 1000
 
 const DEFAULT_PROFILE: Profile = {
   firstName: "Amadou",
@@ -139,13 +158,46 @@ export function saveProfile(profile: Profile) {
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile))
 }
 
+function isHashedPinAuth(value: unknown): value is PinAuth {
+  if (!value || typeof value !== "object") return false
+  const v = value as Record<string, unknown>
+  return (
+    typeof v.email === "string" &&
+    typeof v.pinHash === "string" &&
+    typeof v.salt === "string" &&
+    typeof v.iterations === "number" &&
+    !("pin" in v)
+  )
+}
+
+function isLegacyPlainPinAuth(value: unknown): value is LegacyPinAuth {
+  if (!value || typeof value !== "object") return false
+  const v = value as Record<string, unknown>
+  return typeof v.email === "string" && typeof v.pin === "string"
+}
+
 // PIN auth: device unlock with a short code instead of re-typing credentials.
 export function getSavedPinAuth(): PinAuth | null {
   if (!isBrowser()) return null
   try {
     const raw = localStorage.getItem(PIN_KEY)
-    return raw ? (JSON.parse(raw) as PinAuth) : null
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+
+    // Invalidate plaintext PIN storage immediately (step 2 migration).
+    if (isLegacyPlainPinAuth(parsed)) {
+      clearPinAuth()
+      return null
+    }
+
+    if (!isHashedPinAuth(parsed)) {
+      clearPinAuth()
+      return null
+    }
+
+    return parsed
   } catch {
+    clearPinAuth()
     return null
   }
 }
@@ -160,6 +212,15 @@ export function isPinUnlockRequired(auth: PinAuth): boolean {
   return Date.now() - auth.lastUnlockAt > PIN_RELOCK_MS
 }
 
+export function isPinLocked(auth: PinAuth): boolean {
+  return typeof auth.lockedUntil === "number" && auth.lockedUntil > Date.now()
+}
+
+export function getPinLockRemainingMs(auth: PinAuth): number {
+  if (!isPinLocked(auth)) return 0
+  return Math.max(0, (auth.lockedUntil ?? 0) - Date.now())
+}
+
 /** Refresh activity timestamp (throttled) so active users never get locked. */
 export function touchPinActivity(auth?: PinAuth | null): void {
   const current = auth ?? getValidPinAuth()
@@ -169,7 +230,7 @@ export function touchPinActivity(auth?: PinAuth | null): void {
   const last = current.lastUnlockAt ?? 0
   if (now - last < PIN_ACTIVITY_THROTTLE_MS) return
 
-  savePinAuth({ ...current, lastUnlockAt: now })
+  persistPinAuth({ ...current, lastUnlockAt: now })
 }
 
 export function getValidPinAuth(): PinAuth | null {
@@ -182,7 +243,7 @@ export function getValidPinAuth(): PinAuth | null {
   return auth
 }
 
-export function savePinAuth(auth: PinAuth) {
+function persistPinAuth(auth: PinAuth) {
   if (!isBrowser()) return
   const now = Date.now()
   localStorage.setItem(
@@ -195,8 +256,66 @@ export function savePinAuth(auth: PinAuth) {
   )
 }
 
+/** Create or replace device PIN — stores PBKDF2 hash only. */
+export async function savePinAuth(input: {
+  email: string
+  pin: string
+  name?: string
+  createdAt?: number
+  lastUnlockAt?: number
+}): Promise<PinAuth> {
+  const { hashPin } = await import("@/lib/pin-crypto")
+  const hashed = await hashPin(input.pin)
+  const now = Date.now()
+  const auth: PinAuth = {
+    email: input.email,
+    name: input.name,
+    pinHash: hashed.pinHash,
+    salt: hashed.salt,
+    iterations: hashed.iterations,
+    createdAt: input.createdAt ?? now,
+    lastUnlockAt: input.lastUnlockAt ?? now,
+    failedAttempts: 0,
+    lockedUntil: undefined,
+  }
+  persistPinAuth(auth)
+  return auth
+}
+
+export async function verifySavedPin(
+  pin: string,
+  auth: PinAuth,
+): Promise<boolean> {
+  const { verifyPinHash } = await import("@/lib/pin-crypto")
+  return verifyPinHash(pin, auth)
+}
+
+/** Record a failed unlock; may engage lockout. Returns updated record. */
+export function recordPinFailure(auth: PinAuth): PinAuth {
+  const failedAttempts = (auth.failedAttempts ?? 0) + 1
+  const updated: PinAuth = {
+    ...auth,
+    failedAttempts,
+    lockedUntil:
+      failedAttempts >= PIN_MAX_ATTEMPTS
+        ? Date.now() + PIN_LOCKOUT_MS
+        : auth.lockedUntil,
+  }
+  // After lockout starts, reset counter so the next window is fresh.
+  if (failedAttempts >= PIN_MAX_ATTEMPTS) {
+    updated.failedAttempts = 0
+  }
+  persistPinAuth(updated)
+  return updated
+}
+
 export function touchPinUnlock(auth: PinAuth) {
-  savePinAuth({ ...auth, lastUnlockAt: Date.now() })
+  persistPinAuth({
+    ...auth,
+    lastUnlockAt: Date.now(),
+    failedAttempts: 0,
+    lockedUntil: undefined,
+  })
 }
 
 export function clearPinAuth() {
