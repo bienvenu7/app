@@ -18,6 +18,7 @@ export interface ISuccessData {
 
 export interface ISuccessOtpCodeResponse {
   accessToken: string;
-  refreshToken: string;
+  /** Access TTL in seconds (API default: 900). */
+  expiresIn: number;
   statusCode: number;
 }

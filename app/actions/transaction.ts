@@ -7,6 +7,7 @@ import type {
   ITrasanctionResponse,
   Status,
 } from "../../types/transaction";
+import { toAuthHttpError } from "@/lib/auth-errors";
 
 const TRANSACTION_HISTORY_MONTHS = 6;
 const MONTHS_PER_PAGE = 3;
@@ -43,6 +44,7 @@ export const createTransaction = async (
   transaction: ITrasanctionData,
 ): Promise<ITrasanctionResponse> => {
   const accessToken = getCookie("accessToken");
+  // clientEmail reste requis par la validation Zod ; l'API force ensuite l'email du JWT.
   const { data } = await instanceV2.post(
     "transactions/create-one",
     transaction,
@@ -60,15 +62,20 @@ export const updateTransaction = async (
   status: Status,
 ): Promise<ITrasanctionResponse> => {
   const accessToken = getCookie("accessToken");
-  const { data } = await instanceV2.patch(
-    `transactions/${transactionId}`,
-    { senderNumber, hour, status },
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  );
-
-  return data;
+  try {
+    const { data } = await instanceV2.patch(
+      `transactions/${transactionId}`,
+      { senderNumber, hour, status },
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+    return data;
+  } catch (error: unknown) {
+    const mapped = toAuthHttpError(error);
+    if (mapped) throw mapped;
+    throw error;
+  }
 };
 
 export const getTransactionById = async (
@@ -76,24 +83,35 @@ export const getTransactionById = async (
 ): Promise<ITrasanctionResponse> => {
   const accessToken = getCookie("accessToken");
 
-  const { data } = await instance.get(
-    `transaction/get/by-id/${transactionId}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  );
-
-  return data;
+  try {
+    const { data } = await instance.get(
+      `transaction/get/by-id/${transactionId}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+    return data;
+  } catch (error: unknown) {
+    const mapped = toAuthHttpError(error);
+    if (mapped) throw mapped;
+    throw error;
+  }
 };
 
+/**
+ * Liste des transactions du jour pour le client JWT.
+ * Le segment `clientEmail` du path est ignoré par l'API (scope = JWT).
+ * On le conserve dans l'URL uniquement pour compatibilité de route.
+ */
 export const getTransactionByClientEmail = async (
   clientEmail: string,
   date: string,
 ): Promise<ITrasanctionResponse[]> => {
   const accessToken = getCookie("accessToken");
+  const pathEmail = encodeURIComponent(clientEmail || "_");
 
   const { data } = await instance.get(
-    `transaction/get/by-client/${clientEmail}/${date}`,
+    `transaction/get/by-client/${pathEmail}/${date}`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
     },
@@ -274,11 +292,29 @@ export const getCardsByNetworkId = async (
   return cards[Math.floor(Math.random() * cards.length)];
 };
 
+/**
+ * Stats du mois courant — dérivées de
+ * GET /v2/transactions/client/transactions (owner-scoped).
+ * Ne plus appeler /v2/stats/* (interdit).
+ */
 export const getTransactionsStatsMonthly =
   async (): Promise<ITransactionStatsMonthlyResponse> => {
-    const accessToken = getCookie("accessToken");
-    const { data } = await instanceV2.get(`stats/clients-monthly-stats`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    return data;
+    const startDate = moment().startOf("month").format("DD-MM-YYYY");
+    const endDate = moment().startOf("day").format("DD-MM-YYYY");
+    const transactions = await getTransactionByPeriod(startDate, endDate);
+
+    let send = 0;
+    let receive = 0;
+    for (const tx of transactions) {
+      const type = String(tx.type ?? "").toUpperCase();
+      if (type === "SEND") send += 1;
+      else if (type === "RECEIVE") receive += 1;
+    }
+
+    return {
+      transactions,
+      total: transactions.length,
+      send,
+      receive,
+    };
   };

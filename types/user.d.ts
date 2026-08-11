@@ -11,9 +11,15 @@ export interface IClientResponse {
 }
 
 export interface IClientUpdate {
-  userID: string;
-  username?: string | undefined;
-  phone?: string | undefined;
-  password?: string | undefined;
-  countryId?: string | undefined;
+  username?: string;
+  phone?: string;
+  password?: string;
+  countryId?: string;
+  /** Ignoré par l'API — l'identité vient du JWT. */
+  userID?: string;
+}
+
+export interface IClientUpdateResponse {
+  message: string;
+  requireRelogin: boolean;
 }

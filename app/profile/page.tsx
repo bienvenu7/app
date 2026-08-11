@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import styles from "./profile.module.scss";
 import Loading from "@/components/Loading";
 import { Auth } from "@/providers/AuthContext";
-import { updateClient } from "@/app/actions/auth";
+import { updateClient, getAuth } from "@/app/actions/auth";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useGetTransactionStatsMonthly } from "@/hooks/useTransaction";
 import { countryFlagEmoji } from "@/lib/flags";
@@ -31,6 +31,7 @@ export default function ProfilePage() {
   const {
     state: { user, isLoading },
     resetState,
+    fillState,
   } = Auth();
 
   const { countries, isLoading: loadingCountries } = useGetCountries();
@@ -80,9 +81,8 @@ export default function ProfilePage() {
     mutationKey: ["update-profile", user?.id],
     mutationFn: () =>
       updateClient({
-        userID: user!.id,
-        phone,
-        countryId,
+        phone: phone.trim(),
+        countryId: countryId || undefined,
       }),
   });
 
@@ -103,11 +103,19 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return;
     try {
-      const message = await saveProfile();
-      toast.success(message);
-      clearPinAuth();
-      resetState();
-      setTimeout(() => router.push("/auth/login"), 1500);
+      const result = await saveProfile();
+
+      if (result.requireRelogin) {
+        toast.success(result.message || t("profile.reloginRequired"));
+        clearPinAuth();
+        resetState();
+        setTimeout(() => router.push("/auth/login"), 1500);
+        return;
+      }
+
+      toast.success(result.message || t("profile.saveSuccess"));
+      const refreshed = await getAuth();
+      fillState(refreshed);
     } catch {
       toast.error(t("profile.saveError"));
     }

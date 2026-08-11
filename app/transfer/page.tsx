@@ -210,7 +210,6 @@ function TransferFlow() {
   const transactionData: ITrasanctionData = {
     amountToSend: transferAmounts.totalToPay,
     amountToPayOut: transferAmounts.amountToPayOut,
-    clientEmail: user?.email as string,
     fees: transferAmounts.fee,
     networkId: payment,
     type: type === "send" ? "SEND" : "RECEIVE",
@@ -218,6 +217,7 @@ function TransferFlow() {
     senderName: senderName,
     receiverName: recipientName,
     code: iltineraire?.code!,
+    clientEmail: user?.email ?? "",
     status: "WAITING" as any,
     origin: from?.code,
     dateTime: moment().format("DD-MM-YYYY"),

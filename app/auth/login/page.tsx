@@ -13,11 +13,17 @@ import styles from "@/app/auth/auth.module.scss";
 import { confirmOtp, getAuth } from "@/app/actions/auth";
 import {
   useAuthentication,
+  useRequestPasswordReset,
   useResendOtp,
-  useUpdatePassword,
+  useResetPassword,
 } from "@/hooks/useAuthentication";
 import { Auth } from "@/providers/AuthContext";
 import { isAuthEntryRoute } from "@/lib/auth-routes";
+import {
+  isForbiddenAuth,
+  isRateLimited,
+  isValidationError,
+} from "@/lib/auth-errors";
 import Loading from "@/components/Loading";
 import { useT } from "@/lib/i18n";
 import {
@@ -33,6 +39,7 @@ type Mode =
   | "checking"
   | "credentials"
   | "forgot-password"
+  | "forgot-reset"
   | "verify-otp"
   | "create-pin"
   | "confirm-pin"
@@ -48,7 +55,7 @@ function LoginFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safeReturnPath(searchParams.get("from"));
-  const { fillState } = Auth();
+  const { fillState, resetState } = Auth();
   const t = useT();
 
   const [mode, setMode] = useState<Mode>("checking");
@@ -64,12 +71,14 @@ function LoginFlow() {
 
   // Forgot password
   const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetOtpError, setResetOtpError] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
-  // OTP
+  // OTP (login)
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
@@ -83,8 +92,8 @@ function LoginFlow() {
 
   const { postLogin, isLogin } = useAuthentication(email.trim(), password);
   const { resend, isResending } = useResendOtp(pendingEmail);
-  const { changeOtp: submitPasswordReset, loadingChangeOtp: isResettingPassword } =
-    useUpdatePassword(resetEmail.trim(), newPassword);
+  const { requestReset, isRequestingReset } = useRequestPasswordReset();
+  const { submitReset, isResettingPassword } = useResetPassword();
 
   useEffect(() => {
     const saved = getValidPinAuth();
@@ -172,40 +181,113 @@ function LoginFlow() {
     [fillState, router, returnTo],
   );
 
-  const canResetPassword =
-    /\S+@\S+\.\S+/.test(resetEmail.trim()) &&
+  const canRequestReset = /\S+@\S+\.\S+/.test(resetEmail.trim());
+
+  const canConfirmReset =
+    canRequestReset &&
+    resetOtp.length === 6 &&
     newPassword.length >= 6 &&
     confirmNewPassword === newPassword;
 
-  const handleOpenForgotPassword = () => {
-    setResetEmail(email.trim());
+  const clearForgotForm = () => {
+    setResetEmail("");
+    setResetOtp("");
+    setResetOtpError(false);
     setNewPassword("");
     setConfirmNewPassword("");
     setShowNewPassword(false);
     setShowConfirmNewPassword(false);
+  };
+
+  const handleOpenForgotPassword = () => {
+    clearForgotForm();
+    setResetEmail(email.trim());
     setMode("forgot-password");
   };
 
   const handleBackToLogin = () => {
-    setResetEmail("");
-    setNewPassword("");
-    setConfirmNewPassword("");
+    clearForgotForm();
     setMode("credentials");
   };
 
+  const handleBackToForgotEmail = () => {
+    setResetOtp("");
+    setResetOtpError(false);
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setMode("forgot-password");
+  };
+
   const handleForgotPasswordSubmit = async () => {
-    if (!canResetPassword) return;
+    if (!canRequestReset) return;
 
     try {
-      await submitPasswordReset();
-      setEmail(resetEmail.trim());
-      setPassword("");
-      setResetEmail("");
+      await requestReset(resetEmail.trim());
+      setResetOtp("");
+      setResetOtpError(false);
       setNewPassword("");
       setConfirmNewPassword("");
+      setMode("forgot-reset");
+      toast.success(t("auth.resetCodeSent"));
+    } catch (error) {
+      toast.error(
+        isRateLimited(error)
+          ? t("auth.rateLimited")
+          : t("auth.passwordResetError"),
+      );
+    }
+  };
+
+  const handleResendResetCode = async () => {
+    if (!canRequestReset) return;
+    try {
+      await requestReset(resetEmail.trim());
+      setResetOtp("");
+      setResetOtpError(false);
+      toast.success(t("auth.resetCodeSent"));
+    } catch (error) {
+      toast.error(
+        isRateLimited(error) ? t("auth.rateLimited") : t("auth.otpResendError"),
+      );
+    }
+  };
+
+  const handleConfirmResetSubmit = async () => {
+    if (!canConfirmReset) return;
+
+    try {
+      await submitReset({
+        email: resetEmail.trim(),
+        otp: resetOtp,
+        password: newPassword,
+      });
+      clearPinAuth();
+      resetState();
+      setSavedAuth(null);
+      setGreetingName(null);
+      setEmail(resetEmail.trim());
+      setPassword("");
+      clearForgotForm();
       setMode("credentials");
       toast.success(t("auth.passwordUpdated"));
-    } catch {
+    } catch (error) {
+      if (isForbiddenAuth(error)) {
+        setResetOtpError(true);
+        toast.error(t("auth.passwordResetOtpInvalid"));
+        setTimeout(() => {
+          setResetOtpError(false);
+          setResetOtp("");
+        }, 500);
+        return;
+      }
+      if (isRateLimited(error)) {
+        toast.error(t("auth.rateLimited"));
+        return;
+      }
+      if (isValidationError(error)) {
+        toast.error(t("auth.passwordResetValidation"));
+        return;
+      }
       toast.error(t("auth.passwordResetError"));
     }
   };
@@ -221,8 +303,10 @@ function LoginFlow() {
       resetPinBuffers();
       setMode("verify-otp");
       toast.success(t("auth.otpSent"));
-    } catch {
-      toast.error(t("auth.badCredentials"));
+    } catch (error) {
+      toast.error(
+        isRateLimited(error) ? t("auth.rateLimited") : t("auth.badCredentials"),
+      );
     } finally {
       setVerifying(false);
     }
@@ -241,7 +325,7 @@ function LoginFlow() {
 
   // OTP — auto-submit once at 6 digits
   useEffect(() => {
-    if (mode !== "verify-otp" || otp.length !== 6 || otpVerifying) return;
+    if (mode !== "verify-otp" || otp.length !== 6) return;
     if (otpSubmittedRef.current === otp) return;
 
     otpSubmittedRef.current = otp;
@@ -255,19 +339,19 @@ function LoginFlow() {
         setMode("create-pin");
         toast.success(t("auth.otpVerified"));
       } catch {
-        // Allow retry only if this OTP hasn't already succeeded elsewhere
-        if (otpSubmittedRef.current !== otp) return;
-        otpSubmittedRef.current = null;
+        // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
+        // setting otpVerifying back to false re-triggers this effect in a loop.
         setOtpVerifying(false);
         setOtpError(true);
         toast.error(t("auth.otpIncorrect"));
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
+          otpSubmittedRef.current = null;
         }, 500);
       }
     })();
-  }, [otp, mode, otpVerifying, pendingEmail]);
+  }, [otp, mode, pendingEmail, t]);
 
   // PIN creation — step 1
   useEffect(() => {
@@ -494,7 +578,75 @@ function LoginFlow() {
                   onChange={(e) => setResetEmail(e.target.value)}
                   aria-label={t("common.email")}
                   autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleForgotPasswordSubmit();
+                  }}
                 />
+              </div>
+            </div>
+
+            <div className={styles.stepFooter} style={{ marginTop: 26 }}>
+              <button
+                className={ui.back}
+                onClick={handleBackToLogin}
+                aria-label={t("common.back")}
+              >
+                <ArrowLeft aria-hidden="true" />
+              </button>
+              <button
+                className={`${ui.btn} ${ui.btnPrimary}`}
+                onClick={handleForgotPasswordSubmit}
+                disabled={!canRequestReset || isRequestingReset}
+              >
+                {isRequestingReset
+                  ? t("auth.sendingResetCode")
+                  : t("auth.sendResetCode")}
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {mode === "forgot-reset" && (
+          <motion.div
+            key="forgot-reset"
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.2 }}
+          >
+            <div className={styles.header}>
+              <h1 className={styles.title}>
+                {t("auth.forgotResetTitle")}{" "}
+                <em>{t("auth.forgotResetTitleEm")}</em>
+              </h1>
+              <p className={styles.subtitle}>
+                {t("auth.forgotResetSubtitle")}
+                <br />
+                <span className={styles.otpEmail}>{resetEmail.trim()}</span>
+              </p>
+            </div>
+
+            <div className={styles.form}>
+              <div>
+                <span className={styles.label}>{t("auth.resetCodeLabel")}</span>
+                <PinPad
+                  length={6}
+                  value={resetOtp}
+                  onChange={setResetOtp}
+                  error={resetOtpError}
+                  disabled={isResettingPassword}
+                />
+                <p className={styles.resendOtp}>
+                  {t("auth.noCodeReceived")}{" "}
+                  <button
+                    type="button"
+                    onClick={handleResendResetCode}
+                    disabled={isRequestingReset || isResettingPassword}
+                  >
+                    {isRequestingReset ? t("auth.sending") : t("auth.resend")}
+                  </button>
+                </p>
               </div>
 
               <div className={styles.passwordField}>
@@ -535,7 +687,7 @@ function LoginFlow() {
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   aria-label={t("common.confirm")}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleForgotPasswordSubmit();
+                    if (e.key === "Enter") handleConfirmResetSubmit();
                   }}
                 />
                 <button
@@ -566,15 +718,15 @@ function LoginFlow() {
             <div className={styles.stepFooter} style={{ marginTop: 26 }}>
               <button
                 className={ui.back}
-                onClick={handleBackToLogin}
+                onClick={handleBackToForgotEmail}
                 aria-label={t("common.back")}
               >
                 <ArrowLeft aria-hidden="true" />
               </button>
               <button
                 className={`${ui.btn} ${ui.btnPrimary}`}
-                onClick={handleForgotPasswordSubmit}
-                disabled={!canResetPassword || isResettingPassword}
+                onClick={handleConfirmResetSubmit}
+                disabled={!canConfirmReset || isResettingPassword}
               >
                 {isResettingPassword ? t("auth.updating") : t("auth.reset")}
               </button>
