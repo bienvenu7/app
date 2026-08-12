@@ -127,7 +127,7 @@ export function computeTransferAmounts(
   const feeRate = feePercent / 100;
 
   if (feesIncluded) {
-    const fee = (amount * feeRate) / (1 - feeRate);
+    const fee = (amount * feeRate) / (1 + feeRate);
     const convertAmount = amount - fee;
     return {
       fee,
