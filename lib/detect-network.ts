@@ -20,6 +20,7 @@ const CAMEROON_RULES: { operator: "mtn" | "orange"; prefixes: string[] }[] = [
   {
     operator: "mtn",
     prefixes: [
+      "650",
       "651",
       "652",
       "653",
@@ -53,7 +54,13 @@ const CAMEROON_RULES: { operator: "mtn" | "orange"; prefixes: string[] }[] = [
 function normalizeCountryCode(code?: string): AutoNetworkCountry | null {
   const c = (code ?? "").trim().toLowerCase();
   if (c === "cg" || c === "congo" || c === "cog") return "cg";
-  if (c === "cam" || c === "cm" || c === "cmr" || c === "cameroon" || c === "cameroun") {
+  if (
+    c === "cam" ||
+    c === "cm" ||
+    c === "cmr" ||
+    c === "cameroon" ||
+    c === "cameroun"
+  ) {
     return "cam";
   }
   return null;
