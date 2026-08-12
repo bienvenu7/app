@@ -127,7 +127,7 @@ export function computeTransferAmounts(
   const feeRate = feePercent / 100;
 
   if (feesIncluded) {
-    const fee = Math.round(amount * feeRate);
+    const fee = (amount * feeRate) / (1 - feeRate);
     const convertAmount = amount - fee;
     return {
       fee,
@@ -166,6 +166,9 @@ export function computeSendAmountFromPayout(
   return Math.round(payout / rate);
 }
 
-export function roundAmountForCountry(value: number, _country?: Country): number {
+export function roundAmountForCountry(
+  value: number,
+  _country?: Country,
+): number {
   return Math.round(value);
 }
