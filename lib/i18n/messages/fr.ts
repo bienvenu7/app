@@ -67,8 +67,7 @@ const fr = {
     logout: "Se déconnecter",
     saveError: "Impossible d'enregistrer les modifications.",
     saveSuccess: "Profil mis à jour.",
-    reloginRequired:
-      "Vos identifiants ont changé. Veuillez vous reconnecter.",
+    reloginRequired: "Vos identifiants ont changé. Veuillez vous reconnecter.",
   },
   transactions: {
     title: "Mes",
@@ -131,8 +130,7 @@ const fr = {
       "Saisissez le code reçu par email (valide 10 min) et choisissez un nouveau mot de passe.",
     sendResetCode: "Envoyer le code",
     sendingResetCode: "Envoi du code...",
-    resetCodeSent:
-      "Si un compte existe pour cet email, un code a été envoyé.",
+    resetCodeSent: "Si un compte existe pour cet email, un code a été envoyé.",
     newPassword: "Nouveau mot de passe",
     minChars: "Au moins 6 caractères",
     retypePassword: "Retapez votre mot de passe",
@@ -140,7 +138,8 @@ const fr = {
     updating: "Mise à jour...",
     reset: "Réinitialiser",
     passwordResetOtpInvalid: "Code invalide ou expiré.",
-    passwordResetValidation: "Vérifiez le code (6 caractères) et le mot de passe.",
+    passwordResetValidation:
+      "Vérifiez le code (6 caractères) et le mot de passe.",
     verifyCode: "Vérifiez votre",
     verifyCodeEm: "code",
     enterOtpSentTo: "Entrez le code à 6 chiffres envoyé à",
@@ -163,8 +162,7 @@ const fr = {
     passwordResetError: "Impossible de réinitialiser le mot de passe.",
     otpSent: "Un code à 6 chiffres vous a été envoyé par email.",
     badCredentials: "Email ou mot de passe incorrect.",
-    rateLimited:
-      "Trop de tentatives. Réessayez dans quelques minutes.",
+    rateLimited: "Trop de tentatives. Réessayez dans quelques minutes.",
     otpResent: "Un nouveau code a été envoyé.",
     otpResendError: "Impossible de renvoyer le code.",
     otpVerified: "Code vérifié !",
@@ -173,8 +171,7 @@ const fr = {
     sessionLoadError: "Impossible de charger votre session.",
     pinsMismatch: "Les codes ne correspondent pas, réessayez.",
     pinIncorrect: "Code incorrect. Il vous reste {left} tentative(s).",
-    pinLocked:
-      "Trop de tentatives. Réessayez dans {seconds} s.",
+    pinLocked: "Trop de tentatives. Réessayez dans {seconds} s.",
     pinLockedSubtitle:
       "Verrouillé après trop d’essais. Réessayez dans {seconds} s.",
     welcomeBackToast: "Bon retour, {name} 👋",
@@ -263,8 +260,7 @@ const fr = {
   },
   schedule: {
     title: "Chers clients !",
-    body:
-      "Nous vous informons que notre service sera indisponible dans la période de {from} à {to} (heure locale) en raison des travaux techniques planifiés. Nous nous excusons pour les désagréments temporaires.",
+    body: "Nous vous informons que notre service sera indisponible dans la période de {to} à {from} (heure locale) en raison des travaux techniques planifiés. Nous nous excusons pour les désagréments temporaires.",
     signoff: "Très respectueusement,",
     team: "L'équipe AfruE.",
     understood: "J'ai compris",
@@ -282,14 +278,11 @@ const fr = {
     progressText:
       "Votre transfert de {amount} est en cours de traitement. Vous serez notifié dès qu'il sera terminé.",
     imagesOnly: "Veuillez sélectionner uniquement des images (JPG, PNG, etc.).",
-    invalidFileType:
-      "Formats acceptés : JPG, PNG, WEBP ou PDF uniquement.",
+    invalidFileType: "Formats acceptés : JPG, PNG, WEBP ou PDF uniquement.",
     fileTooLarge: "Chaque fichier doit faire moins de 10 Mo.",
     tooManyFiles: "Maximum {max} fichiers par envoi.",
-    ownershipDenied:
-      "Ce transfert est introuvable ou ne vous appartient pas.",
-    ownershipHint:
-      "Vous ne pouvez consulter que vos propres transferts.",
+    ownershipDenied: "Ce transfert est introuvable ou ne vous appartient pas.",
+    ownershipHint: "Vous ne pouvez consulter que vos propres transferts.",
     copied: "Copié dans le presse-papiers",
     copyError: "Impossible de copier",
     paymentSaved: "Paiement enregistré, votre transfert est en cours.",
@@ -335,8 +328,7 @@ const fr = {
     errorFallback:
       "Désolé, une erreur s'est produite. Veuillez réessayer dans un instant.",
     sendError: "Impossible d'envoyer le message. Réessayez.",
-    rateLimited:
-      "Trop de messages. Réessayez dans quelques minutes.",
+    rateLimited: "Trop de messages. Réessayez dans quelques minutes.",
     authRequired: "Connectez-vous pour utiliser l'assistant.",
     messageTooLong: "Message trop long (max. 2000 caractères).",
     openAssistant: "Ouvrir l'assistant",
