@@ -260,7 +260,7 @@ const fr = {
   },
   schedule: {
     title: "Chers clients !",
-    body: "Nous vous informons que notre service sera indisponible dans la période de {to} à {from} (heure locale) en raison des travaux techniques planifiés. Nous nous excusons pour les désagréments temporaires.",
+    body: "Nous vous informons que notre service sera indisponible dans la période de {from} à {to} (heure locale) en raison des travaux techniques planifiés. Nous nous excusons pour les désagréments temporaires.",
     signoff: "Très respectueusement,",
     team: "L'équipe AfruE.",
     understood: "J'ai compris",
