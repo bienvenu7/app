@@ -35,7 +35,7 @@ export function ScheduleUnavailableModal({
 
   const fromLabel = formatScheduleHour(workingFrom);
   const toLabel = formatScheduleHour(workingTo);
-  const bodyTemplate = t("schedule.body", { from: "\u0002", to: "\u0001" });
+  const bodyTemplate = t("schedule.body", { from: "\u0001", to: "\u0002" });
   const [bodyBefore, bodyRest = ""] = bodyTemplate.split("\u0001");
   const [bodyMid, bodyAfter = ""] = bodyRest.split("\u0002");
 
@@ -68,9 +68,9 @@ export function ScheduleUnavailableModal({
         <div className={styles.body}>
           <p>
             {bodyBefore}
-            <strong>{fromLabel}</strong>
-            {bodyMid}
             <strong>{toLabel}</strong>
+            {bodyMid}
+            <strong>{fromLabel}</strong>
             {bodyAfter}
           </p>
           <p className={styles.signoff}>
