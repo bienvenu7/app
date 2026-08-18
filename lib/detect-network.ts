@@ -13,7 +13,7 @@ function rangePrefixes(from: number, to: number): string[] {
 
 const CONGO_RULES: { operator: "mtn" | "airtel"; prefixes: string[] }[] = [
   { operator: "mtn", prefixes: ["06"] },
-  { operator: "airtel", prefixes: ["05"] },
+  { operator: "airtel", prefixes: ["05", "04"] },
 ];
 
 const CAMEROON_RULES: { operator: "mtn" | "orange"; prefixes: string[] }[] = [
