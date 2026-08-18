@@ -21,8 +21,7 @@ export function isOutsideWorkingSchedule(
 
   const { day, hour } = getLocalClock();
   const isWorkingDay = shedule.workingDate.includes(day);
-  const isWorkingHour =
-    hour >= shedule.workingFrom && hour < shedule.workingTo;
+  const isWorkingHour = hour >= shedule.workingFrom && hour < shedule.workingTo;
 
   return !isWorkingDay || !isWorkingHour;
 }
