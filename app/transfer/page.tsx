@@ -74,7 +74,7 @@ function TransferFlow() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [payment, setPayment] = useState("");
   const [accepted, setAccepted] = useState(false);
-  const [feesIncluded, setFeesIncluded] = useState(false);
+  const [feesIncluded, setFeesIncluded] = useState(true);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   // send: Russia -> Africa ; receive: Africa -> Russia

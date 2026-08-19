@@ -149,19 +149,23 @@ export default function AmountStep({
   const handleReceiveChange = (value: string) => {
     lastEdited.current = "receive";
     const next = integerAmountInput(value);
-    setReceiveAmount(next);
+    // setReceiveAmount(next);
 
-    const payout = parseInt(next, 10) || 0;
-    if (payout > 0 && rate > 0) {
-      const send = computeSendAmountFromPayout(
-        payout,
+    const num = Math.round((parseInt(next, 10) || 0) / rate);
+    setAmount(num.toString());
+
+    if (num > 0) {
+      const { amountToPayOut: payout } = computeTransferAmounts(
+        num,
         feePercent,
         rate,
         feesIncluded,
       );
-      setAmount(amountInputString(send));
+      setReceiveAmount(amountInputString(payout));
+      // lastEdited.current = "send";
     } else {
-      setAmount("");
+      // setAmount("0");
+      setReceiveAmount(next);
     }
   };
 
@@ -207,7 +211,9 @@ export default function AmountStep({
         )}
       </div>
 
-      <div className={`${styles.amountBox} ${isAmountOutOfRange ? styles.amountBoxInvalid : ""}`}>
+      <div
+        className={`${styles.amountBox} ${isAmountOutOfRange ? styles.amountBoxInvalid : ""}`}
+      >
         <div className={styles.amountLabel}>
           <span>{t("transfer.youSend", { country: from.name })}</span>
         </div>
@@ -229,7 +235,11 @@ export default function AmountStep({
           <span className={styles.cur}>{from.currency}</span>
         </div>
         {amountError && (
-          <p id="amount-range-error" className={styles.amountError} role="alert">
+          <p
+            id="amount-range-error"
+            className={styles.amountError}
+            role="alert"
+          >
             {amountError}
           </p>
         )}
@@ -243,9 +253,7 @@ export default function AmountStep({
 
       <div className={`${styles.amountBox} ${styles.received}`}>
         <div className={styles.amountLabel}>
-          <span>
-            {t("transfer.recipientReceives", { country: to.name })}
-          </span>
+          <span>{t("transfer.recipientReceives", { country: to.name })}</span>
         </div>
         <div className={styles.amountInput}>
           <input
@@ -257,6 +265,7 @@ export default function AmountStep({
             onChange={(e) => handleReceiveChange(e.target.value)}
             aria-label={t("transfer.receiveAmountAria")}
             className={styles.receiveInput}
+            disabled={true}
           />
           <span className={styles.cur}>{to.currency}</span>
         </div>
@@ -298,7 +307,9 @@ export default function AmountStep({
               <strong>{formatMoney(amountToPayOut, to)}</strong>
             </div>
             <div className={styles.brow}>
-              <span>{t("transfer.feesPercent", { fee: iltineraire?.fee })}</span>
+              <span>
+                {t("transfer.feesPercent", { fee: iltineraire?.fee })}
+              </span>
               <strong>{formatMoney(fee, from)}</strong>
             </div>
             <div className={styles.divider} />
