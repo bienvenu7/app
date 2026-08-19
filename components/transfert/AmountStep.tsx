@@ -39,6 +39,8 @@ export default function AmountStep({
   iltineraire,
   feesIncluded,
   setFeesIncluded,
+  receiveAmount,
+  setReceiveAmount,
 }: {
   type: TransferType;
   africanCode: string;
@@ -54,10 +56,12 @@ export default function AmountStep({
   iltineraire: IDirection;
   feesIncluded: boolean;
   setFeesIncluded: (v: boolean) => void;
+  receiveAmount: string;
+  setReceiveAmount: (a: string) => void;
 }) {
   const t = useT();
   // const lastEdited = useRef<"send" | "receive">("send");
-  const [receiveAmount, setReceiveAmount] = useState("");
+  // const [receiveAmount, setReceiveAmount] = useState("");
   const [inputMode, setInputMode] = useState<"send" | "receive">("send");
 
   const pickerLabel =
@@ -133,6 +137,9 @@ export default function AmountStep({
   //   setAmount,
   //   receiveAmount,
   // ]);
+
+  const effectiveAmount =
+    inputMode === "receive" ? parseInt(receiveAmount, 10) || 0 : amountToPayOut;
 
   const isAmountOutOfRange =
     !!iltineraire &&
@@ -382,7 +389,7 @@ export default function AmountStep({
           <div className={styles.breakdown}>
             <div className={styles.brow}>
               <span>{t("transfer.amount")}</span>
-              <strong>{formatMoney(amountToPayOut, to)}</strong>
+              <strong>{formatMoney(effectiveAmount, to)}</strong>
             </div>
 
             <div className={styles.brow}>

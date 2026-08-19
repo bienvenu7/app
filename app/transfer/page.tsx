@@ -69,6 +69,7 @@ function TransferFlow() {
   const [dir, setDir] = useState(1);
   const [africanCode, setAfricanCode] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [receiveAmount, setReceiveAmount] = useState<string>("");
   const [senderName, setSenderName] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -207,9 +208,11 @@ function TransferFlow() {
 
   const showRecap = step >= 1;
 
+  const effectiveAmountToPayOut = parseInt(receiveAmount, 10) || 0;
+
   const transactionData: ITrasanctionData = {
     amountToSend: transferAmounts.totalToPay,
-    amountToPayOut: transferAmounts.amountToPayOut,
+    amountToPayOut: effectiveAmountToPayOut,
     fees: transferAmounts.fee,
     networkId: payment,
     type: type === "send" ? "SEND" : "RECEIVE",
@@ -336,6 +339,8 @@ function TransferFlow() {
                 iltineraire={iltineraire as IDirection}
                 feesIncluded={feesIncluded}
                 setFeesIncluded={setFeesIncluded}
+                receiveAmount={receiveAmount}
+                setReceiveAmount={setReceiveAmount}
               />
             )}
 
@@ -369,6 +374,7 @@ function TransferFlow() {
                 recipientName={recipientName}
                 recipientPhone={recipientPhone}
                 selectedNetwork={selectedNetwork!}
+                receiveAmount={receiveAmount}
               />
             )}
           </motion.div>
@@ -414,9 +420,7 @@ function TransferFlow() {
                 <div className={styles.info}>
                   <div className={styles.cName}>{to.name}</div>
                   <div className={styles.cAmt}>
-                    {amountNum > 0
-                      ? formatMoney(transferAmounts.amountToPayOut, to)
-                      : "—"}
+                    {amountNum > 0 ? effectiveAmountToPayOut : "—"}
                   </div>
                 </div>
               </div>
