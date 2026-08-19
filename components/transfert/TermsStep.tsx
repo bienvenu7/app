@@ -21,6 +21,7 @@ export default function TermsStep({
   recipientName,
   selectedNetwork,
   recipientPhone,
+  receiveAmount,
 }: {
   accepted: boolean;
   setAccepted: (v: boolean) => void;
@@ -29,6 +30,7 @@ export default function TermsStep({
   amountNum: number;
   quote: { fee: number; received: number };
   amount: string;
+  receiveAmount: string;
   rateData: IRate;
   iltineraire: IDirection;
   feesIncluded: boolean;
@@ -45,6 +47,8 @@ export default function TermsStep({
       rate,
       feesIncluded,
     );
+
+  const effectiveAmountToPayOut = parseInt(receiveAmount, 10) || amountToPayOut;
   return (
     <div>
       <h2 className={styles.stepTitle}>{t("transfer.termsTitle")}</h2>
@@ -68,7 +72,7 @@ export default function TermsStep({
           <li>
             {t("transfer.recipientWillReceive", {
               name: recipientName,
-              amount: formatMoney(amountToPayOut, to),
+              amount: effectiveAmountToPayOut,
               country: to.name,
               network: selectedNetwork?.name ?? "",
               phone: recipientPhone,
