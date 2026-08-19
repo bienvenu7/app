@@ -56,8 +56,9 @@ export default function AmountStep({
   setFeesIncluded: (v: boolean) => void;
 }) {
   const t = useT();
-  const lastEdited = useRef<"send" | "receive">("send");
+  // const lastEdited = useRef<"send" | "receive">("send");
   const [receiveAmount, setReceiveAmount] = useState("");
+  const [inputMode, setInputMode] = useState<"send" | "receive">("send");
 
   const pickerLabel =
     type === "send"
@@ -73,42 +74,65 @@ export default function AmountStep({
     feesIncluded,
   );
 
-  useEffect(() => {
-    lastEdited.current = "send";
-  }, [iltineraire?.code]);
+  // useEffect(() => {
+  //   lastEdited.current = "send";
+  // }, [iltineraire?.code]);
 
   useEffect(() => {
-    if (lastEdited.current === "receive") {
-      const payout = parseInt(receiveAmount, 10) || 0;
-      if (payout > 0 && rate > 0) {
-        const send = computeSendAmountFromPayout(
-          payout,
-          feePercent,
-          rate,
-          feesIncluded,
-        );
-        setAmount(amountInputString(send));
-      }
+    // L'utilisateur saisit directement le montant reçu.
+    // Le montant envoyé est déjà calculé dans handleReceiveChange().
+    if (inputMode === "receive") {
       return;
     }
 
-    if (amountNum > 0) {
+    // L'utilisateur saisit le montant envoyé.
+    // On recalcule donc le montant que le destinataire recevra.
+    if (amountNum > 0 && rate > 0) {
       setReceiveAmount(amountInputString(amountToPayOut));
     } else {
       setReceiveAmount("");
     }
   }, [
-    feesIncluded,
-    feePercent,
-    rate,
-    iltineraire?.code,
+    inputMode,
     amountNum,
     amountToPayOut,
-    from,
-    to,
-    setAmount,
-    receiveAmount,
+    rate,
+    iltineraire?.code,
+    feesIncluded,
   ]);
+
+  // useEffect(() => {
+  //   if (lastEdited.current === "receive") {
+  //     const payout = parseInt(receiveAmount, 10) || 0;
+  //     if (payout > 0 && rate > 0) {
+  //       const send = computeSendAmountFromPayout(
+  //         payout,
+  //         feePercent,
+  //         rate,
+  //         feesIncluded,
+  //       );
+  //       setAmount(amountInputString(send));
+  //     }
+  //     return;
+  //   }
+
+  //   if (amountNum > 0) {
+  //     setReceiveAmount(amountInputString(amountToPayOut));
+  //   } else {
+  //     setReceiveAmount("");
+  //   }
+  // }, [
+  //   feesIncluded,
+  //   feePercent,
+  //   rate,
+  //   iltineraire?.code,
+  //   amountNum,
+  //   amountToPayOut,
+  //   from,
+  //   to,
+  //   setAmount,
+  //   receiveAmount,
+  // ]);
 
   const isAmountOutOfRange =
     !!iltineraire &&
@@ -127,19 +151,41 @@ export default function AmountStep({
           })
         : null;
 
+  // const handleSendChange = (value: string) => {
+  //   lastEdited.current = "send";
+  //   const next = integerAmountInput(value);
+  //   setAmount(next);
+
+  //   const num = parseInt(next, 10) || 0;
+  //   if (num > 0) {
+  //     const { amountToPayOut: payout } = computeTransferAmounts(
+  //       num,
+  //       feePercent,
+  //       rate,
+  //       feesIncluded,
+  //     );
+  //     setReceiveAmount(amountInputString(payout));
+  //   } else {
+  //     setReceiveAmount("");
+  //   }
+  // };
+
   const handleSendChange = (value: string) => {
-    lastEdited.current = "send";
+    setInputMode("send");
+
     const next = integerAmountInput(value);
     setAmount(next);
 
     const num = parseInt(next, 10) || 0;
-    if (num > 0) {
+
+    if (num > 0 && rate > 0) {
       const { amountToPayOut: payout } = computeTransferAmounts(
         num,
         feePercent,
         rate,
         feesIncluded,
       );
+
       setReceiveAmount(amountInputString(payout));
     } else {
       setReceiveAmount("");
@@ -147,27 +193,47 @@ export default function AmountStep({
   };
 
   const handleReceiveChange = (value: string) => {
-    lastEdited.current = "receive";
+    setInputMode("receive");
+
+    // Quand l'utilisateur raisonne en montant reçu,
+    // on force les frais à être inclus.
+    setFeesIncluded(true);
+
     const next = integerAmountInput(value);
-    // setReceiveAmount(next);
+    setReceiveAmount(next);
 
-    const num = Math.round((parseInt(next, 10) || 0) / rate);
-    setAmount(num.toString());
+    const payout = parseInt(next, 10) || 0;
 
-    if (num > 0) {
-      const { amountToPayOut: payout } = computeTransferAmounts(
-        num,
-        feePercent,
-        rate,
-        feesIncluded,
-      );
-      setReceiveAmount(amountInputString(payout));
-      // lastEdited.current = "send";
+    if (payout > 0 && rate > 0) {
+      const send = computeSendAmountFromPayout(payout, feePercent, rate, true);
+
+      setAmount(amountInputString(send));
     } else {
-      // setAmount("0");
-      setReceiveAmount(next);
+      setAmount("");
     }
   };
+
+  // const handleReceiveChange = (value: string) => {
+  //   lastEdited.current = "receive";
+  //   const next = integerAmountInput(value);
+  //   setReceiveAmount(next);
+
+  //   const x = parseFloat(next);
+
+  //   const num = Math.round((parseInt(next, 10) || 0) / rate);
+
+  //   if (x > 0) {
+  //     const s = computeSendAmountFromPayout(
+  //       num,
+  //       feePercent,
+  //       rate,
+  //       feesIncluded,
+  //     );
+  //     setAmount(s.toString());
+  //   } else {
+  //     setReceiveAmount(next);
+  //   }
+  // };
 
   return (
     <div>
@@ -265,13 +331,81 @@ export default function AmountStep({
             onChange={(e) => handleReceiveChange(e.target.value)}
             aria-label={t("transfer.receiveAmountAria")}
             className={styles.receiveInput}
-            disabled={true}
+            // disabled={true}
           />
           <span className={styles.cur}>{to.currency}</span>
         </div>
       </div>
 
       {amountNum > 0 && (
+        <>
+          {inputMode === "send" && (
+            <>
+              <span className={styles.label}>{t("transfer.transferFees")}</span>
+
+              <div className={styles.feeOptions}>
+                <button
+                  type="button"
+                  className={`${styles.feeOption} ${
+                    !feesIncluded ? styles.selected : ""
+                  }`}
+                  onClick={() => setFeesIncluded(false)}
+                >
+                  <span className={styles.feeOptionTitle}>
+                    {t("transfer.feesExtra")}
+                  </span>
+
+                  <span className={styles.feeOptionHint}>
+                    {t("transfer.feesExtraHint")}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`${styles.feeOption} ${
+                    feesIncluded ? styles.selected : ""
+                  }`}
+                  onClick={() => setFeesIncluded(true)}
+                >
+                  <span className={styles.feeOptionTitle}>
+                    {t("transfer.feesIncluded")}
+                  </span>
+
+                  <span className={styles.feeOptionHint}>
+                    {t("transfer.feesIncludedHint")}
+                  </span>
+                </button>
+              </div>
+            </>
+          )}
+
+          <div className={styles.breakdown}>
+            <div className={styles.brow}>
+              <span>{t("transfer.amount")}</span>
+              <strong>{formatMoney(amountToPayOut, to)}</strong>
+            </div>
+
+            <div className={styles.brow}>
+              <span>
+                {t("transfer.feesPercent", {
+                  fee: iltineraire?.fee,
+                })}
+              </span>
+
+              <strong>{formatMoney(fee, from)}</strong>
+            </div>
+
+            <div className={styles.divider} />
+
+            <div className={styles.brow}>
+              <span>{t("transfer.totalToPay")}</span>
+              <strong>{formatMoney(totalToPay, from)}</strong>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* {amountNum > 0 && (
         <>
           <span className={styles.label}>{t("transfer.transferFees")}</span>
           <div className={styles.feeOptions}>
@@ -319,7 +453,7 @@ export default function AmountStep({
             </div>
           </div>
         </>
-      )}
+      )} */}
     </div>
   );
 }

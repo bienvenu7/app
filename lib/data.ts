@@ -147,6 +147,25 @@ export function computeTransferAmounts(
 }
 
 /** Inverse of computeTransferAmounts: payout → send-side amount. */
+// export function computeSendAmountFromPayout(
+//   payout: number,
+//   feePercent: number,
+//   rate: number,
+//   feesIncluded: boolean,
+// ): number {
+//   if (payout <= 0 || rate <= 0) return 0;
+
+//   const feeRate = feePercent / 100;
+
+//   if (feesIncluded) {
+//     const divisor = rate * (1 - feeRate);
+//     if (divisor <= 0) return 0;
+//     return Math.round(payout / divisor);
+//   }
+
+//   return Math.round(payout / rate);
+// }
+
 export function computeSendAmountFromPayout(
   payout: number,
   feePercent: number,
@@ -158,9 +177,9 @@ export function computeSendAmountFromPayout(
   const feeRate = feePercent / 100;
 
   if (feesIncluded) {
-    const divisor = rate * (1 - feeRate);
-    if (divisor <= 0) return 0;
-    return Math.round(payout / divisor);
+    if (feeRate >= 1) return 0;
+
+    return Math.round((payout * (1 + feeRate)) / rate);
   }
 
   return Math.round(payout / rate);
