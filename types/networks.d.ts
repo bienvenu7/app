@@ -1,46 +1,33 @@
+/** `GET /v3/network/get-networks/:countryId` */
 export interface INetworkResponse {
   id: string;
   pubicName: string;
   name: string;
-  createdAt: Date;
-  countryId: string;
 }
 
+export type Network = INetworkResponse;
+
+/** Hook mort (`get-fee`) — plus appelé par l'UI v3. */
 export interface IFee {
-  id: string;
   amount: string;
-  amountFrom: string;
-  amountTo: string;
-  createdAt: Date;
-  networkId: string;
 }
 
+/** Compte de paiement imbriqué sur une transaction v3 */
 export interface ICard {
-  id: string;
-  phone: string;
-  fullName: string;
-  createdAt: Date;
-  updatedAt: Date;
-  networkId: string;
-  countryId: string;
-  network: INetworkResponse;
+  fullName?: string;
+  phone?: string;
 }
 
+/** `GET /v3/country/get/cards/:countryId` */
 export interface IResponseCard {
   id: string;
-  countryId: string;
-  networkId: string;
   content: string;
   isLink: boolean;
-  createdAt: Date;
-  updatedAt: Date;
   isActive: boolean;
-  network: INetworkResponse;
+  network?: {
+    name: string;
+    pubicName: string;
+  };
 }
 
-export interface IFile {
-  filename: string;
-  uri: string;
-  transactionId: string;
-  type: 'CONTRAT' | 'CHECK';
-}
+export type PaymentCard = IResponseCard;

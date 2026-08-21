@@ -1,6 +1,7 @@
 "use client";
 
 import { getAuth } from "@/app/actions/auth";
+import { unwrapAction } from "@/lib/auth-errors";
 import { clearAuthSession, hasAuthSession } from "@/config/cookies";
 import type { IClientResponse } from "@/types/user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,7 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isError,
   } = useQuery({
     queryKey: AUTH_QUERY_KEY,
-    queryFn: getAuth,
+    queryFn: () => unwrapAction(getAuth()),
     enabled: hasToken,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,

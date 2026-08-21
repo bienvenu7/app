@@ -9,6 +9,7 @@ import {
   resendOtp,
   resetPassword,
 } from "@/app/actions/auth";
+import { unwrapAction } from "@/lib/auth-errors";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 export const useAuthentication = (email: string, password: string) => {
@@ -18,7 +19,7 @@ export const useAuthentication = (email: string, password: string) => {
     isError: loginError,
   } = useMutation({
     mutationKey: ["login", email],
-    mutationFn: () => login(email, password),
+    mutationFn: () => unwrapAction(login(email, password)),
   });
   return { postLogin, isLogin, loginError };
 };
@@ -31,7 +32,7 @@ export const useOptCheck = (email: string, newOtp: string) => {
     isSuccess: successOtp,
   } = useMutation({
     mutationKey: ["verify-otp", email, newOtp],
-    mutationFn: () => confirmOtp(email, newOtp),
+    mutationFn: () => unwrapAction(confirmOtp(email, newOtp)),
   });
   return { postOtp, lodingOtp, otpError, successOtp };
 };
@@ -43,7 +44,7 @@ export const useResendOtp = (email: string) => {
     isError: resendError,
   } = useMutation({
     mutationKey: ["resend-otp", email],
-    mutationFn: () => resendOtp(email),
+    mutationFn: () => unwrapAction(resendOtp(email)),
   });
   return { resend, isResending, resendError };
 };
@@ -55,7 +56,7 @@ export const useRequestPasswordReset = () => {
     isError: requestResetError,
   } = useMutation({
     mutationKey: ["forgot-password"],
-    mutationFn: (email: string) => requestPasswordReset(email),
+    mutationFn: (email: string) => unwrapAction(requestPasswordReset(email)),
   });
   return { requestReset, isRequestingReset, requestResetError };
 };
@@ -76,7 +77,7 @@ export const useResetPassword = () => {
       email: string;
       otp: string;
       password: string;
-    }) => resetPassword(email, otp, password),
+    }) => unwrapAction(resetPassword(email, otp, password)),
   });
   return {
     submitReset,
@@ -99,7 +100,7 @@ export const useUpdatePassword = (
     isSuccess: successChangeOtp,
   } = useMutation({
     mutationKey: ["update", email, otp, password],
-    mutationFn: () => resetPassword(email, otp, password),
+    mutationFn: () => unwrapAction(resetPassword(email, otp, password)),
   });
   return { changeOtp, loadingChangeOtp, otpChangeError, successChangeOtp };
 };
@@ -117,7 +118,8 @@ export const useRegistration = (
     isError: isRegisterError,
   } = useMutation({
     mutationKey: ["register", email],
-    mutationFn: () => register(email, password, fullName, countryId, gender),
+    mutationFn: () =>
+      unwrapAction(register(email, password, fullName, countryId, gender)),
   });
   return { registerFn, isRegisterError, isRegistering };
 };
@@ -129,14 +131,14 @@ export const useLogout = () => {
     isError: isLogoutError,
   } = useMutation({
     mutationKey: ["logout"],
-    mutationFn: () => logout(),
+    mutationFn: () => unwrapAction(logout()),
   });
   return { logoutFn, isLogoutError, islogout };
 };
 
 export const useGetAuth = () => {
   const { data: user, isLoading: loadingUser } = useQuery({
-    queryFn: getAuth,
+    queryFn: () => unwrapAction(getAuth()),
     queryKey: ["userData"],
   });
   return { user, loadingUser };

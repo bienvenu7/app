@@ -1,13 +1,12 @@
-import { instanceV2 } from "@/config/instance";
+"use server";
+
+import { instance } from "@/config/instance";
 import type { IDirection } from "@/types/country";
-import { getCookie } from "@/config/cookies";
+import { withAuthError } from "@/lib/auth-errors";
 
 export const getDirections = async (): Promise<IDirection[]> => {
-  const accessToken = getCookie("accessToken");
-  const { data } = await instanceV2.get("directions/get", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  return data;
+  return withAuthError(async () => {
+    const { data } = await instance.get("directions/get");
+    return data;
+  }) as Promise<IDirection[]>;
 };

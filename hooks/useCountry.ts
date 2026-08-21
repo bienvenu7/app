@@ -6,6 +6,7 @@ import {
   getRate,
 } from "@/app/actions/country";
 import { getDirections } from "@/app/actions/directions";
+import { unwrapAction } from "@/lib/auth-errors";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 export const useGetCountries = () => {
@@ -15,7 +16,7 @@ export const useGetCountries = () => {
     isError,
   } = useQuery({
     queryKey: ["countries"],
-    queryFn: () => getCountries(),
+    queryFn: () => unwrapAction(getCountries()),
   });
   return { countries, isLoading, isError };
 };
@@ -27,7 +28,7 @@ export const useGetCountriesById = (countryId: string) => {
     isError,
   } = useQuery({
     queryKey: ["country", countryId],
-    queryFn: () => getCountryById(countryId),
+    queryFn: () => unwrapAction(getCountryById(countryId)),
     enabled: !!countryId,
   });
   return { country, isLoading, isError };
@@ -40,7 +41,7 @@ export const useGetRateByCode = (code: string) => {
     isError,
   } = useQuery({
     queryKey: ["rate", code],
-    queryFn: () => getRate(code),
+    queryFn: () => unwrapAction(getRate(code)),
   });
   return { rate, isLoading, isError };
 };
@@ -52,7 +53,7 @@ export const useGetCards = (networkId: string | undefined) => {
     isError,
   } = useQuery({
     queryKey: ["cards", networkId],
-    queryFn: () => getCards(networkId!),
+    queryFn: () => unwrapAction(getCards(networkId!)),
     enabled: !!networkId,
   });
   return { cards, isLoading, isError };
@@ -73,7 +74,7 @@ export const useGetSheduleFromCountries = (countryId: string | undefined) => {
 export const useGetDirections = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["get/directions"],
-    queryFn: () => getDirections(),
+    queryFn: () => unwrapAction(getDirections()),
     refetchInterval: 5000,
     placeholderData: keepPreviousData,
     refetchIntervalInBackground: false,
@@ -84,7 +85,7 @@ export const useGetDirections = () => {
 export const useGetRate = (code: string | undefined) => {
   const { data, isLoading } = useQuery({
     queryKey: ["get/rates", code],
-    queryFn: () => getRate(code!),
+    queryFn: () => unwrapAction(getRate(code!)),
     enabled: !!code,
   });
   return { data, isLoading };

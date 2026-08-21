@@ -5,6 +5,7 @@ import moment from "moment";
 import "moment/locale/fr";
 import "moment/locale/ru";
 import { getTransactionByClientEmail } from "@/app/actions/transaction";
+import { unwrapAction } from "@/lib/auth-errors";
 import type { ITrasanctionResponse } from "@/types/transaction";
 
 // Locale is applied dynamically via LocaleProvider
@@ -107,9 +108,8 @@ export function useProgressiveTransactionsByEmail(email: string | undefined) {
           current.isSameOrAfter(minDate, "day")
         ) {
           const dateStr = current.format("DD-MM-YYYY");
-          const transactions = await getTransactionByClientEmail(
-            currentEmail,
-            dateStr,
+          const transactions = await unwrapAction(
+            getTransactionByClientEmail(currentEmail, dateStr),
           );
 
           if (transactions.length > 0) {
