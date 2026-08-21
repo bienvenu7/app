@@ -47,7 +47,7 @@ export const register = async (
   gender: string,
 ): Promise<{ message: string }> => {
   const { data } = await instanceV2.post("clients/register", {
-    email,
+    email: email.toLowerCase(),
     password,
     fullName,
     countryId,
@@ -79,7 +79,7 @@ export const reconfirmEmail = async (hash: string) => {
 export const login = async (email: string, password: string) => {
   try {
     await instance.post("auth/login", {
-      email,
+      email: email.toLowerCase(),
       password,
     });
     return "done";
