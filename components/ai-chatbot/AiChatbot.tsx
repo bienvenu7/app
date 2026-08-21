@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Send, X } from "lucide-react";
 import { toast } from "sonner";
-import { getChatbotReply, CHATBOT_MESSAGE_MAX_LENGTH } from "@/app/actions/chatbot";
+import { getChatbotReply, CHATBOT_MESSAGE_MAX_LENGTH } from "@/lib/chatbot";
 import { useSendMessage } from "@/hooks/useFile";
 import styles from "./ai-chatbot.module.scss";
 import { useI18n, useT } from "@/lib/i18n";

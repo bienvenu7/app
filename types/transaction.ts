@@ -1,4 +1,4 @@
-import type { ICard, IFee, INetworkResponse, IFile } from "./networks";
+import type { ICard, INetworkResponse } from "./networks";
 
 export enum Status {
   WAITING,
@@ -8,6 +8,16 @@ export enum Status {
   FINISH,
 }
 
+export type TxStatus =
+  | "WAITING"
+  | "INPROGRESS"
+  | "CONFIRMED"
+  | "ERROR"
+  | "FINISH";
+
+export type TxType = "SEND" | "RECEIVE";
+
+/** Body create TX — inchangé (l'API ignore `clientEmail`). */
 export interface ITrasanctionData {
   id?: string;
   code: string;
@@ -16,13 +26,13 @@ export interface ITrasanctionData {
    * Ne pas s'y fier pour l'ownership.
    */
   clientEmail: string;
-  type: "SEND" | "RECEIVE" | "";
+  type: TxType | "";
   amountToSend: number;
   senderName: string;
   receiverName: string;
   receiverPhone: string;
   amountToPayOut: number;
-  status: Status | string;
+  status: Status | TxStatus | string;
   networkId: string;
   fees: number;
   origin: string;
@@ -34,20 +44,25 @@ export interface ITrasanctionDataReady extends ITrasanctionData {
   direction: string;
 }
 
-export interface ITrasanctionResponse extends ITrasanctionData {
-  Rate: IFee;
-  Network: INetworkResponse;
-  files: IFile[];
-  dateTime: string;
-  hour: string;
-  month: string;
-  year: string;
-  complain: string;
-  adminCheck: string;
-  agencyPhone: string;
-  agencyFullName: string;
-  createdAt: Date;
-  card: ICard;
-  receiverName: string;
+/** Réponse TX v3 (create / patch / get-by-id / listes). */
+export interface ITrasanctionResponse {
+  id: string;
   txid: string;
+  code: string;
+  type: TxType;
+  status: TxStatus | Status | string;
+  amountToSend: number;
+  amountToPayOut: number;
+  fees: number;
+  senderName: string;
+  receiverName: string;
+  receiverPhone: string;
+  networkId: string;
+  dateTime: string;
+  hour?: string;
+  createdAt: string;
+  Network?: Pick<INetworkResponse, "name" | "pubicName">;
+  card?: ICard;
 }
+
+export type ClientTransaction = ITrasanctionResponse;

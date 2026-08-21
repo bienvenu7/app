@@ -1,3 +1,5 @@
+import "server-only";
+import https from "node:https";
 import axios, {
   type AxiosError,
   type AxiosInstance,
@@ -5,30 +7,28 @@ import axios, {
 } from "axios";
 import {
   clearAuthSession,
+  copyRefreshSetCookie,
+  DEFAULT_ACCESS_TTL_SEC,
   getAccessToken,
+  getRefreshToken,
   setAccessSession,
   shouldRefreshAccess,
-  DEFAULT_ACCESS_TTL_SEC,
-} from "@/config/cookies";
+} from "@/config/server-cookies";
+import { toAuthHttpError } from "@/lib/auth-errors";
 
 /**
- * Client HTTP Afrue.
- * En cas de conflit avec OpenAPI `/reference`, le guide
- * `docs/FRONTEND_CLIENT_SECURITY_UPDATES.md` prime.
- *
- * Routes interdites côté client (410/403) — ne pas réintroduire :
- * wipe/admin deletes, get-all/files, test-compression,
- * /v2/admin/*, /v2/stats/*, /v2/setting/*.
+ * Reverse proxy BFF — l'app client n'appelle plus api.afrue.com depuis le navigateur.
+ * Toutes les routes client passent par `app/actions` (`"use server"`) → `/v3`.
  */
-export const baseURL = "https://api.afrue.com/v1/";
-export const baseURLV2 = "https://api.afrue.com/v2/";
+export const CLIENT_API = "/v3";
+export const baseURL = "https://api.afrue.com/v3/";
 
-// export const baseURL = "http://localhost:7001/v1/";
-// export const baseURLV2 = "http://localhost:7001/v2/";
+/** Node on macOS often hangs ~75s on a broken IPv6 (AAAA) path before falling back to IPv4. */
+const ipv4Agent = new https.Agent({ family: 4, keepAlive: true });
+const API_TIMEOUT_MS = 20_000;
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
-/** Auth paths that must not trigger refresh / retry loops. */
 const SKIP_REFRESH_RE =
   /auth\/(login|verify-otp|refresh-token|resend-otp|confirm-email|forgot-password|update-password)|clients\/(forgot-password|reset-password|register)/i;
 
@@ -37,44 +37,39 @@ function shouldSkipRefresh(url?: string) {
   return SKIP_REFRESH_RE.test(url);
 }
 
+function setCookieHeaders(setCookie: string | string[] | undefined) {
+  return copyRefreshSetCookie(setCookie);
+}
+
 let refreshPromise: Promise<string> | null = null;
 
-/**
- * Single-flight refresh via bare axios (avoids interceptor recursion).
- * Cookie `refresh` is sent with credentials; never read in JS.
- */
 export async function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
-        const { data } = await axios.get<{
+        const refresh = await getRefreshToken();
+        const { data, headers } = await axios.get<{
           accessToken: string;
           expiresIn?: number;
         }>(`${baseURL}auth/refresh-token`, {
-          withCredentials: true,
+          headers: refresh ? { Cookie: `refresh=${refresh}` } : {},
+          httpsAgent: ipv4Agent,
+          timeout: API_TIMEOUT_MS,
         });
+
+        await setCookieHeaders(headers["set-cookie"]);
 
         if (!data?.accessToken) {
           throw new Error("refresh-token: missing accessToken");
         }
 
-        setAccessSession(
+        await setAccessSession(
           data.accessToken,
           data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC,
         );
         return data.accessToken;
       } catch (error) {
-        clearAuthSession();
-        if (typeof window !== "undefined") {
-          const path = window.location.pathname;
-          const onLogin = path.startsWith("/auth/login");
-          if (!onLogin) {
-            const from = encodeURIComponent(path);
-            window.location.assign(
-              from && path !== "/" ? `/auth/login?from=${from}` : "/auth/login",
-            );
-          }
-        }
+        await clearAuthSession();
         throw error;
       } finally {
         refreshPromise = null;
@@ -87,41 +82,55 @@ export async function refreshAccessToken(): Promise<string> {
 
 function attachAuthInterceptors(client: AxiosInstance) {
   client.interceptors.request.use(async (config) => {
-    if (typeof window === "undefined") return config;
-    if (shouldSkipRefresh(config.url)) return config;
+    if (shouldSkipRefresh(config.url)) {
+      const refresh = await getRefreshToken();
+      if (refresh) {
+        config.headers.Cookie = `refresh=${refresh}`;
+      }
+      return config;
+    }
 
     try {
-      if (shouldRefreshAccess()) {
+      if (await shouldRefreshAccess()) {
         const token = await refreshAccessToken();
         config.headers.Authorization = `Bearer ${token}`;
       } else {
-        const token = getAccessToken();
+        const token = await getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
       }
     } catch {
-      // Let the request proceed (or fail) without a bearer; response interceptor may logout.
+      // Let the request proceed (or fail) without a bearer.
+    }
+
+    const refresh = await getRefreshToken();
+    if (refresh) {
+      config.headers.Cookie = `refresh=${refresh}`;
     }
 
     return config;
   });
 
   client.interceptors.response.use(
-    (response) => response,
+    async (response) => {
+      await setCookieHeaders(response.headers["set-cookie"]);
+      return response;
+    },
     async (error: AxiosError) => {
       const original = error.config as RetriableConfig | undefined;
+      if (error.response) {
+        await setCookieHeaders(error.response.headers["set-cookie"]);
+      }
+
       if (!original || original._retry) {
-        return Promise.reject(error);
+        return Promise.reject(toAuthHttpError(error) ?? error);
       }
       if (error.response?.status !== 401) {
-        return Promise.reject(error);
+        return Promise.reject(toAuthHttpError(error) ?? error);
       }
       if (shouldSkipRefresh(original.url)) {
-        return Promise.reject(error);
-      }
-      if (typeof window === "undefined") {
-        return Promise.reject(error);
+        return Promise.reject(toAuthHttpError(error) ?? error);
       }
 
       original._retry = true;
@@ -130,21 +139,16 @@ function attachAuthInterceptors(client: AxiosInstance) {
         original.headers.Authorization = `Bearer ${token}`;
         return client.request(original);
       } catch {
-        return Promise.reject(error);
+        return Promise.reject(toAuthHttpError(error) ?? error);
       }
     },
   );
 }
 
 export const instance = axios.create({
-  baseURL: baseURL,
-  withCredentials: true,
-});
-
-export const instanceV2 = axios.create({
-  baseURL: baseURLV2,
-  withCredentials: true,
+  baseURL,
+  timeout: API_TIMEOUT_MS,
+  httpsAgent: ipv4Agent,
 });
 
 attachAuthInterceptors(instance);
-attachAuthInterceptors(instanceV2);

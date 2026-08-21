@@ -50,6 +50,7 @@ import {
   isNotFound,
   isRateLimited,
   isValidationError,
+  unwrapAction,
 } from "@/lib/auth-errors";
 import axios from "axios";
 import type { ITrasanctionResponse } from "@/types/transaction";
@@ -280,10 +281,12 @@ function ValidateFlow() {
         return;
       }
 
-      await uploadFiles(
-        compressedFiles,
-        transactionId,
-        t("validate.proofLabel"),
+      await unwrapAction(
+        uploadFiles(
+          compressedFiles,
+          transactionId,
+          t("validate.proofLabel"),
+        ),
       );
       await markPaymentConfirmed();
     } catch (error) {
@@ -517,7 +520,7 @@ function ValidateFlow() {
               ) : paymentCards?.length ? (
                 <div className={styles.payMethodsList}>
                   {paymentCards.map((el) => {
-                    const networkFlag = getLinks(el.network.name);
+                    const networkFlag = getLinks(el.network?.name ?? "");
                     const isSbpLogo = networkFlag?.includes("sbp-logo");
 
                     return el.isLink ? (
@@ -532,11 +535,11 @@ function ValidateFlow() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={networkFlag}
-                            alt={el.network.pubicName}
+                            alt={el.network?.pubicName}
                             className={isSbpLogo ? styles.payLinkSbpImg : undefined}
                           />
                         ) : (
-                          t("validate.payWith", { name: el.network.pubicName })
+                          t("validate.payWith", { name: el.network?.pubicName })
                         )}
                       </Link>
                     ) : (
@@ -546,7 +549,7 @@ function ValidateFlow() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={networkFlag}
-                              alt={el.network.name}
+                              alt={el.network?.name}
                               className={
                                 isSbpLogo
                                   ? styles.payNetworkImgSbp
@@ -554,7 +557,7 @@ function ValidateFlow() {
                               }
                             />
                           ) : (
-                            <strong>{el.network.name} : </strong>
+                            <strong>{el.network?.name} : </strong>
                           )}
                           {el.content || ""}
                         </span>

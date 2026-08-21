@@ -1,5 +1,6 @@
 "use client";
 import { getNetworkByAmount, getNetworksById } from "@/app/actions/network";
+import { unwrapAction } from "@/lib/auth-errors";
 import { useQuery } from "@tanstack/react-query";
 
 export const useGetNetworksById = (id: string | undefined) => {
@@ -9,7 +10,7 @@ export const useGetNetworksById = (id: string | undefined) => {
     data: network,
   } = useQuery({
     queryKey: ["network", id],
-    queryFn: () => getNetworksById(id!),
+    queryFn: () => unwrapAction(getNetworksById(id!)),
     enabled: !!id,
   });
   return { network, isNetworkError, isLoggingNetwork };
@@ -22,7 +23,7 @@ export const useGetNetworkByAmount = (networkId: string, amount: string) => {
     data: rate,
   } = useQuery({
     queryKey: ["network", networkId, amount],
-    queryFn: () => getNetworkByAmount(networkId, amount),
+    queryFn: () => unwrapAction(getNetworkByAmount(networkId, amount)),
   });
   return { isLoggingRate, isRateError, rate };
 };

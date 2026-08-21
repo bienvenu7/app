@@ -9,6 +9,7 @@ import styles from "./profile.module.scss";
 import Loading from "@/components/Loading";
 import { Auth } from "@/providers/AuthContext";
 import { updateClient, getAuth } from "@/app/actions/auth";
+import { unwrapAction } from "@/lib/auth-errors";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useGetTransactionStatsMonthly } from "@/hooks/useTransaction";
 import { countryFlagEmoji } from "@/lib/flags";
@@ -80,10 +81,12 @@ export default function ProfilePage() {
   const { mutateAsync: saveProfile, isPending: isSaving } = useMutation({
     mutationKey: ["update-profile", user?.id],
     mutationFn: () =>
-      updateClient({
-        phone: phone.trim(),
-        countryId: countryId || undefined,
-      }),
+      unwrapAction(
+        updateClient({
+          phone: phone.trim(),
+          countryId: countryId || undefined,
+        }),
+      ),
   });
 
   const { logoutFn, islogout } = useLogout();
@@ -114,7 +117,7 @@ export default function ProfilePage() {
       }
 
       toast.success(result.message || t("profile.saveSuccess"));
-      const refreshed = await getAuth();
+      const refreshed = await unwrapAction(getAuth());
       fillState(refreshed);
     } catch {
       toast.error(t("profile.saveError"));

@@ -16,6 +16,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
+import { unwrapAction } from "@/lib/auth-errors";
 
 /** Refresh home stats + transactions list after create/update. */
 export function invalidateTransactionQueries(queryClient: QueryClient) {
@@ -40,7 +41,7 @@ export const useCreateTransaction = (data: ITrasanctionData) => {
     mutateAsync,
   } = useMutation({
     mutationKey: ["transaction", data],
-    mutationFn: () => createTransaction(data),
+    mutationFn: () => unwrapAction(createTransaction(data)),
     onSuccess: async () => {
       await invalidateTransactionQueries(queryClient);
     },
@@ -56,7 +57,7 @@ export const useGetTransactonById = (id: string | undefined) => {
     refetch,
   } = useQuery({
     queryKey: ["transaction", id],
-    queryFn: () => getTransactionById(id!),
+    queryFn: () => unwrapAction(getTransactionById(id!)),
     enabled: !!id,
     refetchOnWindowFocus: true,
     refetchInterval: 1000 * 5,
@@ -81,7 +82,10 @@ export const useUpdateTransaction = () => {
       senderNumber: string;
       hour: string;
       status: Status;
-    }) => updateTransaction(transactionId, senderNumber, hour, status),
+    }) =>
+      unwrapAction(
+        updateTransaction(transactionId, senderNumber, hour, status),
+      ),
     onSuccess: async () => {
       await invalidateTransactionQueries(queryClient);
     },
@@ -99,7 +103,7 @@ export const useGetTransactonByEmail = (
     data: transactions,
   } = useQuery({
     queryKey: ["transaction", email, date],
-    queryFn: () => getTransactionByClientEmail(email!, date),
+    queryFn: () => unwrapAction(getTransactionByClientEmail(email!, date)),
     refetchInterval: 1000 * 5,
     enabled: !!email && !!date,
   });
@@ -113,7 +117,7 @@ export const useGetTransactionStatsMonthly = (email: string | undefined) => {
     data: stats,
   } = useQuery({
     queryKey: ["transaction-stats-monthly", email],
-    queryFn: () => getTransactionsStatsMonthly(),
+    queryFn: () => unwrapAction(getTransactionsStatsMonthly()),
     enabled: !!email,
     staleTime: 1000 * 60,
     refetchOnWindowFocus: true,
@@ -131,7 +135,8 @@ export const useInfiniteTransactionsByEmail = (email: string | undefined) => {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ["transactions-infinite", email],
-    queryFn: ({ pageParam }) => fetchTransactionsByThreeMonths(pageParam),
+    queryFn: ({ pageParam }) =>
+      unwrapAction(fetchTransactionsByThreeMonths(pageParam)),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : undefined,

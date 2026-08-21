@@ -270,7 +270,7 @@ export default function AmountStep({
 
       <span className={styles.label}>{pickerLabel}</span>
       <div className={styles.countryList}>
-        {AFRICAN_COUNTRIES.filter((r) => r.code !== user.Country.name).map(
+        {AFRICAN_COUNTRIES.filter((r) => r.code !== user.Country?.name).map(
           (c) => (
             <button
               key={c.code}

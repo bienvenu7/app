@@ -4,7 +4,7 @@ export interface IBaseErrorData {
   statusCode: number;
 }
 
-export interface IBadResquestErrorData extends IBadResquestErrorData {
+export interface IBadResquestErrorData {
   status: string;
   message: string;
   statusCode: number;
@@ -22,3 +22,8 @@ export interface ISuccessOtpCodeResponse {
   expiresIn: number;
   statusCode: number;
 }
+
+export type TokenResponse = {
+  accessToken: string;
+  expiresIn: number;
+};

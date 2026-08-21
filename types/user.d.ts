@@ -1,14 +1,15 @@
-import { ICountry } from './country';
+import { ICountry } from "./country";
 
+/** Profil courant — `GET /v3/auth/get-auth` */
 export interface IClientResponse {
   id: string;
   email: string;
   fullName: string;
-  clientNumber: number;
   whatsappNumber: string;
-  Country: ICountry;
-  gender: string;
+  Country?: ICountry;
 }
+
+export type AuthProfile = IClientResponse;
 
 export interface IClientUpdate {
   username?: string;
