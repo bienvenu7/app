@@ -50,9 +50,19 @@ export function getClockInTimeZone(
   };
 }
 
+/** API `workingDate`: 1 = lundi … 7 = dimanche. JS `getDay()`: 0 = dimanche … 6 = samedi. */
+export function jsDayToApiWeekday(jsDay: number): number {
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function isApiWorkingDay(workingDate: number[], jsDay: number): boolean {
+  const apiDay = jsDayToApiWeekday(jsDay);
+  return workingDate.some((d) => Number(d) === apiDay);
+}
+
 /**
- * True when the corridor clock is outside working weekdays (0–6) or hours.
- * `workingDate` uses the same 0=Sunday … 6=Saturday as `Date.getDay()`.
+ * True when the corridor clock is outside working weekdays or hours.
+ * `workingDate` uses 1 = Monday … 7 = Sunday.
  */
 export function isOutsideWorkingSchedule(
   shedule: IShedule | null | undefined,
@@ -68,7 +78,7 @@ export function isOutsideWorkingSchedule(
   }
 
   const { day, hour } = getClockInTimeZone(timeZone, date);
-  const isWorkingDay = shedule.workingDate.includes(day);
+  const isWorkingDay = isApiWorkingDay(shedule.workingDate, day);
   const from = Number(shedule.workingFrom);
   const to = Number(shedule.workingTo);
   const isWorkingHour =
@@ -94,7 +104,7 @@ export function getScheduleBlockReason(
   }
 
   const { day, hour } = getClockInTimeZone(timeZone, date);
-  if (!shedule.workingDate.includes(day)) return "closed-day";
+  if (!isApiWorkingDay(shedule.workingDate, day)) return "closed-day";
 
   const from = Number(shedule.workingFrom);
   const to = Number(shedule.workingTo);

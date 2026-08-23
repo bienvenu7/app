@@ -15,6 +15,7 @@ export interface IRate {
 export type RateResponse = IRate;
 
 export interface IShedule {
+  /** 1 = lundi … 7 = dimanche */
   workingDate: number[];
   workingFrom: number;
   workingTo: number;
