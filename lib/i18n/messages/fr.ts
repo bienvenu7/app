@@ -261,6 +261,8 @@ const fr = {
   schedule: {
     title: "Chers clients !",
     body: "Nous vous informons que notre service sera indisponible dans la période de {from} à {to} (heure locale) en raison des travaux techniques planifiés. Nous nous excusons pour les désagréments temporaires.",
+    bodyClosedDay:
+      "Nous vous informons que notre service est indisponible aujourd'hui, car ce n'est pas un jour ouvrable. Nous nous excusons pour les désagréments temporaires.",
     signoff: "Très respectueusement,",
     team: "L'équipe AfruE.",
     understood: "J'ai compris",

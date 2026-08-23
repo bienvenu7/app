@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import styles from "./schedule-unavailable-modal.module.scss";
-import { formatScheduleHour } from "@/lib/working-hours";
+import {
+  formatScheduleHour,
+  type ScheduleBlockReason,
+} from "@/lib/working-hours";
 import { useT } from "@/lib/i18n";
 
 export function ScheduleUnavailableModal({
@@ -12,11 +15,13 @@ export function ScheduleUnavailableModal({
   onClose,
   workingFrom,
   workingTo,
+  reason = "closed-hours",
 }: {
   open: boolean;
   onClose: () => void;
   workingFrom: number;
   workingTo: number;
+  reason?: ScheduleBlockReason;
 }) {
   const t = useT();
 
@@ -66,13 +71,17 @@ export function ScheduleUnavailableModal({
         </div>
 
         <div className={styles.body}>
-          <p>
-            {bodyBefore}
-            <strong>{toLabel}</strong>
-            {bodyMid}
-            <strong>{fromLabel}</strong>
-            {bodyAfter}
-          </p>
+          {reason === "closed-day" ? (
+            <p>{t("schedule.bodyClosedDay")}</p>
+          ) : (
+            <p>
+              {bodyBefore}
+              <strong>{toLabel}</strong>
+              {bodyMid}
+              <strong>{fromLabel}</strong>
+              {bodyAfter}
+            </p>
+          )}
           <p className={styles.signoff}>
             {t("schedule.signoff")}
             <br />
