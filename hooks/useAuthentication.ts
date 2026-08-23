@@ -31,7 +31,7 @@ export const useOptCheck = (email: string, newOtp: string) => {
     isError: otpError,
     isSuccess: successOtp,
   } = useMutation({
-    mutationKey: ["verify-otp", email, newOtp],
+    mutationKey: ["verify-otp", email],
     mutationFn: () => unwrapAction(confirmOtp(email, newOtp)),
   });
   return { postOtp, lodingOtp, otpError, successOtp };
@@ -85,24 +85,6 @@ export const useResetPassword = () => {
     resetPasswordError,
     resetPasswordSuccess,
   };
-};
-
-/** @deprecated Prefer useResetPassword — kept for call-site compatibility. */
-export const useUpdatePassword = (
-  email: string,
-  otp: string,
-  password: string,
-) => {
-  const {
-    mutateAsync: changeOtp,
-    isPending: loadingChangeOtp,
-    isError: otpChangeError,
-    isSuccess: successChangeOtp,
-  } = useMutation({
-    mutationKey: ["update", email, otp, password],
-    mutationFn: () => unwrapAction(resetPassword(email, otp, password)),
-  });
-  return { changeOtp, loadingChangeOtp, otpChangeError, successChangeOtp };
 };
 
 export const useRegistration = (

@@ -84,7 +84,7 @@ function TransferFlow() {
 
   // send: Russia -> Africa ; receive: Africa -> Russia
   const userCountry = useMemo(() => {
-    return AFRICAN_COUNTRIES.find((e) => e.code === user?.Country.name);
+    return AFRICAN_COUNTRIES.find((e) => e.code === user?.Country?.name);
   }, [user]);
 
   const from: Country = useMemo(() => {
