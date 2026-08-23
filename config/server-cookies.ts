@@ -9,6 +9,7 @@ import {
   REFRESH_SKEW_MS,
   UUID_KEY,
 } from "@/config/cookies";
+import { createSignedAuthSession } from "@/lib/session-hint";
 
 export { DEFAULT_ACCESS_TTL_SEC };
 
@@ -83,20 +84,35 @@ export async function setAccessSession(
   const expiresAt = Date.now() + ttlSec * 1000;
   const accessExpires = new Date(expiresAt);
   const base = cookieBase();
+  const sessionMaxAge = AUTH_SESSION_MAX_AGE_DAYS * 24 * 60 * 60;
 
   jar.set(ACCESS_TOKEN_KEY, accessToken, {
     ...base,
     expires: accessExpires,
-    httpOnly: false,
+    httpOnly: true,
   });
   jar.set(ACCESS_EXPIRES_AT_KEY, String(expiresAt), {
     ...base,
     expires: accessExpires,
+    httpOnly: true,
+  });
+  jar.set(AUTH_SESSION_KEY, await createSignedAuthSession(sessionMaxAge), {
+    ...base,
+    maxAge: sessionMaxAge,
     httpOnly: false,
   });
-  jar.set(AUTH_SESSION_KEY, "1", {
-    ...base,
-    maxAge: AUTH_SESSION_MAX_AGE_DAYS * 24 * 60 * 60,
+}
+
+/** Re-sign the UI session hint after a valid API call (migrates legacy `authSession=1`). */
+export async function refreshAuthSessionHint() {
+  const token = await getAccessToken();
+  if (!token) return;
+
+  const jar = await cookies();
+  const sessionMaxAge = AUTH_SESSION_MAX_AGE_DAYS * 24 * 60 * 60;
+  jar.set(AUTH_SESSION_KEY, await createSignedAuthSession(sessionMaxAge), {
+    ...cookieBase(),
+    maxAge: sessionMaxAge,
     httpOnly: false,
   });
 }

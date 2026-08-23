@@ -1,8 +1,9 @@
 "use client";
 
-import { getAuth } from "@/app/actions/auth";
+import { clearSessionCookies, getAuth } from "@/app/actions/auth";
 import { unwrapAction } from "@/lib/auth-errors";
 import { clearAuthSession, hasAuthSession } from "@/config/cookies";
+import { wipeLegacyPiiStorage } from "@/lib/storage";
 import type { IClientResponse } from "@/types/user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -54,13 +55,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   useEffect(() => {
+    wipeLegacyPiiStorage();
+  }, []);
+
+  useEffect(() => {
     if (!isError) return;
+    void clearSessionCookies();
     clearAuthSession();
     setHasToken(false);
     queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
   }, [isError, queryClient]);
 
   const resetState = useCallback(() => {
+    void clearSessionCookies();
     clearAuthSession();
     setHasToken(false);
     queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });

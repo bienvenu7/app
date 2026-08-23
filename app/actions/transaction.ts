@@ -7,7 +7,18 @@ import type {
   ITrasanctionResponse,
   Status,
 } from "../../types/transaction";
-import { withAuthError } from "@/lib/auth-errors";
+import { AuthHttpError, withAuthError } from "@/lib/auth-errors";
+import { loadPublicCountries } from "@/app/actions/country";
+import {
+  requireAccessToken,
+  requireAuthEmail,
+  requireAuthUser,
+} from "@/lib/require-auth";
+import {
+  isOutsideWorkingSchedule,
+  resolveTransferSchedule,
+  timeZoneForCountryCode,
+} from "@/lib/working-hours";
 
 const TRANSACTION_HISTORY_MONTHS = 6;
 const MONTHS_PER_PAGE = 3;
@@ -69,10 +80,28 @@ export const createTransaction = async (
   transaction: ITrasanctionData,
 ): Promise<ITrasanctionResponse> => {
   return withAuthError(async () => {
-    const { data } = await instance.post(
-      "transactions/create-one",
-      transaction,
+    const user = await requireAuthUser();
+    const countries = await loadPublicCountries();
+    const destination = transaction.code?.split("-")[1];
+    const shedule = resolveTransferSchedule(
+      countries,
+      transaction.origin,
+      destination,
+      user.Country,
     );
+    const timeZone =
+      timeZoneForCountryCode(transaction.origin) ??
+      timeZoneForCountryCode(destination) ??
+      timeZoneForCountryCode(user.Country?.name);
+
+    if (isOutsideWorkingSchedule(shedule, timeZone)) {
+      throw new AuthHttpError(403, "forbidden", "outside_working_schedule");
+    }
+
+    const { data } = await instance.post("transactions/create-one", {
+      ...transaction,
+      clientEmail: user.email,
+    });
     return data;
   }) as Promise<ITrasanctionResponse>;
 };
@@ -84,6 +113,7 @@ export const updateTransaction = async (
   status: Status,
 ): Promise<ITrasanctionResponse> => {
   return withAuthError(async () => {
+    await requireAccessToken();
     const { data } = await instance.patch(`transactions/${transactionId}`, {
       senderNumber,
       hour,
@@ -97,35 +127,42 @@ export const getTransactionById = async (
   transactionId: string,
 ): Promise<ITrasanctionResponse> => {
   return withAuthError(async () => {
+    await requireAccessToken();
     const { data } = await instance.get(
       `transaction/get/by-id/${transactionId}`,
     );
+    if (!data?.id) {
+      throw new AuthHttpError(404, "not_found");
+    }
     return data;
   }) as Promise<ITrasanctionResponse>;
 };
 
 export const getTransactionByClientEmail = async (
-  clientEmail: string,
+  _clientEmail: string,
   date: string,
 ): Promise<ITrasanctionResponse[]> => {
-  return withAuthError(() =>
-    loadTransactionsByClientEmail(clientEmail, date),
-  ) as Promise<ITrasanctionResponse[]>;
+  return withAuthError(async () => {
+    const email = await requireAuthEmail();
+    return loadTransactionsByClientEmail(email, date);
+  }) as Promise<ITrasanctionResponse[]>;
 };
 
 export const getTransactionByPeriod = async (
   startDate: string,
   endDate: string,
 ): Promise<ITrasanctionResponse[]> => {
-  return withAuthError(() =>
-    loadTransactionsByPeriod(startDate, endDate),
-  ) as Promise<ITrasanctionResponse[]>;
+  return withAuthError(async () => {
+    await requireAccessToken();
+    return loadTransactionsByPeriod(startDate, endDate);
+  }) as Promise<ITrasanctionResponse[]>;
 };
 
 export const fetchTransactionsByThreeMonths = async (
   endDateCursor: string | undefined,
 ): Promise<TransactionPeriodBatch> => {
   return withAuthError(async () => {
+    await requireAccessToken();
     const minDate = getTransactionHistoryMinDate();
 
     let end = endDateCursor
@@ -169,11 +206,12 @@ export const fetchTransactionsByThreeMonths = async (
 };
 
 export const fetchTransactionsForActiveDays = async (
-  clientEmail: string,
+  _clientEmail: string,
   startFromDate: string | undefined,
   activeDaysCount: number,
 ): Promise<TransactionDayBatch> => {
   return withAuthError(async () => {
+    const clientEmail = await requireAuthEmail();
     const minDate = getTransactionHistoryMinDate();
 
     let current = startFromDate
@@ -223,6 +261,7 @@ export const fetchTransactionsForActiveDays = async (
 export const getTransactionsStatsMonthly =
   async (): Promise<ITransactionStatsMonthlyResponse> => {
     return withAuthError(async () => {
+      await requireAccessToken();
       const startDate = moment().startOf("month").format("DD-MM-YYYY");
       const endDate = moment().startOf("day").format("DD-MM-YYYY");
       const transactions = await loadTransactionsByPeriod(startDate, endDate);

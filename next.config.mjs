@@ -19,14 +19,6 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
-  async rewrites() {
-    return [
-      {
-        source: "/v3/:path*",
-        destination: "https://api.afrue.com/v3/:path*",
-      },
-    ];
-  },
 };
 
 export default nextConfig;

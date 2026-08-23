@@ -44,7 +44,11 @@ import moment from "moment";
 import { useCreateTransaction } from "@/hooks/useTransaction";
 import { toast } from "sonner";
 import { ScheduleUnavailableModal } from "@/components/schedule-unavailable-modal";
-import { isOutsideWorkingSchedule } from "@/lib/working-hours";
+import {
+  isOutsideWorkingSchedule,
+  timeZoneForCountryCode,
+} from "@/lib/working-hours";
+import { isForbiddenAuth } from "@/lib/auth-errors";
 import type { IShedule } from "@/types/country";
 import { useT } from "@/lib/i18n";
 
@@ -233,7 +237,14 @@ function TransferFlow() {
     if (!canNext()) return;
 
     // Étape 2 (index 1) : vérifier les horaires de travail (heure locale)
-    if (step === 1 && isOutsideWorkingSchedule(activeShedule)) {
+    if (
+      step === 1 &&
+      isOutsideWorkingSchedule(
+        activeShedule,
+        timeZoneForCountryCode(from?.code) ??
+          timeZoneForCountryCode(to?.code),
+      )
+    ) {
       setScheduleModalOpen(true);
       return;
     }
@@ -249,7 +260,11 @@ function TransferFlow() {
         const txId = e.id ?? e.txid;
         router.push(`/transfer/validate?id=${encodeURIComponent(txId)}`);
       })
-      .catch(() => {
+      .catch((error) => {
+        if (isForbiddenAuth(error)) {
+          setScheduleModalOpen(true);
+          return;
+        }
         toast.error(t("transfer.errorToast"));
       });
   };

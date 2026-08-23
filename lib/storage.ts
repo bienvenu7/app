@@ -75,6 +75,7 @@ const TX_KEY = "afrue.transactions"
 const DRAFT_KEY = "afrue.draft"
 const PROFILE_KEY = "afrue.profile"
 const PIN_KEY = "afrue.pinAuth"
+const LEGACY_PII_KEYS = [TX_KEY, DRAFT_KEY, PROFILE_KEY] as const
 
 /** 3 months */
 export const PIN_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
@@ -87,17 +88,20 @@ export const PIN_MAX_ATTEMPTS = 5
 /** Lockout duration after max failed attempts */
 export const PIN_LOCKOUT_MS = 5 * 60 * 1000
 
-const DEFAULT_PROFILE: Profile = {
-  firstName: "Amadou",
-  lastName: "Diallo",
-  email: "amadou.diallo@example.com",
-  phone: "+225 07 00 00 00 00",
-  country: "CI",
-  memberSince: "2024-01-15",
-}
-
 function isBrowser() {
   return typeof window !== "undefined"
+}
+
+/** Remove leftover drafts / local TX / fake profiles (PII). PIN stays. */
+export function wipeLegacyPiiStorage() {
+  if (!isBrowser()) return
+  for (const key of LEGACY_PII_KEYS) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function genTxid() {
@@ -107,55 +111,34 @@ export function genTxid() {
 }
 
 export function getTransactions(): Transaction[] {
-  if (!isBrowser()) return []
-  try {
-    const raw = localStorage.getItem(TX_KEY)
-    return raw ? (JSON.parse(raw) as Transaction[]) : []
-  } catch {
-    return []
-  }
+  wipeLegacyPiiStorage()
+  return []
 }
 
-export function saveTransaction(tx: Transaction) {
-  if (!isBrowser()) return
-  const list = getTransactions()
-  list.unshift(tx)
-  localStorage.setItem(TX_KEY, JSON.stringify(list))
+export function saveTransaction(_tx: Transaction) {
+  wipeLegacyPiiStorage()
 }
 
 export function getDraft(): Draft | null {
-  if (!isBrowser()) return null
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY)
-    return raw ? (JSON.parse(raw) as Draft) : null
-  } catch {
-    return null
-  }
+  wipeLegacyPiiStorage()
+  return null
 }
 
-export function saveDraft(draft: Draft) {
-  if (!isBrowser()) return
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+export function saveDraft(_draft: Draft) {
+  wipeLegacyPiiStorage()
 }
 
 export function clearDraft() {
-  if (!isBrowser()) return
-  localStorage.removeItem(DRAFT_KEY)
+  wipeLegacyPiiStorage()
 }
 
-export function getProfile(): Profile {
-  if (!isBrowser()) return DEFAULT_PROFILE
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY)
-    return raw ? (JSON.parse(raw) as Profile) : DEFAULT_PROFILE
-  } catch {
-    return DEFAULT_PROFILE
-  }
+export function getProfile(): Profile | null {
+  wipeLegacyPiiStorage()
+  return null
 }
 
-export function saveProfile(profile: Profile) {
-  if (!isBrowser()) return
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile))
+export function saveProfile(_profile: Profile) {
+  wipeLegacyPiiStorage()
 }
 
 function isHashedPinAuth(value: unknown): value is PinAuth {
@@ -179,6 +162,7 @@ function isLegacyPlainPinAuth(value: unknown): value is LegacyPinAuth {
 // PIN auth: device unlock with a short code instead of re-typing credentials.
 export function getSavedPinAuth(): PinAuth | null {
   if (!isBrowser()) return null
+  wipeLegacyPiiStorage()
   try {
     const raw = localStorage.getItem(PIN_KEY)
     if (!raw) return null

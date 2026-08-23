@@ -2,6 +2,7 @@
 
 import { instance } from "@/config/instance";
 import { AuthHttpError, withAuthError } from "@/lib/auth-errors";
+import { requireAccessToken } from "@/lib/require-auth";
 import {
   MAX_PROOF_FILES,
   MAX_PROOF_FILE_BYTES,
@@ -16,6 +17,7 @@ export const uploadFiles = async (
   comment: string,
 ): Promise<UploadProofResponse> => {
   return withAuthError(async () => {
+    await requireAccessToken();
     if (!files.length || files.length > MAX_PROOF_FILES) {
       throw new AuthHttpError(400, "validation", "invalid_file_count");
     }
