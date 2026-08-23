@@ -539,7 +539,9 @@ function ValidateFlow() {
                             className={isSbpLogo ? styles.payLinkSbpImg : undefined}
                           />
                         ) : (
-                          t("validate.payWith", { name: el.network?.pubicName })
+                          t("validate.payWith", {
+                            name: el.network?.pubicName ?? "",
+                          })
                         )}
                       </Link>
                     ) : (

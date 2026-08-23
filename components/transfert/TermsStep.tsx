@@ -31,7 +31,7 @@ export default function TermsStep({
   quote: { fee: number; received: number };
   amount: string;
   receiveAmount: string;
-  rateData: IRate;
+  rateData: IRate | undefined;
   iltineraire: IDirection;
   feesIncluded: boolean;
   recipientName: string;
