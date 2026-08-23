@@ -35,11 +35,13 @@ function toPublicCountries(raw: unknown): ICountry[] {
   return raw.map(toPublicCountry).filter((c): c is ICountry => c != null);
 }
 
+export async function loadPublicCountries(): Promise<ICountry[]> {
+  const { data } = await instance.get("/country/get-countries");
+  return toPublicCountries(data);
+}
+
 export const getCountries = async (): Promise<ICountry[]> => {
-  return withAuthError(async () => {
-    const { data } = await instance.get("/country/get-countries");
-    return toPublicCountries(data);
-  }) as Promise<ICountry[]>;
+  return withAuthError(loadPublicCountries) as Promise<ICountry[]>;
 };
 
 export const getCountryById = async (id: string): Promise<ICountry> => {

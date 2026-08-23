@@ -1,21 +1,39 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isPublicRoute } from "@/lib/auth-routes";
+import { isSignedAuthSessionValid } from "@/lib/session-hint";
 import {
   LOCALE_COOKIE,
   isLocale,
   localeFromAcceptLanguage,
 } from "@/lib/i18n/config";
 
-/** Short-lived access JWT (≤ 15 min). */
-const ACCESS_TOKEN = "accessToken";
-/**
- * Session hint (7d). Lets private routes load while the client refreshes
- * access via HttpOnly `refresh` cookie — middleware cannot rely on that API cookie.
- */
 const AUTH_SESSION = "authSession";
 
-function withLocaleCookie(request: NextRequest, response: NextResponse) {
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://va.vercel-scripts.com`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://va.vercel-scripts.com https://vitals.vercel-insights.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
+function withSecurityHeaders(
+  request: NextRequest,
+  response: NextResponse,
+  nonce: string,
+) {
+  response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  response.headers.set("x-nonce", nonce);
+
   const existing = request.cookies.get(LOCALE_COOKIE)?.value;
   if (isLocale(existing)) return response;
 
@@ -30,16 +48,15 @@ function withLocaleCookie(request: NextRequest, response: NextResponse) {
   return response;
 }
 
-function hasClientSession(request: NextRequest) {
-  return (
-    !!request.cookies.get(ACCESS_TOKEN)?.value ||
-    !!request.cookies.get(AUTH_SESSION)?.value
-  );
-}
+export async function middleware(request: NextRequest) {
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
 
-export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const signedIn = hasClientSession(request);
+  const signedIn = await isSignedAuthSessionValid(
+    request.cookies.get(AUTH_SESSION)?.value,
+  );
   const isPublic = isPublicRoute(pathname);
 
   if (!signedIn && !isPublic) {
@@ -48,17 +65,25 @@ export function middleware(request: NextRequest) {
     if (pathname !== "/") {
       loginUrl.searchParams.set("from", pathname);
     }
-    return withLocaleCookie(request, NextResponse.redirect(loginUrl));
+    return withSecurityHeaders(
+      request,
+      NextResponse.redirect(loginUrl),
+      nonce,
+    );
   }
 
   if (signedIn && pathname === "/auth/register") {
     const homeUrl = request.nextUrl.clone();
     homeUrl.pathname = "/";
     homeUrl.search = "";
-    return withLocaleCookie(request, NextResponse.redirect(homeUrl));
+    return withSecurityHeaders(request, NextResponse.redirect(homeUrl), nonce);
   }
 
-  return withLocaleCookie(request, NextResponse.next());
+  return withSecurityHeaders(
+    request,
+    NextResponse.next({ request: { headers: requestHeaders } }),
+    nonce,
+  );
 }
 
 export const config = {

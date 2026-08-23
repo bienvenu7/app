@@ -17,10 +17,9 @@ import {
 import { toAuthHttpError } from "@/lib/auth-errors";
 
 /**
- * Reverse proxy BFF — l'app client n'appelle plus api.afrue.com depuis le navigateur.
- * Toutes les routes client passent par `app/actions` (`"use server"`) → `/v3`.
+ * BFF — axios serveur uniquement. Le navigateur n'appelle pas api.afrue.com
+ * et n'a plus de rewrite `/v3` (C1).
  */
-export const CLIENT_API = "/v3";
 export const baseURL = "https://api.afrue.com/v3/";
 
 /** Node on macOS often hangs ~75s on a broken IPv6 (AAAA) path before falling back to IPv4. */

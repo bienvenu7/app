@@ -11,6 +11,7 @@ import { DEFAULT_ACCESS_TTL_SEC } from "@/config/server-cookies";
 import {
   clearAuthSession,
   getAccessExpiresAt,
+  refreshAuthSessionHint,
   setAccessSession,
 } from "@/config/server-cookies";
 import { withAuthError } from "@/lib/auth-errors";
@@ -124,7 +125,7 @@ export const confirmOtp = async (email: string, newOtp: string) => {
     }
 
     await setAccessSession(accessToken, data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC);
-    return data;
+    return { ok: true as const };
   });
 };
 
@@ -152,6 +153,7 @@ export const resendOtp = async (email: string) => {
 export const getAuth = async (): Promise<IClientResponse> => {
   return withAuthError(async () => {
     const { data } = await instance.get("auth/get-auth");
+    await refreshAuthSessionHint();
     return data;
   }) as Promise<IClientResponse>;
 };
@@ -167,16 +169,19 @@ export const logout = async () => {
   });
 };
 
-export const refresh = async (): Promise<{
-  accessToken: string;
-  expiresIn: number;
-}> => {
+/** Drop HttpOnly session cookies when the UI logs out or getAuth fails. */
+export const clearSessionCookies = async () => {
+  await clearAuthSession();
+  return "done" as const;
+};
+
+export const refresh = async (): Promise<{ expiresIn: number }> => {
   return withAuthError(async () => {
-    const accessToken = await refreshAccessToken();
+    await refreshAccessToken();
     const expiresAt = await getAccessExpiresAt();
     const expiresIn = expiresAt
       ? Math.max(1, Math.round((expiresAt - Date.now()) / 1000))
       : DEFAULT_ACCESS_TTL_SEC;
-    return { accessToken, expiresIn };
-  }) as Promise<{ accessToken: string; expiresIn: number }>;
+    return { expiresIn };
+  }) as Promise<{ expiresIn: number }>;
 };
