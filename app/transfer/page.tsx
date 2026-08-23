@@ -45,7 +45,7 @@ import { useCreateTransaction } from "@/hooks/useTransaction";
 import { toast } from "sonner";
 import { ScheduleUnavailableModal } from "@/components/schedule-unavailable-modal";
 import {
-  isOutsideWorkingSchedule,
+  getScheduleBlockReason,
   timeZoneForCountryCode,
 } from "@/lib/working-hours";
 import { isForbiddenAuth } from "@/lib/auth-errors";
@@ -116,6 +116,13 @@ function TransferFlow() {
       user?.Country?.shedule
     );
   }, [countries, countryFrom, countryTo, user]);
+
+  const scheduleTimeZone =
+    timeZoneForCountryCode(from?.code) ?? timeZoneForCountryCode(to?.code);
+  const scheduleBlockReason = getScheduleBlockReason(
+    activeShedule,
+    scheduleTimeZone,
+  );
 
   const iltineraire = useMemo(() => {
     if (!directions) {
@@ -237,14 +244,7 @@ function TransferFlow() {
     if (!canNext()) return;
 
     // Étape 2 (index 1) : vérifier les horaires de travail (heure locale)
-    if (
-      step === 1 &&
-      isOutsideWorkingSchedule(
-        activeShedule,
-        timeZoneForCountryCode(from?.code) ??
-          timeZoneForCountryCode(to?.code),
-      )
-    ) {
+    if (step === 1 && scheduleBlockReason) {
       setScheduleModalOpen(true);
       return;
     }
@@ -465,6 +465,7 @@ function TransferFlow() {
         onClose={() => setScheduleModalOpen(false)}
         workingFrom={activeShedule?.workingFrom ?? 10}
         workingTo={activeShedule?.workingTo ?? 20}
+        reason={scheduleBlockReason ?? "closed-hours"}
       />
     </div>
   );

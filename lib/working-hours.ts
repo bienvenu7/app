@@ -77,6 +77,33 @@ export function isOutsideWorkingSchedule(
   return !isWorkingDay || !isWorkingHour;
 }
 
+export type ScheduleBlockReason = "closed-day" | "closed-hours";
+
+/** Why the corridor is closed right now, or null if it is open. */
+export function getScheduleBlockReason(
+  shedule: IShedule | null | undefined,
+  timeZone?: string,
+  date = new Date(),
+): ScheduleBlockReason | null {
+  if (
+    !shedule ||
+    !Array.isArray(shedule.workingDate) ||
+    shedule.workingDate.length === 0
+  ) {
+    return null;
+  }
+
+  const { day, hour } = getClockInTimeZone(timeZone, date);
+  if (!shedule.workingDate.includes(day)) return "closed-day";
+
+  const from = Number(shedule.workingFrom);
+  const to = Number(shedule.workingTo);
+  const isWorkingHour =
+    Number.isFinite(from) && Number.isFinite(to) && hour >= from && hour < to;
+
+  return isWorkingHour ? null : "closed-hours";
+}
+
 export function resolveTransferSchedule(
   countries: ICountry[],
   originCode: string | undefined,
