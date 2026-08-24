@@ -40,43 +40,71 @@ function setCookieHeaders(setCookie: string | string[] | undefined) {
   return copyRefreshSetCookie(setCookie);
 }
 
-let refreshPromise: Promise<string> | null = null;
+type RefreshedSession = {
+  accessToken: string;
+  expiresIn: number;
+  setCookie: string | string[] | undefined;
+};
 
-export async function refreshAccessToken(): Promise<string> {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      try {
-        const refresh = await getRefreshToken();
-        const { data, headers } = await axios.get<{
-          accessToken: string;
-          expiresIn?: number;
-        }>(`${baseURL}auth/refresh-token`, {
-          headers: refresh ? { Cookie: `refresh=${refresh}` } : {},
-          httpsAgent: ipv4Agent,
-          timeout: API_TIMEOUT_MS,
-        });
+/**
+ * In-flight upstream refresh calls, keyed by the refresh token so that only
+ * requests from the same session share a round trip. A single module-level
+ * promise would be shared by every request in the Node process and hand one
+ * user's access token to another.
+ */
+const inflightRefresh = new Map<string, Promise<RefreshedSession>>();
 
-        await setCookieHeaders(headers["set-cookie"]);
+async function fetchRefreshedSession(
+  refresh: string | null,
+): Promise<RefreshedSession> {
+  const { data, headers } = await axios.get<{
+    accessToken: string;
+    expiresIn?: number;
+  }>(`${baseURL}auth/refresh-token`, {
+    headers: refresh ? { Cookie: `refresh=${refresh}` } : {},
+    httpsAgent: ipv4Agent,
+    timeout: API_TIMEOUT_MS,
+  });
 
-        if (!data?.accessToken) {
-          throw new Error("refresh-token: missing accessToken");
-        }
-
-        await setAccessSession(
-          data.accessToken,
-          data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC,
-        );
-        return data.accessToken;
-      } catch (error) {
-        await clearAuthSession();
-        throw error;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
+  if (!data?.accessToken) {
+    throw new Error("refresh-token: missing accessToken");
   }
 
-  return refreshPromise;
+  return {
+    accessToken: data.accessToken,
+    expiresIn: data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC,
+    setCookie: headers["set-cookie"],
+  };
+}
+
+function refreshSession(refresh: string | null): Promise<RefreshedSession> {
+  // Without a refresh cookie nothing identifies the session, so never share.
+  if (!refresh) return fetchRefreshedSession(refresh);
+
+  const pending = inflightRefresh.get(refresh);
+  if (pending) return pending;
+
+  const started = fetchRefreshedSession(refresh).finally(() => {
+    inflightRefresh.delete(refresh);
+  });
+  inflightRefresh.set(refresh, started);
+  return started;
+}
+
+export async function refreshAccessToken(): Promise<string> {
+  const refresh = await getRefreshToken();
+
+  try {
+    const session = await refreshSession(refresh);
+    // Written per request: a request that joined an in-flight refresh still
+    // needs the cookies set on its own response, not on the initiator's.
+    await setCookieHeaders(session.setCookie);
+    await setAccessSession(session.accessToken, session.expiresIn);
+    return session.accessToken;
+  } catch (error) {
+    await clearAuthSession();
+    throw error;
+  }
 }
 
 function attachAuthInterceptors(client: AxiosInstance) {

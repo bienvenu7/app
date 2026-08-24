@@ -2,10 +2,21 @@
 
 const encoder = new TextEncoder();
 
+const MIN_SECRET_LENGTH = 16;
+
+/**
+ * Read at runtime on every call — `next-server` loads `.env` at boot and the
+ * value stays a runtime lookup in the Edge bundle, so it must never be cached
+ * or defaulted. A predictable secret would let anyone forge `authSession`.
+ */
 function getAuthSessionSecret(): string {
-  const fromEnv = process.env.AUTH_SESSION_SECRET?.trim();
-  if (fromEnv && fromEnv.length >= 16) return fromEnv;
-  return "afrue-auth-session-v1";
+  const secret = process.env.AUTH_SESSION_SECRET?.trim();
+  if (!secret || secret.length < MIN_SECRET_LENGTH) {
+    throw new Error(
+      `AUTH_SESSION_SECRET is missing or shorter than ${MIN_SECRET_LENGTH} characters`,
+    );
+  }
+  return secret;
 }
 
 function toHex(bytes: ArrayBuffer): string {

@@ -141,7 +141,8 @@ const ru: Messages = {
     passwordsMismatch: "Пароли не совпадают.",
     updating: "Обновление...",
     reset: "Сбросить",
-    passwordResetOtpInvalid: "Неверный или просроченный код.",
+    passwordResetOtpInvalid:
+      "Неверный или просроченный код. Запросите новый при необходимости.",
     passwordResetValidation:
       "Проверьте код (6 символов) и пароль.",
     verifyCode: "Проверьте ваш",
@@ -166,12 +167,20 @@ const ru: Messages = {
     passwordResetError: "Не удалось сбросить пароль.",
     otpSent: "6-значный код отправлен на вашу почту.",
     badCredentials: "Неверный email или пароль.",
+    emailUnconfirmed:
+      "Сначала подтвердите email. Мы отправили ссылку на вашу почту.",
     rateLimited:
       "Слишком много попыток. Попробуйте снова через несколько минут.",
+    rateLimitedCountdown:
+      "Слишком много попыток. Повторите через {seconds} с.",
     otpResent: "Новый код отправлен.",
     otpResendError: "Не удалось отправить код повторно.",
     otpVerified: "Код подтверждён!",
-    otpIncorrect: "Неверный код, попробуйте снова.",
+    otpIncorrect:
+      "Неверный или просроченный код. Попробуйте снова или запросите новый.",
+    otpExhausted: "Этот код больше нельзя использовать. Запросите новый.",
+    requestNewCode: "Запросить новый код",
+    resendIn: "Повторно через {seconds} с",
     pinCreated: "Ваш код успешно создан!",
     sessionLoadError: "Не удалось загрузить сессию.",
     pinsMismatch: "Коды не совпадают, попробуйте снова.",

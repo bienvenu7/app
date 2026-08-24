@@ -13,6 +13,16 @@ Optional (Telegram notifications):
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 
+## Runtime environment on the VPS
+
+These live in `/var/www/app/.env`, not in GitHub Actions — they are read at
+runtime by `next-server`, not baked into the build. See `.env.example`.
+
+- `AUTH_SESSION_SECRET`: **required**, at least 16 characters. HMAC key for the
+  signed `authSession` cookie. Generate with `openssl rand -hex 32`. There is no
+  fallback: if it is missing, every request fails with a 500 instead of silently
+  accepting forgeable session cookies.
+
 ## Deploy model (same as landing)
 
 1. GitHub Actions builds the Next.js standalone bundle (`npm ci` + `npm run build`).
