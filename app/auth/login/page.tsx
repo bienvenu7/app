@@ -10,9 +10,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { getAuth } from "@/app/actions/auth";
-import { hasAuthSession } from "@/config/cookies";
-import { verifyOtpSession } from "@/lib/verify-otp-session";
+import { getAuth, confirmOtp } from "@/app/actions/auth";
 import {
   useAuthentication,
   useRequestPasswordReset,
@@ -118,30 +116,10 @@ function LoginFlow() {
   const resetOtpLocked = otpAttemptsExhausted(resetOtpFailures);
 
   useEffect(() => {
-    let cancelled = false;
     const saved = getValidPinAuth();
-
     if (!saved) {
-      if (!hasAuthSession()) {
-        setMode("credentials");
-        return;
-      }
-
-      (async () => {
-        try {
-          const user = await unwrapAction(getAuth());
-          if (cancelled) return;
-          fillState(user);
-          setPendingEmail(user.email);
-          setMode("create-pin");
-        } catch {
-          if (!cancelled) setMode("credentials");
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
+      setMode("credentials");
+      return;
     }
 
     setSavedAuth(saved);
@@ -157,17 +135,12 @@ function LoginFlow() {
     (async () => {
       try {
         const user = await unwrapAction(getAuth());
-        if (cancelled) return;
         fillState(user);
         router.replace(returnTo);
       } catch {
-        if (!cancelled) setMode("pin-login");
+        setMode("pin-login");
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [fillState, router, returnTo]);
 
   useEffect(() => {
@@ -451,7 +424,7 @@ function LoginFlow() {
 
     (async () => {
       try {
-        await verifyOtpSession(pendingEmail, otp);
+        await unwrapAction(confirmOtp(pendingEmail, otp));
         if (cancelled) return;
         resetOtpBuffer();
         resetPinBuffers();
@@ -459,16 +432,15 @@ function LoginFlow() {
         toast.success(t("auth.otpVerified"));
       } catch (error) {
         if (cancelled) return;
-        // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
-        // setting otpVerifying back to false re-triggers this effect in a loop.
-        setOtpVerifying(false);
         const wait = otpResendCooldown.capture(error);
         if (wait != null) {
+          setOtpVerifying(false);
           setOtpError(true);
           toast.error(
             t("auth.rateLimitedCountdown", { seconds: String(wait) }),
           );
         } else if (isUnauthorized(error)) {
+          setOtpVerifying(false);
           setOtpError(true);
           const next = otpFailures + 1;
           setOtpFailures(next);
@@ -478,7 +450,13 @@ function LoginFlow() {
               : t("auth.otpIncorrect"),
           );
         } else {
-          toast.error(t("auth.sessionLoadError"));
+          // 201 already wrote cookies; Next sometimes rejects the action
+          // result. Same path as a clean success — getAuth runs after PIN.
+          resetOtpBuffer();
+          resetPinBuffers();
+          setMode("create-pin");
+          toast.success(t("auth.otpVerified"));
+          return;
         }
         setTimeout(() => {
           if (cancelled) return;
