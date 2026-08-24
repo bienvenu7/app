@@ -10,7 +10,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { getAuth, confirmOtp } from "@/app/actions/auth";
+import { confirmOtp, getAuth } from "@/app/actions/auth";
 import {
   useAuthentication,
   useRequestPasswordReset,
@@ -21,13 +21,10 @@ import { Auth } from "@/providers/AuthContext";
 import { isAuthEntryRoute } from "@/lib/auth-routes";
 import {
   isForbiddenAuth,
-  isUnconfirmedEmail,
-  isUnauthorized,
+  isRateLimited,
   isValidationError,
   unwrapAction,
 } from "@/lib/auth-errors";
-import { useRateLimitCooldown } from "@/hooks/useRateLimitCooldown";
-import { otpAttemptsExhausted } from "@/lib/otp-attempts";
 import Loading from "@/components/Loading";
 import { useT } from "@/lib/i18n";
 import {
@@ -82,7 +79,6 @@ function LoginFlow() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetOtp, setResetOtp] = useState("");
   const [resetOtpError, setResetOtpError] = useState(false);
-  const [resetOtpFailures, setResetOtpFailures] = useState(0);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -92,9 +88,7 @@ function LoginFlow() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
-  const [otpFailures, setOtpFailures] = useState(0);
   const [pendingEmail, setPendingEmail] = useState("");
-  const [emailUnconfirmed, setEmailUnconfirmed] = useState(false);
   const otpSubmittedRef = useRef<string | null>(null);
 
   // PIN
@@ -109,11 +103,6 @@ function LoginFlow() {
   const { resend, isResending } = useResendOtp(pendingEmail);
   const { requestReset, isRequestingReset } = useRequestPasswordReset();
   const { submitReset, isResettingPassword } = useResetPassword();
-  const loginCooldown = useRateLimitCooldown();
-  const otpResendCooldown = useRateLimitCooldown();
-  const resetCooldown = useRateLimitCooldown();
-  const otpLocked = otpAttemptsExhausted(otpFailures);
-  const resetOtpLocked = otpAttemptsExhausted(resetOtpFailures);
 
   useEffect(() => {
     const saved = getValidPinAuth();
@@ -204,7 +193,6 @@ function LoginFlow() {
     setOtp("");
     setOtpError(false);
     setOtpVerifying(false);
-    setOtpFailures(0);
     otpSubmittedRef.current = null;
   };
 
@@ -224,7 +212,8 @@ function LoginFlow() {
         const user = await unwrapAction(getAuth());
         fillState(user);
       } catch {
-        // PIN is already stored locally. Home will load the profile.
+        // Session cookies were written at verify-otp. Don't trap the user on
+        // the PIN screen if get-auth flakes.
       }
       if (greeting) toast.success(greeting);
       router.replace(returnTo);
@@ -244,12 +233,10 @@ function LoginFlow() {
     setResetEmail("");
     setResetOtp("");
     setResetOtpError(false);
-    setResetOtpFailures(0);
     setNewPassword("");
     setConfirmNewPassword("");
     setShowNewPassword(false);
     setShowConfirmNewPassword(false);
-    resetCooldown.clear();
   };
 
   const handleOpenForgotPassword = () => {
@@ -266,7 +253,6 @@ function LoginFlow() {
   const handleBackToForgotEmail = () => {
     setResetOtp("");
     setResetOtpError(false);
-    setResetOtpFailures(0);
     setNewPassword("");
     setConfirmNewPassword("");
     setMode("forgot-password");
@@ -279,40 +265,30 @@ function LoginFlow() {
       await requestReset(resetEmail.trim());
       setResetOtp("");
       setResetOtpError(false);
-      setResetOtpFailures(0);
       setNewPassword("");
       setConfirmNewPassword("");
       setMode("forgot-reset");
       toast.success(t("auth.resetCodeSent"));
     } catch (error) {
-      const wait = resetCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
-        return;
-      }
-      toast.error(t("auth.passwordResetError"));
+      toast.error(
+        isRateLimited(error)
+          ? t("auth.rateLimited")
+          : t("auth.passwordResetError"),
+      );
     }
   };
 
   const handleResendResetCode = async () => {
-    if (!canRequestReset || resetCooldown.locked) return;
+    if (!canRequestReset) return;
     try {
       await requestReset(resetEmail.trim());
       setResetOtp("");
       setResetOtpError(false);
-      setResetOtpFailures(0);
       toast.success(t("auth.resetCodeSent"));
     } catch (error) {
-      const wait = resetCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
-        return;
-      }
-      toast.error(t("auth.otpResendError"));
+      toast.error(
+        isRateLimited(error) ? t("auth.rateLimited") : t("auth.otpResendError"),
+      );
     }
   };
 
@@ -336,25 +312,16 @@ function LoginFlow() {
       toast.success(t("auth.passwordUpdated"));
     } catch (error) {
       if (isForbiddenAuth(error)) {
-        const next = resetOtpFailures + 1;
-        setResetOtpFailures(next);
         setResetOtpError(true);
-        toast.error(
-          otpAttemptsExhausted(next)
-            ? t("auth.otpExhausted")
-            : t("auth.passwordResetOtpInvalid"),
-        );
+        toast.error(t("auth.passwordResetOtpInvalid"));
         setTimeout(() => {
           setResetOtpError(false);
           setResetOtp("");
         }, 500);
         return;
       }
-      const wait = resetCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
+      if (isRateLimited(error)) {
+        toast.error(t("auth.rateLimited"));
         return;
       }
       if (isValidationError(error)) {
@@ -367,51 +334,31 @@ function LoginFlow() {
 
   const handleLoginSubmit = async () => {
     if (!/\S+@\S+\.\S+/.test(email.trim()) || password.length < 1) return;
-    if (loginCooldown.locked) return;
 
     setVerifying(true);
-    setEmailUnconfirmed(false);
     try {
       await postLogin();
       setPendingEmail(email.trim());
       resetOtpBuffer();
       resetPinBuffers();
-      otpResendCooldown.clear();
       setMode("verify-otp");
       toast.success(t("auth.otpSent"));
     } catch (error) {
-      const wait = loginCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
-        return;
-      }
-      if (isUnconfirmedEmail(error)) {
-        setEmailUnconfirmed(true);
-        toast.error(t("auth.emailUnconfirmed"));
-        return;
-      }
-      toast.error(t("auth.badCredentials"));
+      toast.error(
+        isRateLimited(error) ? t("auth.rateLimited") : t("auth.badCredentials"),
+      );
     } finally {
       setVerifying(false);
     }
   };
 
   const handleResendOtp = async () => {
-    if (!pendingEmail || otpResendCooldown.locked) return;
+    if (!pendingEmail) return;
     try {
       await resend();
       resetOtpBuffer();
       toast.success(t("auth.otpResent"));
-    } catch (error) {
-      const wait = otpResendCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
-        return;
-      }
+    } catch {
       toast.error(t("auth.otpResendError"));
     }
   };
@@ -420,61 +367,31 @@ function LoginFlow() {
   useEffect(() => {
     if (mode !== "verify-otp" || otp.length !== 6) return;
     if (otpSubmittedRef.current === otp) return;
-    if (otpLocked) return;
 
     otpSubmittedRef.current = otp;
     setOtpVerifying(true);
-    let cancelled = false;
 
     (async () => {
       try {
         await unwrapAction(confirmOtp(pendingEmail, otp));
-        if (cancelled) return;
         resetOtpBuffer();
         resetPinBuffers();
         setMode("create-pin");
         toast.success(t("auth.otpVerified"));
-      } catch (error) {
-        if (cancelled) return;
-        const wait = otpResendCooldown.capture(error);
-        if (wait != null) {
-          setOtpVerifying(false);
-          setOtpError(true);
-          toast.error(
-            t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-          );
-        } else if (isUnauthorized(error)) {
-          setOtpVerifying(false);
-          setOtpError(true);
-          const next = otpFailures + 1;
-          setOtpFailures(next);
-          toast.error(
-            otpAttemptsExhausted(next)
-              ? t("auth.otpExhausted")
-              : t("auth.otpIncorrect"),
-          );
-        } else {
-          // 201 already wrote cookies; Next sometimes rejects the action
-          // result. Same path as a clean success — getAuth runs after PIN.
-          resetOtpBuffer();
-          resetPinBuffers();
-          setMode("create-pin");
-          toast.success(t("auth.otpVerified"));
-          return;
-        }
+      } catch {
+        // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
+        // setting otpVerifying back to false re-triggers this effect in a loop.
+        setOtpVerifying(false);
+        setOtpError(true);
+        toast.error(t("auth.otpIncorrect"));
         setTimeout(() => {
-          if (cancelled) return;
           setOtpError(false);
           setOtp("");
           otpSubmittedRef.current = null;
         }, 500);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [otp, mode, pendingEmail, otpLocked, otpFailures, otpResendCooldown.capture, t]);
+  }, [otp, mode, pendingEmail, t]);
 
   // PIN creation — step 1
   useEffect(() => {
@@ -705,25 +622,12 @@ function LoginFlow() {
                 !/\S+@\S+\.\S+/.test(email.trim()) ||
                 password.length < 1 ||
                 isLogin ||
-                verifying ||
-                loginCooldown.locked
+                verifying
               }
               style={{ marginTop: 26 }}
             >
-              {loginCooldown.locked
-                ? t("auth.rateLimitedCountdown", {
-                    seconds: String(loginCooldown.remaining),
-                  })
-                : isLogin || verifying
-                  ? t("auth.loggingIn")
-                  : t("auth.login")}
+              {isLogin || verifying ? t("auth.loggingIn") : t("auth.login")}
             </button>
-
-            {emailUnconfirmed && (
-              <p className={styles.otpHint} style={{ marginTop: 16 }}>
-                {t("auth.emailUnconfirmed")}
-              </p>
-            )}
 
             <p className={styles.footerLink}>
               {t("auth.noAccount")}{" "}
@@ -782,15 +686,11 @@ function LoginFlow() {
               <button
                 className={`${ui.btn} ${ui.btnPrimary}`}
                 onClick={handleForgotPasswordSubmit}
-                disabled={!canRequestReset || isRequestingReset || resetCooldown.locked}
+                disabled={!canRequestReset || isRequestingReset}
               >
-                {resetCooldown.locked
-                  ? t("auth.rateLimitedCountdown", {
-                      seconds: String(resetCooldown.remaining),
-                    })
-                  : isRequestingReset
-                    ? t("auth.sendingResetCode")
-                    : t("auth.sendResetCode")}
+                {isRequestingReset
+                  ? t("auth.sendingResetCode")
+                  : t("auth.sendResetCode")}
               </button>
             </div>
           </motion.div>
@@ -825,31 +725,16 @@ function LoginFlow() {
                   value={resetOtp}
                   onChange={setResetOtp}
                   error={resetOtpError}
-                  disabled={isResettingPassword || resetOtpLocked}
+                  disabled={isResettingPassword}
                 />
-                {resetOtpLocked && (
-                  <p className={styles.otpHint}>{t("auth.otpExhausted")}</p>
-                )}
                 <p className={styles.resendOtp}>
-                  {resetOtpLocked
-                    ? t("auth.requestNewCode")
-                    : t("auth.noCodeReceived")}{" "}
+                  {t("auth.noCodeReceived")}{" "}
                   <button
                     type="button"
                     onClick={handleResendResetCode}
-                    disabled={
-                      isRequestingReset ||
-                      isResettingPassword ||
-                      resetCooldown.locked
-                    }
+                    disabled={isRequestingReset || isResettingPassword}
                   >
-                    {resetCooldown.locked
-                      ? t("auth.resendIn", {
-                          seconds: String(resetCooldown.remaining),
-                        })
-                      : isRequestingReset
-                        ? t("auth.sending")
-                        : t("auth.resend")}
+                    {isRequestingReset ? t("auth.sending") : t("auth.resend")}
                   </button>
                 </p>
               </div>
@@ -931,7 +816,7 @@ function LoginFlow() {
               <button
                 className={`${ui.btn} ${ui.btnPrimary}`}
                 onClick={handleConfirmResetSubmit}
-                disabled={!canConfirmReset || isResettingPassword || resetOtpLocked}
+                disabled={!canConfirmReset || isResettingPassword}
               >
                 {isResettingPassword ? t("auth.updating") : t("auth.reset")}
               </button>
@@ -963,29 +848,17 @@ function LoginFlow() {
               value={otp}
               onChange={setOtp}
               error={otpError}
-              disabled={otpVerifying || otpLocked}
+              disabled={otpVerifying}
             />
 
-            {otpLocked && (
-              <p className={styles.otpHint}>{t("auth.otpExhausted")}</p>
-            )}
-
             <p className={styles.resendOtp}>
-              {otpLocked
-                ? t("auth.requestNewCode")
-                : t("auth.noCodeReceived")}{" "}
+              {t("auth.noCodeReceived")}{" "}
               <button
                 type="button"
                 onClick={handleResendOtp}
-                disabled={isResending || otpVerifying || otpResendCooldown.locked}
+                disabled={isResending || otpVerifying}
               >
-                {otpResendCooldown.locked
-                  ? t("auth.resendIn", {
-                      seconds: String(otpResendCooldown.remaining),
-                    })
-                  : isResending
-                    ? t("auth.sending")
-                    : t("auth.resend")}
+                {isResending ? t("auth.sending") : t("auth.resend")}
               </button>
             </p>
           </motion.div>

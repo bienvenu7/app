@@ -17,9 +17,7 @@ import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
 import { confirmOtp, getAuth } from "@/app/actions/auth";
-import { isUnauthorized, unwrapAction } from "@/lib/auth-errors";
-import { useRateLimitCooldown } from "@/hooks/useRateLimitCooldown";
-import { otpAttemptsExhausted } from "@/lib/otp-attempts";
+import { unwrapAction } from "@/lib/auth-errors";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useRegistration, useResendOtp } from "@/hooks/useAuthentication";
 import { countryFlagEmoji } from "@/lib/flags";
@@ -58,7 +56,6 @@ export default function RegisterPage() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
-  const [otpFailures, setOtpFailures] = useState(0);
   const otpSubmittedRef = useRef<string | null>(null);
 
   // Steps 4–5 — PIN
@@ -100,15 +97,11 @@ export default function RegisterPage() {
     gender,
   );
   const { resend, isResending } = useResendOtp(email.trim());
-  const registerCooldown = useRateLimitCooldown();
-  const otpResendCooldown = useRateLimitCooldown();
-  const otpLocked = otpAttemptsExhausted(otpFailures);
 
   const resetOtpBuffer = useCallback(() => {
     setOtp("");
     setOtpError(false);
     setOtpVerifying(false);
-    setOtpFailures(0);
     otpSubmittedRef.current = null;
   }, []);
 
@@ -124,7 +117,8 @@ export default function RegisterPage() {
         const user = await unwrapAction(getAuth());
         fillState(user);
       } catch {
-        // PIN is already stored locally. Home will load the profile.
+        // Session cookies were written at verify-otp. Don't trap the user on
+        // the PIN screen if get-auth flakes.
       }
       toast.success(message ?? t("auth.accountCreated"));
       router.replace("/");
@@ -155,19 +149,12 @@ export default function RegisterPage() {
   };
 
   const handleResendOtp = async () => {
-    if (!email.trim() || otpResendCooldown.locked) return;
+    if (!email.trim()) return;
     try {
       await resend();
       resetOtpBuffer();
       toast.success(t("auth.otpResent"));
-    } catch (error) {
-      const wait = otpResendCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
-        return;
-      }
+    } catch {
       toast.error(t("auth.otpResendError"));
     }
   };
@@ -181,22 +168,13 @@ export default function RegisterPage() {
 
     if (step !== 1) return;
     if (!canNextStep1) return;
-    if (registerCooldown.locked) return;
 
     try {
       await registerFn();
       resetOtpBuffer();
-      otpResendCooldown.clear();
       go(2);
       toast.success(t("auth.otpSent"));
-    } catch (error) {
-      const wait = registerCooldown.capture(error);
-      if (wait != null) {
-        toast.error(
-          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-        );
-        return;
-      }
+    } catch {
       toast.error(t("auth.registerError"));
     }
   };
@@ -204,69 +182,31 @@ export default function RegisterPage() {
   useEffect(() => {
     if (step !== 2 || otp.length !== 6) return;
     if (otpSubmittedRef.current === otp) return;
-    if (otpLocked) return;
 
     otpSubmittedRef.current = otp;
     setOtpVerifying(true);
-    let cancelled = false;
 
     (async () => {
       try {
         await unwrapAction(confirmOtp(email.trim(), otp));
-        if (cancelled) return;
         resetOtpBuffer();
         resetPinBuffers();
         go(3);
         toast.success(t("auth.otpVerified"));
-      } catch (error) {
-        if (cancelled) return;
-        const wait = otpResendCooldown.capture(error);
-        if (wait != null) {
-          setOtpVerifying(false);
-          setOtpError(true);
-          toast.error(
-            t("auth.rateLimitedCountdown", { seconds: String(wait) }),
-          );
-        } else if (isUnauthorized(error)) {
-          setOtpVerifying(false);
-          setOtpError(true);
-          const next = otpFailures + 1;
-          setOtpFailures(next);
-          toast.error(
-            otpAttemptsExhausted(next)
-              ? t("auth.otpExhausted")
-              : t("auth.otpIncorrect"),
-          );
-        } else {
-          resetOtpBuffer();
-          resetPinBuffers();
-          go(3);
-          toast.success(t("auth.otpVerified"));
-          return;
-        }
+      } catch {
+        // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
+        // setting otpVerifying back to false re-triggers this effect in a loop.
+        setOtpVerifying(false);
+        setOtpError(true);
+        toast.error(t("auth.otpIncorrect"));
         setTimeout(() => {
-          if (cancelled) return;
           setOtpError(false);
           setOtp("");
           otpSubmittedRef.current = null;
         }, 500);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    otp,
-    step,
-    email,
-    otpLocked,
-    otpFailures,
-    otpResendCooldown.capture,
-    resetOtpBuffer,
-    resetPinBuffers,
-    t,
-  ]);
+  }, [otp, step, email, resetOtpBuffer, resetPinBuffers, t]);
 
   useEffect(() => {
     if (step !== 3 || pin.length !== 5) return;
@@ -483,29 +423,17 @@ export default function RegisterPage() {
                 value={otp}
                 onChange={setOtp}
                 error={otpError}
-                disabled={otpVerifying || otpLocked}
+                disabled={otpVerifying}
               />
 
-              {otpLocked && (
-                <p className={styles.otpHint}>{t("auth.otpExhausted")}</p>
-              )}
-
               <p className={styles.resendOtp}>
-                {otpLocked
-                  ? t("auth.requestNewCode")
-                  : t("auth.noCodeReceived")}{" "}
+                {t("auth.noCodeReceived")}{" "}
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  disabled={isResending || otpVerifying || otpResendCooldown.locked}
+                  disabled={isResending || otpVerifying}
                 >
-                  {otpResendCooldown.locked
-                    ? t("auth.resendIn", {
-                        seconds: String(otpResendCooldown.remaining),
-                      })
-                    : isResending
-                      ? t("auth.sending")
-                      : t("auth.resend")}
+                  {isResending ? t("auth.sending") : t("auth.resend")}
                 </button>
               </p>
             </>
@@ -653,15 +581,9 @@ export default function RegisterPage() {
           <button
             className={`${ui.btn} ${ui.btnPrimary}`}
             onClick={handleSubmit}
-            disabled={!canNextStep1 || isRegistering || registerCooldown.locked}
+            disabled={!canNextStep1 || isRegistering}
           >
-            {registerCooldown.locked
-              ? t("auth.rateLimitedCountdown", {
-                  seconds: String(registerCooldown.remaining),
-                })
-              : isRegistering
-                ? t("auth.creating")
-                : t("auth.createAccount")}
+            {isRegistering ? t("auth.creating") : t("auth.createAccount")}
           </button>
         </div>
       )}
