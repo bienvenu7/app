@@ -220,8 +220,12 @@ function LoginFlow() {
 
   const completeSessionAndGoHome = useCallback(
     async (greeting?: string) => {
-      const user = await unwrapAction(getAuth());
-      fillState(user);
+      try {
+        const user = await unwrapAction(getAuth());
+        fillState(user);
+      } catch {
+        // PIN is already stored locally. Home will load the profile.
+      }
       if (greeting) toast.success(greeting);
       router.replace(returnTo);
     },
