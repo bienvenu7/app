@@ -16,9 +16,8 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { getAuth } from "@/app/actions/auth";
+import { confirmOtp, getAuth } from "@/app/actions/auth";
 import { isUnauthorized, unwrapAction } from "@/lib/auth-errors";
-import { verifyOtpSession } from "@/lib/verify-otp-session";
 import { useRateLimitCooldown } from "@/hooks/useRateLimitCooldown";
 import { otpAttemptsExhausted } from "@/lib/otp-attempts";
 import { useGetCountries } from "@/hooks/useCountry";
@@ -126,7 +125,7 @@ export default function RegisterPage() {
       toast.success(message ?? t("auth.accountCreated"));
       router.replace("/");
     },
-    [fillState, router],
+    [fillState, router, t],
   );
 
   const canNextStep0 = !!countryId && !!firstName.trim() && !!lastName.trim() && !!gender;
@@ -209,7 +208,7 @@ export default function RegisterPage() {
 
     (async () => {
       try {
-        await verifyOtpSession(email.trim(), otp);
+        await unwrapAction(confirmOtp(email.trim(), otp));
         if (cancelled) return;
         resetOtpBuffer();
         resetPinBuffers();
@@ -217,16 +216,15 @@ export default function RegisterPage() {
         toast.success(t("auth.otpVerified"));
       } catch (error) {
         if (cancelled) return;
-        // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
-        // setting otpVerifying back to false re-triggers this effect in a loop.
-        setOtpVerifying(false);
         const wait = otpResendCooldown.capture(error);
         if (wait != null) {
+          setOtpVerifying(false);
           setOtpError(true);
           toast.error(
             t("auth.rateLimitedCountdown", { seconds: String(wait) }),
           );
         } else if (isUnauthorized(error)) {
+          setOtpVerifying(false);
           setOtpError(true);
           const next = otpFailures + 1;
           setOtpFailures(next);
@@ -236,7 +234,11 @@ export default function RegisterPage() {
               : t("auth.otpIncorrect"),
           );
         } else {
-          toast.error(t("auth.sessionLoadError"));
+          resetOtpBuffer();
+          resetPinBuffers();
+          go(3);
+          toast.success(t("auth.otpVerified"));
+          return;
         }
         setTimeout(() => {
           if (cancelled) return;
