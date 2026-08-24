@@ -1,7 +1,5 @@
 "use client";
 import {
-  confirmOtp,
-  getAuth,
   login,
   logout,
   register,
@@ -10,6 +8,7 @@ import {
   resetPassword,
 } from "@/app/actions/auth";
 import { unwrapAction } from "@/lib/auth-errors";
+import { fetchSession, verifyOtp } from "@/lib/session-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 export const useAuthentication = (email: string, password: string) => {
@@ -32,7 +31,7 @@ export const useOptCheck = (email: string, newOtp: string) => {
     isSuccess: successOtp,
   } = useMutation({
     mutationKey: ["verify-otp", email],
-    mutationFn: () => unwrapAction(confirmOtp(email, newOtp)),
+    mutationFn: () => verifyOtp(email, newOtp),
   });
   return { postOtp, lodingOtp, otpError, successOtp };
 };
@@ -120,7 +119,7 @@ export const useLogout = () => {
 
 export const useGetAuth = () => {
   const { data: user, isLoading: loadingUser } = useQuery({
-    queryFn: () => unwrapAction(getAuth()),
+    queryFn: () => fetchSession(),
     queryKey: ["userData"],
   });
   return { user, loadingUser };

@@ -10,7 +10,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { confirmOtp, getAuth } from "@/app/actions/auth";
+import { fetchSession, verifyOtp } from "@/lib/session-client";
 import {
   useAuthentication,
   useRequestPasswordReset,
@@ -18,13 +18,12 @@ import {
   useResetPassword,
 } from "@/hooks/useAuthentication";
 import { Auth } from "@/providers/AuthContext";
-import { isAuthEntryRoute } from "@/lib/auth-routes";
+import { isAuthEntryRoute, isAuthUtilityRoute } from "@/lib/auth-routes";
 import {
   isForbiddenAuth,
   isRateLimited,
   isUnauthorized,
   isValidationError,
-  unwrapAction,
 } from "@/lib/auth-errors";
 import Loading from "@/components/Loading";
 import { useT } from "@/lib/i18n";
@@ -54,7 +53,7 @@ type Mode =
 
 function safeReturnPath(path: string | null): string {
   if (!path || !path.startsWith("/") || path.startsWith("//")) return "/";
-  if (isAuthEntryRoute(path)) return "/";
+  if (isAuthEntryRoute(path) || isAuthUtilityRoute(path)) return "/";
   return path;
 }
 
@@ -124,7 +123,7 @@ function LoginFlow() {
 
     (async () => {
       try {
-        const user = await unwrapAction(getAuth());
+        const user = await fetchSession();
         fillState(user);
         router.replace(returnTo);
       } catch {
@@ -140,7 +139,7 @@ function LoginFlow() {
     (async () => {
       setLoadingProfile(true);
       try {
-        const user = await unwrapAction(getAuth());
+        const user = await fetchSession();
         if (cancelled) return;
         const firstName = user.fullName?.split(" ")[0] || t("common.dearClient");
         setGreetingName(firstName);
@@ -210,7 +209,7 @@ function LoginFlow() {
   const completeSessionAndGoHome = useCallback(
     async (greeting?: string) => {
       try {
-        const user = await unwrapAction(getAuth());
+        const user = await fetchSession();
         fillState(user);
       } catch {
         // Session cookies were written at verify-otp. Don't trap the user on
@@ -374,7 +373,7 @@ function LoginFlow() {
 
     (async () => {
       try {
-        const result = await unwrapAction(confirmOtp(pendingEmail, otp));
+        const result = await verifyOtp(pendingEmail, otp);
         if (result?.user) fillState(result.user);
         resetOtpBuffer();
         resetPinBuffers();
