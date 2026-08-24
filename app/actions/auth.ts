@@ -12,6 +12,7 @@ import {
   copyRefreshSetCookie,
   DEFAULT_ACCESS_TTL_SEC,
   getAccessExpiresAt,
+  getAccessToken,
   refreshAuthSessionHint,
   setAccessSession,
   setRefreshCookie,
