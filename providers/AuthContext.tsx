@@ -1,7 +1,8 @@
 "use client";
 
-import { clearSessionCookies, getAuth } from "@/app/actions/auth";
-import { unwrapAction, isUnauthorized } from "@/lib/auth-errors";
+import { clearSessionCookies } from "@/app/actions/auth";
+import { isUnauthorized } from "@/lib/auth-errors";
+import { fetchSession } from "@/lib/session-client";
 import { clearAuthSession, hasAuthSession } from "@/config/cookies";
 import { wipeLegacyPiiStorage } from "@/lib/storage";
 import type { IClientResponse } from "@/types/user";
@@ -47,7 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     error: queryError,
   } = useQuery({
     queryKey: AUTH_QUERY_KEY,
-    queryFn: () => unwrapAction(getAuth()),
+    queryFn: () => fetchSession(),
     enabled: hasToken,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,

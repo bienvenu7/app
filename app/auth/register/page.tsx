@@ -16,8 +16,8 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { confirmOtp, getAuth } from "@/app/actions/auth";
-import { unwrapAction, isUnauthorized } from "@/lib/auth-errors";
+import { isUnauthorized } from "@/lib/auth-errors";
+import { fetchSession, verifyOtp } from "@/lib/session-client";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useRegistration, useResendOtp } from "@/hooks/useAuthentication";
 import { countryFlagEmoji } from "@/lib/flags";
@@ -114,7 +114,7 @@ export default function RegisterPage() {
   const completeSessionAndGoHome = useCallback(
     async (message?: string) => {
       try {
-        const user = await unwrapAction(getAuth());
+        const user = await fetchSession();
         fillState(user);
       } catch {
         // Session cookies were written at verify-otp. Don't trap the user on
@@ -188,7 +188,7 @@ export default function RegisterPage() {
 
     (async () => {
       try {
-        const result = await unwrapAction(confirmOtp(email.trim(), otp));
+        const result = await verifyOtp(email.trim(), otp);
         if (result?.user) fillState(result.user);
         resetOtpBuffer();
         resetPinBuffers();
