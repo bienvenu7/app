@@ -77,10 +77,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (signedIn && pathname === "/auth/register") {
-    const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = "/";
-    homeUrl.search = "";
-    return withSecurityHeaders(request, NextResponse.redirect(homeUrl), nonce);
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/auth/login";
+    loginUrl.search = "";
+    return withSecurityHeaders(request, NextResponse.redirect(loginUrl), nonce);
   }
 
   return withSecurityHeaders(

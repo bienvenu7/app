@@ -16,8 +16,9 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { confirmOtp, getAuth } from "@/app/actions/auth";
-import { unwrapAction } from "@/lib/auth-errors";
+import { getAuth } from "@/app/actions/auth";
+import { isUnauthorized, unwrapAction } from "@/lib/auth-errors";
+import { verifyOtpSession } from "@/lib/verify-otp-session";
 import { useRateLimitCooldown } from "@/hooks/useRateLimitCooldown";
 import { otpAttemptsExhausted } from "@/lib/otp-attempts";
 import { useGetCountries } from "@/hooks/useCountry";
@@ -204,25 +205,29 @@ export default function RegisterPage() {
 
     otpSubmittedRef.current = otp;
     setOtpVerifying(true);
+    let cancelled = false;
 
     (async () => {
       try {
-        await unwrapAction(confirmOtp(email.trim(), otp));
+        await verifyOtpSession(email.trim(), otp);
+        if (cancelled) return;
         resetOtpBuffer();
         resetPinBuffers();
         go(3);
         toast.success(t("auth.otpVerified"));
       } catch (error) {
+        if (cancelled) return;
         // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
         // setting otpVerifying back to false re-triggers this effect in a loop.
         setOtpVerifying(false);
-        setOtpError(true);
         const wait = otpResendCooldown.capture(error);
         if (wait != null) {
+          setOtpError(true);
           toast.error(
             t("auth.rateLimitedCountdown", { seconds: String(wait) }),
           );
-        } else {
+        } else if (isUnauthorized(error)) {
+          setOtpError(true);
           const next = otpFailures + 1;
           setOtpFailures(next);
           toast.error(
@@ -230,14 +235,21 @@ export default function RegisterPage() {
               ? t("auth.otpExhausted")
               : t("auth.otpIncorrect"),
           );
+        } else {
+          toast.error(t("auth.sessionLoadError"));
         }
         setTimeout(() => {
+          if (cancelled) return;
           setOtpError(false);
           setOtp("");
           otpSubmittedRef.current = null;
         }, 500);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     otp,
     step,
