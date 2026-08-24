@@ -4,6 +4,7 @@ import { instance } from "@/config/instance";
 import type { ICountry, IRate, IShedule } from "@/types/country";
 import type { IResponseCard } from "@/types/networks";
 import { withAuthError } from "@/lib/auth-errors";
+import { apiPathSegment } from "@/lib/api-path";
 
 function toPublicShedule(raw: unknown): IShedule | undefined {
   if (!raw || typeof raw !== "object") return undefined;
@@ -46,7 +47,9 @@ export const getCountries = async (): Promise<ICountry[]> => {
 
 export const getCountryById = async (id: string): Promise<ICountry> => {
   return withAuthError(async () => {
-    const { data } = await instance.get(`/country/get-country/${id}`);
+    const { data } = await instance.get(
+      `/country/get-country/${apiPathSegment(id)}`,
+    );
     const country = toPublicCountry(data);
     if (!country) {
       throw new Error("get-country: invalid public country payload");
@@ -57,14 +60,18 @@ export const getCountryById = async (id: string): Promise<ICountry> => {
 
 export const getRate = async (code: string): Promise<IRate> => {
   return withAuthError(async () => {
-    const { data } = await instance.get(`/rate/get/rate/${code}`);
+    const { data } = await instance.get(
+      `/rate/get/rate/${apiPathSegment(code)}`,
+    );
     return data;
   }) as Promise<IRate>;
 };
 
 export const getCards = async (countryId: string): Promise<IResponseCard[]> => {
   return withAuthError(async () => {
-    const { data } = await instance.get(`/country/get/cards/${countryId}`);
+    const { data } = await instance.get(
+      `/country/get/cards/${apiPathSegment(countryId)}`,
+    );
     return data;
   }) as Promise<IResponseCard[]>;
 };

@@ -14,6 +14,9 @@ function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' https://va.vercel-scripts.com`,
+    // 'unsafe-inline' is required here: sonner and react-toastify append a
+    // <style> element at runtime, and server-rendered pages carry inline
+    // style attributes. A nonce on style-src would disable both.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
@@ -31,8 +34,9 @@ function withSecurityHeaders(
   response: NextResponse,
   nonce: string,
 ) {
+  // The nonce travels to the renderer on the request headers only. Echoing it
+  // back on the response would hand it to anything that can read the response.
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
-  response.headers.set("x-nonce", nonce);
 
   const existing = request.cookies.get(LOCALE_COOKIE)?.value;
   if (isLocale(existing)) return response;

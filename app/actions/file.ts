@@ -2,6 +2,7 @@
 
 import { instance } from "@/config/instance";
 import { AuthHttpError, withAuthError } from "@/lib/auth-errors";
+import { apiPathSegment } from "@/lib/api-path";
 import { requireAccessToken } from "@/lib/require-auth";
 import {
   MAX_PROOF_FILES,
@@ -31,7 +32,10 @@ export const uploadFiles = async (
     files.forEach((file) => formData.append("file", file));
     formData.append("comment", comment);
 
-    const { data } = await instance.post(`file/upload/${id}`, formData);
+    const { data } = await instance.post(
+      `file/upload/${apiPathSegment(id)}`,
+      formData,
+    );
     return data ?? { ok: true as const };
   }) as Promise<UploadProofResponse>;
 };

@@ -18,6 +18,8 @@ import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
 import { confirmOtp, getAuth } from "@/app/actions/auth";
 import { unwrapAction } from "@/lib/auth-errors";
+import { useRateLimitCooldown } from "@/hooks/useRateLimitCooldown";
+import { otpAttemptsExhausted } from "@/lib/otp-attempts";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useRegistration, useResendOtp } from "@/hooks/useAuthentication";
 import { countryFlagEmoji } from "@/lib/flags";
@@ -56,6 +58,7 @@ export default function RegisterPage() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpFailures, setOtpFailures] = useState(0);
   const otpSubmittedRef = useRef<string | null>(null);
 
   // Steps 4–5 — PIN
@@ -97,11 +100,15 @@ export default function RegisterPage() {
     gender,
   );
   const { resend, isResending } = useResendOtp(email.trim());
+  const registerCooldown = useRateLimitCooldown();
+  const otpResendCooldown = useRateLimitCooldown();
+  const otpLocked = otpAttemptsExhausted(otpFailures);
 
   const resetOtpBuffer = useCallback(() => {
     setOtp("");
     setOtpError(false);
     setOtpVerifying(false);
+    setOtpFailures(0);
     otpSubmittedRef.current = null;
   }, []);
 
@@ -144,12 +151,19 @@ export default function RegisterPage() {
   };
 
   const handleResendOtp = async () => {
-    if (!email.trim()) return;
+    if (!email.trim() || otpResendCooldown.locked) return;
     try {
       await resend();
       resetOtpBuffer();
       toast.success(t("auth.otpResent"));
-    } catch {
+    } catch (error) {
+      const wait = otpResendCooldown.capture(error);
+      if (wait != null) {
+        toast.error(
+          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
+        );
+        return;
+      }
       toast.error(t("auth.otpResendError"));
     }
   };
@@ -163,13 +177,22 @@ export default function RegisterPage() {
 
     if (step !== 1) return;
     if (!canNextStep1) return;
+    if (registerCooldown.locked) return;
 
     try {
       await registerFn();
       resetOtpBuffer();
+      otpResendCooldown.clear();
       go(2);
       toast.success(t("auth.otpSent"));
-    } catch {
+    } catch (error) {
+      const wait = registerCooldown.capture(error);
+      if (wait != null) {
+        toast.error(
+          t("auth.rateLimitedCountdown", { seconds: String(wait) }),
+        );
+        return;
+      }
       toast.error(t("auth.registerError"));
     }
   };
@@ -177,6 +200,7 @@ export default function RegisterPage() {
   useEffect(() => {
     if (step !== 2 || otp.length !== 6) return;
     if (otpSubmittedRef.current === otp) return;
+    if (otpLocked) return;
 
     otpSubmittedRef.current = otp;
     setOtpVerifying(true);
@@ -188,12 +212,25 @@ export default function RegisterPage() {
         resetPinBuffers();
         go(3);
         toast.success(t("auth.otpVerified"));
-      } catch {
+      } catch (error) {
         // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
         // setting otpVerifying back to false re-triggers this effect in a loop.
         setOtpVerifying(false);
         setOtpError(true);
-        toast.error(t("auth.otpIncorrect"));
+        const wait = otpResendCooldown.capture(error);
+        if (wait != null) {
+          toast.error(
+            t("auth.rateLimitedCountdown", { seconds: String(wait) }),
+          );
+        } else {
+          const next = otpFailures + 1;
+          setOtpFailures(next);
+          toast.error(
+            otpAttemptsExhausted(next)
+              ? t("auth.otpExhausted")
+              : t("auth.otpIncorrect"),
+          );
+        }
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
@@ -201,7 +238,17 @@ export default function RegisterPage() {
         }, 500);
       }
     })();
-  }, [otp, step, email, resetOtpBuffer, resetPinBuffers, t]);
+  }, [
+    otp,
+    step,
+    email,
+    otpLocked,
+    otpFailures,
+    otpResendCooldown.capture,
+    resetOtpBuffer,
+    resetPinBuffers,
+    t,
+  ]);
 
   useEffect(() => {
     if (step !== 3 || pin.length !== 5) return;
@@ -418,17 +465,29 @@ export default function RegisterPage() {
                 value={otp}
                 onChange={setOtp}
                 error={otpError}
-                disabled={otpVerifying}
+                disabled={otpVerifying || otpLocked}
               />
 
+              {otpLocked && (
+                <p className={styles.otpHint}>{t("auth.otpExhausted")}</p>
+              )}
+
               <p className={styles.resendOtp}>
-                {t("auth.noCodeReceived")}{" "}
+                {otpLocked
+                  ? t("auth.requestNewCode")
+                  : t("auth.noCodeReceived")}{" "}
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  disabled={isResending || otpVerifying}
+                  disabled={isResending || otpVerifying || otpResendCooldown.locked}
                 >
-                  {isResending ? t("auth.sending") : t("auth.resend")}
+                  {otpResendCooldown.locked
+                    ? t("auth.resendIn", {
+                        seconds: String(otpResendCooldown.remaining),
+                      })
+                    : isResending
+                      ? t("auth.sending")
+                      : t("auth.resend")}
                 </button>
               </p>
             </>
@@ -576,9 +635,15 @@ export default function RegisterPage() {
           <button
             className={`${ui.btn} ${ui.btnPrimary}`}
             onClick={handleSubmit}
-            disabled={!canNextStep1 || isRegistering}
+            disabled={!canNextStep1 || isRegistering || registerCooldown.locked}
           >
-            {isRegistering ? t("auth.creating") : t("auth.createAccount")}
+            {registerCooldown.locked
+              ? t("auth.rateLimitedCountdown", {
+                  seconds: String(registerCooldown.remaining),
+                })
+              : isRegistering
+                ? t("auth.creating")
+                : t("auth.createAccount")}
           </button>
         </div>
       )}

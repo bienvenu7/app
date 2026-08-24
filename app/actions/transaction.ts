@@ -8,6 +8,7 @@ import type {
   Status,
 } from "../../types/transaction";
 import { AuthHttpError, withAuthError } from "@/lib/auth-errors";
+import { apiPathSegment } from "@/lib/api-path";
 import { loadPublicCountries } from "@/app/actions/country";
 import {
   requireAccessToken,
@@ -59,8 +60,9 @@ async function loadTransactionsByPeriod(
   startDate: string,
   endDate: string,
 ): Promise<ITrasanctionResponse[]> {
+  const query = new URLSearchParams({ startDate, endDate });
   const { data } = await instance.get(
-    `transactions/client/transactions?startDate=${startDate}&endDate=${endDate}`,
+    `transactions/client/transactions?${query}`,
   );
   return normalizeTransactionList(data);
 }
@@ -69,9 +71,9 @@ async function loadTransactionsByClientEmail(
   clientEmail: string,
   date: string,
 ): Promise<ITrasanctionResponse[]> {
-  const pathEmail = encodeURIComponent(clientEmail || "_");
+  const pathEmail = apiPathSegment(clientEmail || "_");
   const { data } = await instance.get(
-    `transaction/get/by-client/${pathEmail}/${date}`,
+    `transaction/get/by-client/${pathEmail}/${apiPathSegment(date)}`,
   );
   return normalizeTransactionList(data);
 }
@@ -114,11 +116,14 @@ export const updateTransaction = async (
 ): Promise<ITrasanctionResponse> => {
   return withAuthError(async () => {
     await requireAccessToken();
-    const { data } = await instance.patch(`transactions/${transactionId}`, {
-      senderNumber,
-      hour,
-      status,
-    });
+    const { data } = await instance.patch(
+      `transactions/${apiPathSegment(transactionId)}`,
+      {
+        senderNumber,
+        hour,
+        status,
+      },
+    );
     return data;
   }) as Promise<ITrasanctionResponse>;
 };
@@ -129,7 +134,7 @@ export const getTransactionById = async (
   return withAuthError(async () => {
     await requireAccessToken();
     const { data } = await instance.get(
-      `transaction/get/by-id/${transactionId}`,
+      `transaction/get/by-id/${apiPathSegment(transactionId)}`,
     );
     if (!data?.id) {
       throw new AuthHttpError(404, "not_found");

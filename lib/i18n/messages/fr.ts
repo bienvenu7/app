@@ -137,7 +137,8 @@ const fr = {
     passwordsMismatch: "Les mots de passe ne correspondent pas.",
     updating: "Mise à jour...",
     reset: "Réinitialiser",
-    passwordResetOtpInvalid: "Code invalide ou expiré.",
+    passwordResetOtpInvalid:
+      "Code invalide ou expiré. Demandez-en un nouveau si besoin.",
     passwordResetValidation:
       "Vérifiez le code (6 caractères) et le mot de passe.",
     verifyCode: "Vérifiez votre",
@@ -162,11 +163,18 @@ const fr = {
     passwordResetError: "Impossible de réinitialiser le mot de passe.",
     otpSent: "Un code à 6 chiffres vous a été envoyé par email.",
     badCredentials: "Email ou mot de passe incorrect.",
+    emailUnconfirmed:
+      "Confirmez d'abord votre adresse email. Un lien vous a été envoyé.",
     rateLimited: "Trop de tentatives. Réessayez dans quelques minutes.",
+    rateLimitedCountdown:
+      "Trop de tentatives. Réessayez dans {seconds} s.",
     otpResent: "Un nouveau code a été envoyé.",
     otpResendError: "Impossible de renvoyer le code.",
     otpVerified: "Code vérifié !",
-    otpIncorrect: "Code incorrect, réessayez.",
+    otpIncorrect: "Code invalide ou expiré. Réessayez, ou demandez-en un nouveau.",
+    otpExhausted: "Ce code n'est plus utilisable. Demandez-en un nouveau.",
+    requestNewCode: "Demander un nouveau code",
+    resendIn: "Renvoyer dans {seconds} s",
     pinCreated: "Votre code a été créé avec succès !",
     sessionLoadError: "Impossible de charger votre session.",
     pinsMismatch: "Les codes ne correspondent pas, réessayez.",

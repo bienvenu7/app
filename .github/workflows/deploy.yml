@@ -30,11 +30,33 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
+      # Actions are pinned to commit SHAs: a mutable tag could be repointed at
+      # arbitrary code that runs with VPS_SSH_KEY in scope. Refresh with
+      # `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Scan tracked files for secrets
+        run: |
+          set -euo pipefail
+          # Scans the tree at this ref, not the history: commit 68342f8 still
+          # holds a .env, so scanning history would block every deploy until
+          # that history is rewritten.
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked in git — secrets must stay out of the repository"
+            exit 1
+          fi
+
+          PATTERN='eyJhbGciOi[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{16}|sk_(live|test)_[A-Za-z0-9]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}'
+          if git grep -n -I -E "${PATTERN}" -- . ':!package-lock.json' ':!pnpm-lock.yaml'; then
+            echo "::error::Possible secret in tracked files — see the matches above"
+            exit 1
+          fi
+
+          echo "No secrets found in tracked files."
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.18.0"
           cache: "npm"
@@ -77,7 +99,7 @@ jobs:
           ls -la deploy.tar.gz
 
       - name: Upload apply script
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -90,7 +112,7 @@ jobs:
           strip_components: 0
 
       - name: Upload bundle
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -101,7 +123,7 @@ jobs:
           strip_components: 0
 
       - name: Apply bundle on server
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
