@@ -120,8 +120,12 @@ export default function RegisterPage() {
 
   const completeSessionAndGoHome = useCallback(
     async (message?: string) => {
-      const user = await unwrapAction(getAuth());
-      fillState(user);
+      try {
+        const user = await unwrapAction(getAuth());
+        fillState(user);
+      } catch {
+        // PIN is already stored locally. Home will load the profile.
+      }
       toast.success(message ?? t("auth.accountCreated"));
       router.replace("/");
     },

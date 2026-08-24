@@ -1,7 +1,7 @@
 "use client";
 
 import { clearSessionCookies, getAuth } from "@/app/actions/auth";
-import { unwrapAction } from "@/lib/auth-errors";
+import { unwrapAction, isUnauthorized } from "@/lib/auth-errors";
 import { clearAuthSession, hasAuthSession } from "@/config/cookies";
 import { wipeLegacyPiiStorage } from "@/lib/storage";
 import type { IClientResponse } from "@/types/user";
@@ -44,6 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     data: user,
     isPending,
     isError,
+    error: queryError,
   } = useQuery({
     queryKey: AUTH_QUERY_KEY,
     queryFn: () => unwrapAction(getAuth()),
@@ -59,12 +60,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (!isError) return;
+    if (!isError || !isUnauthorized(queryError)) return;
     void clearSessionCookies();
     clearAuthSession();
     setHasToken(false);
     queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
-  }, [isError, queryClient]);
+  }, [isError, queryError, queryClient]);
 
   const resetState = useCallback(() => {
     void clearSessionCookies();
@@ -97,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
     }
 
-    if (isError) {
+    if (isError && isUnauthorized(queryError)) {
       return {
         isAuthenticated: false,
         user: null,
@@ -114,7 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       error: null,
       selectedCode,
     };
-  }, [hasToken, isError, isPending, user, selectedCode]);
+  }, [hasToken, isError, queryError, isPending, user, selectedCode]);
 
   const value = useMemo<AuthContextType>(
     () => ({

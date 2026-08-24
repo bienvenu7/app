@@ -153,7 +153,12 @@ export const resendOtp = async (email: string) => {
 export const getAuth = async (): Promise<IClientResponse> => {
   return withAuthError(async () => {
     const { data } = await instance.get("auth/get-auth");
-    await refreshAuthSessionHint();
+    try {
+      await refreshAuthSessionHint();
+    } catch {
+      // A 200 from the API is the session. Rewriting the hint cookie must
+      // not turn that into a failed server action.
+    }
     return data;
   }) as Promise<IClientResponse>;
 };

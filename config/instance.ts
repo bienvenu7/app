@@ -141,13 +141,21 @@ function attachAuthInterceptors(client: AxiosInstance) {
 
   client.interceptors.response.use(
     async (response) => {
-      await setCookieHeaders(response.headers["set-cookie"]);
+      try {
+        await setCookieHeaders(response.headers["set-cookie"]);
+      } catch {
+        /* upstream succeeded; cookie copy is best-effort */
+      }
       return response;
     },
     async (error: AxiosError) => {
       const original = error.config as RetriableConfig | undefined;
       if (error.response) {
-        await setCookieHeaders(error.response.headers["set-cookie"]);
+        try {
+          await setCookieHeaders(error.response.headers["set-cookie"]);
+        } catch {
+          /* ignore */
+        }
       }
 
       if (!original || original._retry) {
