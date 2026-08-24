@@ -9,10 +9,12 @@ import {
   clearAuthSession,
   copyRefreshSetCookie,
   DEFAULT_ACCESS_TTL_SEC,
+  getAccessExpiresAt,
   getAccessToken,
   getRefreshToken,
   setAccessSession,
   shouldRefreshAccess,
+  upstreamRefreshCookieHeader,
 } from "@/config/server-cookies";
 import { toAuthHttpError } from "@/lib/auth-errors";
 
@@ -58,20 +60,22 @@ async function fetchRefreshedSession(
   refresh: string | null,
 ): Promise<RefreshedSession> {
   const { data, headers } = await axios.get<{
-    accessToken: string;
+    accessToken?: string;
+    access_token?: string;
     expiresIn?: number;
   }>(`${baseURL}auth/refresh-token`, {
-    headers: refresh ? { Cookie: `refresh=${refresh}` } : {},
+    headers: refresh ? { Cookie: upstreamRefreshCookieHeader(refresh) } : {},
     httpsAgent: ipv4Agent,
     timeout: API_TIMEOUT_MS,
   });
 
-  if (!data?.accessToken) {
+  const accessToken = data?.accessToken || data?.access_token;
+  if (!accessToken) {
     throw new Error("refresh-token: missing accessToken");
   }
 
   return {
-    accessToken: data.accessToken,
+    accessToken,
     expiresIn: data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC,
     setCookie: headers["set-cookie"],
   };
@@ -91,6 +95,14 @@ function refreshSession(refresh: string | null): Promise<RefreshedSession> {
   return started;
 }
 
+async function accessTokenStillUsable(): Promise<boolean> {
+  const token = await getAccessToken();
+  if (!token) return false;
+  const expiresAt = await getAccessExpiresAt();
+  if (!expiresAt) return true;
+  return Date.now() < expiresAt;
+}
+
 export async function refreshAccessToken(): Promise<string> {
   const refresh = await getRefreshToken();
 
@@ -102,9 +114,17 @@ export async function refreshAccessToken(): Promise<string> {
     await setAccessSession(session.accessToken, session.expiresIn);
     return session.accessToken;
   } catch (error) {
-    await clearAuthSession();
+    // A failed refresh must not erase a brand-new access token from verify-otp
+    // (wrong upstream cookie name, missing `refresh`, leftover `refreshToken`).
+    if (!(await accessTokenStillUsable())) {
+      await clearAuthSession();
+    }
     throw error;
   }
+}
+
+function hasAuthorization(config: InternalAxiosRequestConfig) {
+  return !!(config.headers.Authorization ?? config.headers.authorization);
 }
 
 function attachAuthInterceptors(client: AxiosInstance) {
@@ -112,28 +132,30 @@ function attachAuthInterceptors(client: AxiosInstance) {
     if (shouldSkipRefresh(config.url)) {
       const refresh = await getRefreshToken();
       if (refresh) {
-        config.headers.Cookie = `refresh=${refresh}`;
+        config.headers.Cookie = upstreamRefreshCookieHeader(refresh);
       }
       return config;
     }
 
-    try {
-      if (await shouldRefreshAccess()) {
-        const token = await refreshAccessToken();
-        config.headers.Authorization = `Bearer ${token}`;
-      } else {
-        const token = await getAccessToken();
-        if (token) {
+    if (!hasAuthorization(config)) {
+      try {
+        if (await shouldRefreshAccess()) {
+          const token = await refreshAccessToken();
           config.headers.Authorization = `Bearer ${token}`;
+        } else {
+          const token = await getAccessToken();
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
+      } catch {
+        // Let the request proceed (or fail) without a bearer.
       }
-    } catch {
-      // Let the request proceed (or fail) without a bearer.
     }
 
     const refresh = await getRefreshToken();
     if (refresh) {
-      config.headers.Cookie = `refresh=${refresh}`;
+      config.headers.Cookie = upstreamRefreshCookieHeader(refresh);
     }
 
     return config;

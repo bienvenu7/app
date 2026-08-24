@@ -24,6 +24,10 @@ export interface ISuccessOtpCodeResponse {
 }
 
 export type TokenResponse = {
-  accessToken: string;
-  expiresIn: number;
+  accessToken?: string;
+  access_token?: string;
+  expiresIn?: number;
+  refreshToken?: string;
+  refresh?: string;
+  refresh_token?: string;
 };

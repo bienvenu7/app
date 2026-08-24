@@ -17,7 +17,7 @@ import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
 import { confirmOtp, getAuth } from "@/app/actions/auth";
-import { unwrapAction } from "@/lib/auth-errors";
+import { unwrapAction, isUnauthorized } from "@/lib/auth-errors";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useRegistration, useResendOtp } from "@/hooks/useAuthentication";
 import { countryFlagEmoji } from "@/lib/flags";
@@ -188,17 +188,22 @@ export default function RegisterPage() {
 
     (async () => {
       try {
-        await unwrapAction(confirmOtp(email.trim(), otp));
+        const result = await unwrapAction(confirmOtp(email.trim(), otp));
+        if (result?.user) fillState(result.user);
         resetOtpBuffer();
         resetPinBuffers();
         go(3);
         toast.success(t("auth.otpVerified"));
-      } catch {
+      } catch (error) {
         // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
         // setting otpVerifying back to false re-triggers this effect in a loop.
         setOtpVerifying(false);
         setOtpError(true);
-        toast.error(t("auth.otpIncorrect"));
+        toast.error(
+          isUnauthorized(error)
+            ? t("auth.otpIncorrect")
+            : t("auth.sessionLoadError"),
+        );
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
@@ -206,7 +211,7 @@ export default function RegisterPage() {
         }, 500);
       }
     })();
-  }, [otp, step, email, resetOtpBuffer, resetPinBuffers, t]);
+  }, [otp, step, email, fillState, resetOtpBuffer, resetPinBuffers, t]);
 
   useEffect(() => {
     if (step !== 3 || pin.length !== 5) return;

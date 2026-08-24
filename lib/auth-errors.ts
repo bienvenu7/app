@@ -72,6 +72,7 @@ export async function withAuthError<T>(
           },
         };
     }
+    console.error("[auth-action]", error);
     return { __authError: { status: 500, code: "unknown" } };
   }
 }
