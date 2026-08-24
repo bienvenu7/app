@@ -22,6 +22,7 @@ import { isAuthEntryRoute } from "@/lib/auth-routes";
 import {
   isForbiddenAuth,
   isRateLimited,
+  isUnauthorized,
   isValidationError,
   unwrapAction,
 } from "@/lib/auth-errors";
@@ -373,17 +374,22 @@ function LoginFlow() {
 
     (async () => {
       try {
-        await unwrapAction(confirmOtp(pendingEmail, otp));
+        const result = await unwrapAction(confirmOtp(pendingEmail, otp));
+        if (result?.user) fillState(result.user);
         resetOtpBuffer();
         resetPinBuffers();
         setMode("create-pin");
         toast.success(t("auth.otpVerified"));
-      } catch {
+      } catch (error) {
         // Keep otpSubmittedRef === otp until the pad is cleared, otherwise
         // setting otpVerifying back to false re-triggers this effect in a loop.
         setOtpVerifying(false);
         setOtpError(true);
-        toast.error(t("auth.otpIncorrect"));
+        toast.error(
+          isUnauthorized(error)
+            ? t("auth.otpIncorrect")
+            : t("auth.sessionLoadError"),
+        );
         setTimeout(() => {
           setOtpError(false);
           setOtp("");
@@ -391,7 +397,7 @@ function LoginFlow() {
         }, 500);
       }
     })();
-  }, [otp, mode, pendingEmail, t]);
+  }, [otp, mode, pendingEmail, fillState, t]);
 
   // PIN creation — step 1
   useEffect(() => {

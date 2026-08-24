@@ -51,7 +51,16 @@ export async function getAccessExpiresAt(): Promise<number | null> {
 
 export async function getRefreshToken(): Promise<string | null> {
   const jar = await cookies();
-  return jar.get(REFRESH_COOKIE_KEY)?.value ?? null;
+  return (
+    jar.get(REFRESH_COOKIE_KEY)?.value ??
+    jar.get(LEGACY_REFRESH_TOKEN_KEY)?.value ??
+    null
+  );
+}
+
+/** Header sent upstream — the API has used both `refresh` and `refreshToken`. */
+export function upstreamRefreshCookieHeader(value: string): string {
+  return `${REFRESH_COOKIE_KEY}=${value}; ${LEGACY_REFRESH_TOKEN_KEY}=${value}`;
 }
 
 export async function hasAuthSession(): Promise<boolean> {
@@ -66,9 +75,11 @@ export async function shouldRefreshAccess(): Promise<boolean> {
   const expiresAt = await getAccessExpiresAt();
 
   if (!token) {
-    return !!(await cookies()).get(AUTH_SESSION_KEY)?.value;
+    // A session hint without a refresh cookie cannot be recovered. Refreshing
+    // anyway 401s and used to wipe the access token that verify-otp just set.
+    return !!(await getRefreshToken());
   }
-  if (!expiresAt) return true;
+  if (!expiresAt) return false;
   return Date.now() >= expiresAt - REFRESH_SKEW_MS;
 }
 
@@ -76,7 +87,6 @@ export async function setAccessSession(
   accessToken: string,
   expiresIn: number = DEFAULT_ACCESS_TTL_SEC,
 ) {
-  const jar = await cookies();
   const ttlSec =
     Number.isFinite(expiresIn) && expiresIn > 0
       ? expiresIn
@@ -85,6 +95,10 @@ export async function setAccessSession(
   const accessExpires = new Date(expiresAt);
   const base = cookieBase();
   const sessionMaxAge = AUTH_SESSION_MAX_AGE_DAYS * 24 * 60 * 60;
+  // Sign first. A missing AUTH_SESSION_SECRET must not leave accessToken +
+  // refresh cookies while the UI stays stuck on verify-otp.
+  const hint = await createSignedAuthSession(sessionMaxAge);
+  const jar = await cookies();
 
   jar.set(ACCESS_TOKEN_KEY, accessToken, {
     ...base,
@@ -96,7 +110,7 @@ export async function setAccessSession(
     expires: accessExpires,
     httpOnly: true,
   });
-  jar.set(AUTH_SESSION_KEY, await createSignedAuthSession(sessionMaxAge), {
+  jar.set(AUTH_SESSION_KEY, hint, {
     ...base,
     maxAge: sessionMaxAge,
     httpOnly: false,
@@ -127,6 +141,8 @@ export async function setRefreshCookie(
     httpOnly: true,
     maxAge: Number.isFinite(maxAgeSec) && maxAgeSec > 0 ? maxAgeSec : undefined,
   });
+  // Stop sending a leftover `refreshToken` from the pre-BFF client.
+  jar.delete(LEGACY_REFRESH_TOKEN_KEY);
 }
 
 export async function clearAuthSession() {
@@ -136,7 +152,17 @@ export async function clearAuthSession() {
   }
 }
 
-/** Copy upstream `Set-Cookie: refresh=...` onto the Next.js response. */
+const UPSTREAM_REFRESH_NAMES = new Set([
+  REFRESH_COOKIE_KEY,
+  LEGACY_REFRESH_TOKEN_KEY,
+  "refresh_token",
+]);
+
+function isUpstreamRefreshCookieName(name: string) {
+  return UPSTREAM_REFRESH_NAMES.has(name.toLowerCase());
+}
+
+/** Copy upstream `Set-Cookie: refresh=` / `refreshToken=` onto the Next.js response. */
 export async function copyRefreshSetCookie(
   setCookie: string | string[] | undefined,
 ) {
@@ -149,7 +175,7 @@ export async function copyRefreshSetCookie(
     if (eq < 0) continue;
     const name = first.slice(0, eq).trim();
     const value = first.slice(eq + 1).trim();
-    if (name.toLowerCase() !== REFRESH_COOKIE_KEY || !value) continue;
+    if (!isUpstreamRefreshCookieName(name) || !value) continue;
 
     let maxAge: number | undefined;
     for (const attr of header.split(";").slice(1)) {
@@ -160,5 +186,6 @@ export async function copyRefreshSetCookie(
       }
     }
     await setRefreshCookie(value, maxAge);
+    return;
   }
 }

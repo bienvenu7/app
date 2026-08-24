@@ -9,6 +9,7 @@ import {
 } from "@/lib/i18n/config";
 
 const AUTH_SESSION = "authSession";
+const ACCESS_TOKEN = "accessToken";
 
 function buildCsp(nonce: string): string {
   return [

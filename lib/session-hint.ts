@@ -19,6 +19,11 @@ function getAuthSessionSecret(): string {
   return secret;
 }
 
+/** Call at process boot so a missing secret is a PM2 crash, not a stuck OTP screen. */
+export function assertAuthSessionSecret(): void {
+  getAuthSessionSecret();
+}
+
 function toHex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)]
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -68,6 +73,11 @@ export async function isSignedAuthSessionValid(
   if (!Number.isFinite(exp) || exp <= Date.now()) return false;
   if (!/^[0-9a-f]+$/i.test(mac)) return false;
 
-  const expected = await hmacHex(getAuthSessionSecret(), payload);
-  return timingSafeEqualHex(mac.toLowerCase(), expected);
+  try {
+    const expected = await hmacHex(getAuthSessionSecret(), payload);
+    return timingSafeEqualHex(mac.toLowerCase(), expected);
+  } catch {
+    // Missing AUTH_SESSION_SECRET must not 500 every request in middleware.
+    return false;
+  }
 }

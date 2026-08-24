@@ -7,12 +7,14 @@ import type {
   IClientUpdateResponse,
 } from "@/types/user";
 import type { TokenResponse } from "@/types/fetch";
-import { DEFAULT_ACCESS_TTL_SEC } from "@/config/server-cookies";
 import {
   clearAuthSession,
+  copyRefreshSetCookie,
+  DEFAULT_ACCESS_TTL_SEC,
   getAccessExpiresAt,
   refreshAuthSessionHint,
   setAccessSession,
+  setRefreshCookie,
 } from "@/config/server-cookies";
 import { withAuthError } from "@/lib/auth-errors";
 
@@ -112,20 +114,65 @@ export const updatePassword = async (
   password: string,
 ) => resetPassword(email, otp, password);
 
+function pickAccessToken(data: TokenResponse | null | undefined): string | null {
+  if (!data) return null;
+  const rec = data as TokenResponse & { access_token?: string };
+  const token = rec.accessToken || rec.access_token;
+  return token ? String(token) : null;
+}
+
+function pickBodyRefresh(data: TokenResponse | null | undefined): string | null {
+  if (!data) return null;
+  const rec = data as TokenResponse & {
+    refreshToken?: string;
+    refresh?: string;
+    refresh_token?: string;
+  };
+  const token = rec.refreshToken || rec.refresh || rec.refresh_token;
+  return token ? String(token) : null;
+}
+
 export const confirmOtp = async (email: string, newOtp: string) => {
   return withAuthError(async () => {
-    const { data } = await instance.post<TokenResponse>("auth/verify-otp", {
-      email,
-      otp: newOtp,
-    });
+    const { data, headers } = await instance.post<TokenResponse>(
+      "auth/verify-otp",
+      {
+        email,
+        otp: newOtp,
+      },
+    );
 
-    const accessToken = data.accessToken;
+    const accessToken = pickAccessToken(data);
     if (!accessToken) {
       throw new Error("verify-otp: missing accessToken in response");
     }
 
-    await setAccessSession(accessToken, data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC);
-    return { ok: true as const };
+    await copyRefreshSetCookie(headers["set-cookie"]);
+    const bodyRefresh = pickBodyRefresh(data);
+    if (bodyRefresh) {
+      await setRefreshCookie(bodyRefresh);
+    }
+
+    await setAccessSession(
+      accessToken,
+      data.expiresIn ?? DEFAULT_ACCESS_TTL_SEC,
+    );
+
+    // Same action: the cookie store now has the access token, so get-auth
+    // does not depend on a second round-trip that might miss Set-Cookie.
+    try {
+      const { data: user } = await instance.get<IClientResponse>("auth/get-auth", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      try {
+        await refreshAuthSessionHint();
+      } catch {
+        /* hint is best-effort */
+      }
+      return { ok: true as const, user };
+    } catch {
+      return { ok: true as const, user: null };
+    }
   });
 };
 
@@ -148,6 +195,12 @@ export const resendOtp = async (email: string) => {
     await instance.post("auth/resend-otp", { email });
     return "done";
   });
+};
+
+/** True when the HttpOnly access cookie is present (JS cannot see it). */
+export const hasAccessSession = async () => {
+  const token = await getAccessToken();
+  return { ok: !!token };
 };
 
 export const getAuth = async (): Promise<IClientResponse> => {
