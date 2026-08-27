@@ -328,6 +328,9 @@ const fr = {
     paymentMethod: "Moyen de paiement",
     loadingPayment: "Chargement des options de paiement...",
     noPaymentMethods: "Aucun moyen de paiement disponible pour ce pays.",
+    proofRequiredTitle: "Preuve obligatoire",
+    proofRequiredHint:
+      "Après le paiement, capturez obligatoirement une preuve (capture d'écran du reçu). Sans cette preuve, votre transaction ne pourra pas être validée.",
     proofHint:
       "Ajoutez une ou plusieurs preuves (JPG, PNG, WEBP ou PDF, max 10 Mo).",
     confirming: "Confirmation en cours...",

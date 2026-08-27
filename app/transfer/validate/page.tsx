@@ -14,6 +14,7 @@ import {
   Receipt,
   X,
   ImageIcon,
+  Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import styles from "./validate.module.scss";
@@ -585,6 +586,20 @@ function ValidateFlow() {
                   {t("validate.noPaymentMethods")}
                 </p>
               )}
+            </div>
+
+            <div className={styles.proofNotice} role="note">
+              <div className={styles.proofNoticeIcon} aria-hidden>
+                <Camera size={18} strokeWidth={1.75} />
+              </div>
+              <div>
+                <p className={styles.proofNoticeTitle}>
+                  {t("validate.proofRequiredTitle")}
+                </p>
+                <p className={styles.proofNoticeText}>
+                  {t("validate.proofRequiredHint")}
+                </p>
+              </div>
             </div>
 
             <div className={styles.proofSection}>

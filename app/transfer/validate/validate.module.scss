@@ -591,6 +591,43 @@
   font-size: 14px;
 }
 
+.proofNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+  border: 1px solid rgba($gold, 0.28);
+}
+
+.proofNoticeIcon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: $gold-soft;
+  color: $gold;
+}
+
+.proofNoticeTitle {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $gold;
+}
+
+.proofNoticeText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: $text-muted;
+}
+
 .proofSection {
   display: flex;
   flex-direction: column;
