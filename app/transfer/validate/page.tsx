@@ -62,6 +62,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
+import PaymentTimer from "@/components/transfert/PaymentTimer";
 
 type StatusVariant = "progress" | "confirmed" | "success" | "error";
 
@@ -432,6 +433,10 @@ function ValidateFlow() {
           {t("validate.title")} <em>{t("validate.titleEm")}</em>
         </h1>
         <p className={styles.subtitle}>{t("validate.subtitle")}</p>
+
+        {canPay && (
+          <PaymentTimer startedAt={tx.createdAt} txId={tx.id ?? txId} />
+        )}
 
         <div className={styles.card}>
           <div className={styles.route}>

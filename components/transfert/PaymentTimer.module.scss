@@ -1,0 +1,107 @@
+@use "../../styles/variables" as *;
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #141b2b 0%, #0e1422 100%);
+  border: 1px solid rgba($gold, 0.28);
+}
+
+.iconWrap {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: $gold-soft;
+  color: $gold;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $gold;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: $text-muted;
+}
+
+.track {
+  height: 3px;
+  border-radius: $r-pill;
+  background: $bg-elevated-2;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: $r-pill;
+  background: $gold;
+  transition: width 0.6s linear;
+}
+
+.urgent {
+  border-color: rgba($gold-strong, 0.55);
+  box-shadow: 0 0 24px rgba($gold, 0.12);
+
+  .time {
+    color: $gold-strong;
+  }
+
+  .fill {
+    background: $gold-strong;
+  }
+}
+
+.expired {
+  border-color: rgba($danger, 0.4);
+
+  .iconWrap {
+    background: rgba($danger, 0.14);
+    color: $danger;
+  }
+
+  .time {
+    color: $danger;
+  }
+
+  .fill {
+    background: $danger;
+    width: 0 !important;
+  }
+}

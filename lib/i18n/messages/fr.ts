@@ -331,6 +331,12 @@ const fr = {
     proofHint:
       "Ajoutez une ou plusieurs preuves (JPG, PNG, WEBP ou PDF, max 10 Mo).",
     confirming: "Confirmation en cours...",
+    timerLabel: "Temps restant",
+    timerHint:
+      "Veuillez effectuer votre paiement et ajouter la preuve dans ce délai. Le taux de change est garanti pendant 30 minutes.",
+    timerExpired:
+      "Le délai de 30 minutes est écoulé. Le taux n'est plus garanti — effectuez le paiement dès que possible.",
+    timerAria: "Temps restant pour effectuer le paiement : {time}",
   },
   chatbot: {
     greeting:
