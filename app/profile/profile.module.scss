@@ -162,6 +162,67 @@
   }
 }
 
+.field.fieldInvalid {
+  border-color: rgba($danger, 0.55);
+
+  &:focus-within {
+    border-color: $danger;
+  }
+}
+
+.fieldHint {
+  margin: -2px 4px 10px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: $text-dim;
+}
+
+.fieldError {
+  margin: -2px 4px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: $danger;
+}
+
+.serviceError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba($danger, 0.35);
+  border-radius: $r-md;
+  background: rgba($danger, 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+  color: $text;
+
+  span {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  button {
+    @include tap;
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid rgba($danger, 0.5);
+    border-radius: $r-pill;
+    background: transparent;
+    color: $danger;
+    font-size: 13px;
+    font-weight: 700;
+
+    &:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+}
+
 .selectField {
   position: relative;
   margin-bottom: 8px;

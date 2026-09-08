@@ -8,6 +8,7 @@ export class AuthHttpError extends Error {
     | "forbidden"
     | "validation"
     | "not_found"
+    | "service_unavailable"
     | "unknown";
   /** Seconds before the caller may retry, when the API advertises them. */
   retryAfter?: number;
@@ -16,6 +17,11 @@ export class AuthHttpError extends Error {
    * Isolated here so UI never compares API message strings itself.
    */
   unconfirmedEmail?: boolean;
+  /**
+   * Texte rédigé par l'API pour être affiché tel quel. Distinct de `message`,
+   * qui porte des sentinelles internes (`invalid_file`, `empty_message`…).
+   */
+  apiMessage?: string;
 
   constructor(
     status: number,
@@ -23,6 +29,7 @@ export class AuthHttpError extends Error {
     message?: string,
     retryAfter?: number,
     unconfirmedEmail?: boolean,
+    apiMessage?: string,
   ) {
     super(message ?? code);
     this.name = "AuthHttpError";
@@ -30,6 +37,7 @@ export class AuthHttpError extends Error {
     this.code = code;
     this.retryAfter = retryAfter;
     this.unconfirmedEmail = unconfirmedEmail;
+    this.apiMessage = apiMessage;
   }
 }
 
@@ -39,6 +47,7 @@ export type ActionErrorResult = {
     code: AuthHttpError["code"];
     retryAfter?: number;
     unconfirmedEmail?: boolean;
+    apiMessage?: string;
   };
 };
 
@@ -69,6 +78,7 @@ export async function withAuthError<T>(
             code: mapped.code,
             retryAfter: mapped.retryAfter,
             unconfirmedEmail: mapped.unconfirmedEmail,
+            apiMessage: mapped.apiMessage,
           },
         };
     }
@@ -89,6 +99,7 @@ export async function unwrapAction<T>(
       undefined,
       result.__authError.retryAfter,
       result.__authError.unconfirmedEmail,
+      result.__authError.apiMessage,
     );
   }
   return result;
@@ -100,6 +111,7 @@ function codeFromStatus(status: number): AuthHttpError["code"] | null {
   if (status === 403) return "forbidden";
   if (status === 404) return "not_found";
   if (status === 400) return "validation";
+  if (status === 503) return "service_unavailable";
   return null;
 }
 
@@ -130,6 +142,7 @@ export function toAuthHttpError(error: unknown): AuthHttpError | null {
       undefined,
       error.__authError.retryAfter,
       error.__authError.unconfirmedEmail,
+      error.__authError.apiMessage,
     );
   }
 
@@ -146,7 +159,8 @@ export function toAuthHttpError(error: unknown): AuthHttpError | null {
       asCode === "unauthorized" ||
       asCode === "forbidden" ||
       asCode === "validation" ||
-      asCode === "not_found"
+      asCode === "not_found" ||
+      asCode === "service_unavailable"
     ) {
       const status =
         asCode === "rate_limit"
@@ -157,7 +171,9 @@ export function toAuthHttpError(error: unknown): AuthHttpError | null {
               ? 403
               : asCode === "not_found"
                 ? 404
-                : 400;
+                : asCode === "service_unavailable"
+                  ? 503
+                  : 400;
       return new AuthHttpError(status, asCode);
     }
   }
@@ -173,17 +189,24 @@ export function toAuthHttpError(error: unknown): AuthHttpError | null {
     undefined,
     retryAfterFromHeaders(error.response.headers),
     isUnconfirmedEmailMessage(apiMessage),
+    apiMessage,
   );
 }
 
 /**
  * 429 by IP is plain text; other errors are JSON `{ message }`. Axios already
  * try/catches JSON.parse; this still accepts either shape.
+ *
+ * A 502/503 served by nginx itself is an HTML page, not our API: reject those
+ * bodies so no markup ever reaches the UI as an error message.
  */
 function messageFromResponseData(data: unknown): string | undefined {
   if (typeof data === "string") {
     const trimmed = data.trim();
-    return trimmed || undefined;
+    if (!trimmed || trimmed.startsWith("<") || trimmed.length > 300) {
+      return undefined;
+    }
+    return trimmed;
   }
   if (data && typeof data === "object" && "message" in data) {
     const message = (data as { message: unknown }).message;
@@ -233,4 +256,14 @@ export function isValidationError(error: unknown): boolean {
 
 export function isNotFound(error: unknown): boolean {
   return toAuthHttpError(error)?.code === "not_found";
+}
+
+/** 503 : dépendance serveur momentanément indisponible, la saisie n'est pas en cause. */
+export function isServiceUnavailable(error: unknown): boolean {
+  return toAuthHttpError(error)?.code === "service_unavailable";
+}
+
+/** Texte de l'API destiné à être affiché tel quel, quand il y en a un. */
+export function apiErrorMessage(error: unknown): string | undefined {
+  return toAuthHttpError(error)?.apiMessage;
 }

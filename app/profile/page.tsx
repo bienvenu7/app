@@ -9,7 +9,12 @@ import styles from "./profile.module.scss";
 import Loading from "@/components/Loading";
 import { Auth } from "@/providers/AuthContext";
 import { updateClient } from "@/app/actions/auth";
-import { unwrapAction } from "@/lib/auth-errors";
+import {
+  apiErrorMessage,
+  isServiceUnavailable,
+  isValidationError,
+  unwrapAction,
+} from "@/lib/auth-errors";
 import { fetchSession } from "@/lib/session-client";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useGetTransactionStatsMonthly } from "@/hooks/useTransaction";
@@ -18,6 +23,11 @@ import { clearPinAuth } from "@/lib/storage";
 import { useLogout } from "@/hooks/useAuthentication";
 import type { ICountry } from "@/types/country";
 import { useT } from "@/lib/i18n";
+import {
+  checkPhoneForCountry,
+  normalizePhone,
+  phoneRuleForCountry,
+} from "@/lib/phone-rules";
 
 function splitFullName(fullName?: string) {
   const parts = fullName?.trim().split(/\s+/) ?? [];
@@ -44,7 +54,10 @@ export default function ProfilePage() {
   const [countryId, setCountryId] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [serviceError, setServiceError] = useState<string | null>(null);
   const selectRef = useRef<HTMLDivElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -72,6 +85,29 @@ export default function ProfilePage() {
     [countries, countryId],
   );
 
+  const countryForPhone = selectedCountry ?? user?.Country;
+
+  const phoneRule = useMemo(
+    () => phoneRuleForCountry(countryForPhone),
+    [countryForPhone],
+  );
+
+  const formatPhoneError = (value: string): string | null => {
+    if (!countryId && !user?.Country) {
+      return t("profile.phoneCountryRequired");
+    }
+    if (!countryForPhone) {
+      return loadingCountries ? null : t("profile.phoneCountryRequired");
+    }
+    const check = checkPhoneForCountry(value, countryForPhone);
+    if (check.ok || check.reason === "unknown_country") return null;
+    return t("profile.phoneInvalid", {
+      index: check.rule.index,
+      count: check.rule.localDigits,
+      example: check.rule.example,
+    });
+  };
+
   const filteredCountries = useMemo(() => {
     const list = (countries as ICountry[]) ?? [];
     if (!countrySearch.trim()) return list;
@@ -79,12 +115,18 @@ export default function ProfilePage() {
     return list.filter((c) => c.pubicName?.toLowerCase().includes(q));
   }, [countries, countrySearch]);
 
+  const phoneChanged = useMemo(
+    () => normalizePhone(phone) !== normalizePhone(user?.whatsappNumber ?? ""),
+    [phone, user],
+  );
+
   const { mutateAsync: saveProfile, isPending: isSaving } = useMutation({
     mutationKey: ["update-profile", user?.id],
     mutationFn: () =>
       unwrapAction(
         updateClient({
-          phone: phone.trim(),
+          // Envoyer le numéro inchangé serait un aller-retour WhatsApp pour rien.
+          phone: phoneChanged ? phone.trim() : undefined,
           countryId: countryId || undefined,
         }),
       ),
@@ -95,17 +137,24 @@ export default function ProfilePage() {
   const canSave = useMemo(() => {
     if (!user) return false;
 
-    const initialPhone = (user.whatsappNumber ?? "").trim();
     const initialCountryId = user.Country?.id ?? "";
-    const nextPhone = phone.trim();
-    const hasChanges =
-      nextPhone !== initialPhone || countryId !== initialCountryId;
+    const hasChanges = phoneChanged || countryId !== initialCountryId;
 
-    return hasChanges && (!!nextPhone || !!countryId);
-  }, [user, phone, countryId]);
+    return hasChanges && (!!phone.trim() || !!countryId);
+  }, [user, phone, phoneChanged, countryId]);
 
   const handleSave = async () => {
     if (!user) return;
+    setPhoneError(null);
+    setServiceError(null);
+
+    const localPhoneError = formatPhoneError(phone);
+    if (localPhoneError) {
+      setPhoneError(localPhoneError);
+      phoneRef.current?.focus();
+      return;
+    }
+
     try {
       const result = await saveProfile();
 
@@ -120,7 +169,25 @@ export default function ProfilePage() {
       toast.success(result.message || t("profile.saveSuccess"));
       const refreshed = await fetchSession();
       fillState(refreshed);
-    } catch {
+    } catch (error) {
+      // 400 : numéro injoignable ou mal formé. Rien n'a été enregistré, pas
+      // même les autres champs de la requête — la saisie doit être corrigée.
+      if (isValidationError(error)) {
+        setPhoneError(
+          apiErrorMessage(error) ?? t("profile.whatsappUnreachable"),
+        );
+        phoneRef.current?.focus();
+        return;
+      }
+
+      // 503 : WhatsApp indisponible côté serveur, la saisie n'est pas en cause.
+      if (isServiceUnavailable(error)) {
+        setServiceError(
+          apiErrorMessage(error) ?? t("profile.whatsappUnavailable"),
+        );
+        return;
+      }
+
       toast.error(t("profile.saveError"));
     }
   };
@@ -219,16 +286,49 @@ export default function ProfilePage() {
           />
         </div>
 
-        <div className={styles.field}>
-          <label>{t("common.phone")}</label>
+        <div
+          className={`${styles.field} ${phoneError ? styles.fieldInvalid : ""}`}
+        >
+          <label htmlFor="profile-phone">{t("common.phone")}</label>
           <input
+            id="profile-phone"
+            ref={phoneRef}
             type="tel"
-            placeholder="+242 06 123 4567"
+            inputMode="tel"
+            placeholder={
+              phoneRule ? `+${phoneRule.example}` : "+242 06 123 4567"
+            }
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              setPhoneError(null);
+            }}
             aria-label={t("common.phone")}
+            aria-invalid={!!phoneError}
+            aria-describedby={
+              phoneError ? "profile-phone-error" : "profile-phone-hint"
+            }
           />
         </div>
+
+        {phoneError ? (
+          <p className={styles.fieldError} id="profile-phone-error" role="alert">
+            {phoneError}
+          </p>
+        ) : (
+          <p className={styles.fieldHint} id="profile-phone-hint">
+            {t("profile.whatsappHint")}
+            {phoneRule && (
+              <>
+                {" "}
+                {t("profile.phoneFormatHint", {
+                  index: phoneRule.index,
+                  count: phoneRule.localDigits,
+                })}
+              </>
+            )}
+          </p>
+        )}
 
         <div className={styles.selectField} ref={selectRef}>
           <button
@@ -277,6 +377,21 @@ export default function ProfilePage() {
                     setCountryId(c.id);
                     setCountryOpen(false);
                     setCountrySearch("");
+                    const nextCountry = (countries as ICountry[])?.find(
+                      (item) => item.id === c.id,
+                    );
+                    const check = checkPhoneForCountry(phone, nextCountry);
+                    if (!phone.trim() || check.ok || check.reason === "unknown_country") {
+                      setPhoneError(null);
+                      return;
+                    }
+                    setPhoneError(
+                      t("profile.phoneInvalid", {
+                        index: check.rule.index,
+                        count: check.rule.localDigits,
+                        example: check.rule.example,
+                      }),
+                    );
                   }}
                   role="option"
                   aria-selected={c.id === countryId}
@@ -290,6 +405,15 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {serviceError && (
+          <div className={styles.serviceError} role="alert">
+            <span>{serviceError}</span>
+            <button type="button" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? t("profile.saving") : t("common.retry")}
+            </button>
+          </div>
+        )}
 
         <button
           type="button"

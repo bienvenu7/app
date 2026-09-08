@@ -22,6 +22,7 @@ const fr = {
     selectCountry: "Sélectionnez un pays",
     searchCountry: "Rechercher un pays...",
     noCountryFound: "Aucun pays trouvé",
+    retry: "Réessayer",
     language: "Langue",
     switchToFr: "Passer en français",
     switchToRu: "Переключить на русский",
@@ -68,6 +69,18 @@ const fr = {
     saveError: "Impossible d'enregistrer les modifications.",
     saveSuccess: "Profil mis à jour.",
     reloginRequired: "Vos identifiants ont changé. Veuillez vous reconnecter.",
+    whatsappHint:
+      "Un message de confirmation sera envoyé sur ce numéro WhatsApp. Le numéro n'est enregistré que si ce message part correctement.",
+    whatsappUnreachable:
+      "Ce numéro WhatsApp est injoignable. Vérifiez qu'il est correct et associé à un compte WhatsApp actif.",
+    whatsappUnavailable:
+      "Impossible d'envoyer la confirmation WhatsApp pour le moment. Votre numéro n'a pas été modifié, réessayez plus tard.",
+    phoneFormatHint:
+      "Saisissez l'indicatif {index} (sans le +) suivi de exactement {count} chiffres.",
+    phoneInvalid:
+      "Numéro invalide pour ce pays. Il doit commencer par {index} suivi de exactement {count} chiffres (ex. {example}).",
+    phoneCountryRequired:
+      "Choisissez d'abord votre pays de résidence pour valider le numéro.",
   },
   transactions: {
     title: "Mes",

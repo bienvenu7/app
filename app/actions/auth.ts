@@ -28,7 +28,14 @@ export const updateClient = async (
     const { data: response } = await instance.patch<{
       message?: string;
       requireRelogin?: boolean;
-    }>("auth/update/user", payload);
+    }>(
+      "auth/update/user",
+      payload,
+      // Un changement de `phone` déclenche jusqu'à trois appels au fournisseur
+      // WhatsApp côté serveur (~15 s au pire) : le timeout par défaut est trop
+      // juste, et l'expirer ferait perdre la vraie réponse (400 ou 503).
+      payload.phone ? { timeout: 35_000 } : undefined,
+    );
 
     return {
       message:

@@ -24,6 +24,7 @@ const ru: Messages = {
     selectCountry: "Выберите страну",
     searchCountry: "Поиск страны...",
     noCountryFound: "Страна не найдена",
+    retry: "Повторить",
     language: "Язык",
     switchToFr: "Passer en français",
     switchToRu: "Переключить на русский",
@@ -71,6 +72,18 @@ const ru: Messages = {
     saveSuccess: "Профиль обновлён.",
     reloginRequired:
       "Ваши данные изменены. Войдите снова.",
+    whatsappHint:
+      "На этот номер WhatsApp будет отправлено подтверждение. Номер сохраняется только после успешной отправки сообщения.",
+    whatsappUnreachable:
+      "Этот номер WhatsApp недоступен. Проверьте, что он указан верно и привязан к активному аккаунту WhatsApp.",
+    whatsappUnavailable:
+      "Сейчас не удаётся отправить подтверждение в WhatsApp. Ваш номер не изменён, попробуйте позже.",
+    phoneFormatHint:
+      "Введите код {index} (без +) и ровно {count} цифр после него.",
+    phoneInvalid:
+      "Неверный номер для этой страны. Он должен начинаться с {index} и содержать ровно {count} цифр (напр. {example}).",
+    phoneCountryRequired:
+      "Сначала выберите страну проживания, чтобы проверить номер.",
   },
   transactions: {
     title: "Мои",

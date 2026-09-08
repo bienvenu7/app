@@ -23,6 +23,7 @@ import { toAuthHttpError } from "@/lib/auth-errors";
  * et n'a plus de rewrite `/v3` (C1).
  */
 export const baseURL = "https://api.afrue.com/v3/";
+// export const baseURL = "http://localhost:7001/v3/";
 
 /** Node on macOS often hangs ~75s on a broken IPv6 (AAAA) path before falling back to IPv4. */
 const ipv4Agent = new https.Agent({ family: 4, keepAlive: true });
