@@ -1,9 +1,17 @@
 import type { ICountry } from "@/types/country";
 
 /**
+ * Contrat serveur (`FRONTEND_CLIENT_WHATSAPP.md`) : `^\d{9,15}$`.
+ * Le serveur ne normalise pas — n'envoyer que des chiffres.
+ */
+export const WHATSAPP_PATTERN = /^\d{9,15}$/;
+
+export const LOGIN_OTP_TTL_MS = 2 * 60 * 1000;
+export const RESET_OTP_TTL_MS = 10 * 60 * 1000;
+
+/**
  * Indicatif (sans +) et longueur du numéro national.
- * L'API publique ne renvoie plus `TelIndex` / `TelMaxNumber` sur le pays ;
- * ces valeurs reprennent l'ancien contrat (Congo : +242 / 9 chiffres).
+ * L'API publique ne renvoie plus `TelIndex` / `TelMaxNumber` sur le pays.
  */
 export type CountryPhoneRule = {
   index: string;
@@ -16,7 +24,7 @@ const RULES_BY_CODE: Record<string, CountryPhoneRule> = {
   cam: { index: "237", localDigits: 9, example: "237612345678" },
   civ: { index: "225", localDigits: 10, example: "2250701234567" },
   sen: { index: "221", localDigits: 9, example: "221771234567" },
-  ru: { index: "7", localDigits: 10, example: "79123456789" },
+  ru: { index: "7", localDigits: 10, example: "79025227326" },
 };
 
 const RULES_BY_NAME: Record<string, CountryPhoneRule> = {
@@ -33,14 +41,43 @@ const RULES_BY_NAME: Record<string, CountryPhoneRule> = {
   russia: RULES_BY_CODE.ru,
 };
 
+/** Chiffres seuls, max 15 — ce que le serveur accepte. */
+export function sanitizeWhatsappInput(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 15);
+}
+
 export function phoneDigits(phone: string): string {
-  let digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  return digits;
+  return sanitizeWhatsappInput(phone);
 }
 
 export function normalizePhone(phone: string): string {
-  return phoneDigits(phone);
+  return sanitizeWhatsappInput(phone);
+}
+
+/** Ancien compte : `whatsappNumber` vaut souvent `"-"`. */
+export function displayWhatsappNumber(
+  whatsappNumber: string | undefined | null,
+): string {
+  if (!whatsappNumber || whatsappNumber === "-") return "";
+  return sanitizeWhatsappInput(whatsappNumber);
+}
+
+export function hasWhatsappOtpChannel(
+  whatsappNumber: string | undefined | null,
+): boolean {
+  const digits = displayWhatsappNumber(whatsappNumber);
+  if (!digits) return false;
+  return WHATSAPP_PATTERN.test(digits);
+}
+
+export type OtpChannel = "whatsapp" | "email" | "unknown";
+
+export function otpChannelFromStoredNumber(
+  whatsappNumber: string | undefined | null,
+  options?: { unknownIfMissing?: boolean },
+): OtpChannel {
+  if (options?.unknownIfMissing && whatsappNumber == null) return "unknown";
+  return hasWhatsappOtpChannel(whatsappNumber) ? "whatsapp" : "email";
 }
 
 export function phoneRuleForCountry(
@@ -53,39 +90,32 @@ export function phoneRuleForCountry(
 }
 
 export type PhoneCountryCheck =
-  | { ok: true; digits: string; rule: CountryPhoneRule }
-  | { ok: false; reason: "empty" | "format"; rule: CountryPhoneRule }
-  | { ok: false; reason: "unknown_country" };
+  | { ok: true; digits: string; rule: CountryPhoneRule | null }
+  | { ok: false; reason: "empty" | "format"; rule: CountryPhoneRule | null };
 
 /**
- * Le numéro doit être l'indicatif (sans +) suivi d'exactement `localDigits`
- * chiffres. Espaces, tirets, + et préfixe 00 sont ignorés.
- * Russie : le 8 national est accepté à la place du 7.
+ * Chiffres uniquement, indicatif inclus, longueur du pays si connue.
+ * Sinon repli sur `^\d{9,15}$` (contrat serveur).
  */
 export function checkPhoneForCountry(
   phone: string,
   country?: Pick<ICountry, "name" | "pubicName"> | null,
 ): PhoneCountryCheck {
+  const digits = sanitizeWhatsappInput(phone);
   const rule = phoneRuleForCountry(country);
-  if (!rule) return { ok: false, reason: "unknown_country" };
 
-  const trimmed = phone.trim();
-  if (!trimmed) return { ok: false, reason: "empty", rule };
+  if (!digits) return { ok: false, reason: "empty", rule };
 
-  let digits = phoneDigits(trimmed);
-
-  if (
-    rule.index === "7" &&
-    digits.startsWith("8") &&
-    digits.length === 1 + rule.localDigits
-  ) {
-    digits = `7${digits.slice(1)}`;
+  if (rule) {
+    const expectedLength = rule.index.length + rule.localDigits;
+    const matches =
+      digits.startsWith(rule.index) && digits.length === expectedLength;
+    if (!matches) return { ok: false, reason: "format", rule };
+    return { ok: true, digits, rule };
   }
 
-  const expectedLength = rule.index.length + rule.localDigits;
-  const matches =
-    digits.startsWith(rule.index) && digits.length === expectedLength;
-
-  if (!matches) return { ok: false, reason: "format", rule };
-  return { ok: true, digits, rule };
+  if (!WHATSAPP_PATTERN.test(digits)) {
+    return { ok: false, reason: "format", rule: null };
+  }
+  return { ok: true, digits, rule: null };
 }

@@ -16,15 +16,30 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PinPad } from "@/components/PinPad";
 import ui from "@/components/ui.module.scss";
 import styles from "@/app/auth/auth.module.scss";
-import { isUnauthorized } from "@/lib/auth-errors";
+import {
+  apiErrorMessage,
+  isForbiddenAuth,
+  isConflict,
+  isServiceUnavailable,
+  isUnauthorized,
+  isValidationError,
+} from "@/lib/auth-errors";
 import { fetchSession, verifyOtp } from "@/lib/session-client";
 import { useGetCountries } from "@/hooks/useCountry";
 import { useRegistration, useResendOtp } from "@/hooks/useAuthentication";
+import { useOtpTtl } from "@/hooks/useOtpTtl";
 import { countryFlagEmoji } from "@/lib/flags";
-import { savePinAuth } from "@/lib/storage";
+import { persistWhatsappHint, savePinAuth } from "@/lib/storage";
 import { Auth } from "@/providers/AuthContext";
 import type { ICountry } from "@/types/country";
 import { useT } from "@/lib/i18n";
+import type { OtpChannel } from "@/lib/auth-identifier";
+import {
+  LOGIN_OTP_TTL_MS,
+  checkPhoneForCountry,
+  phoneRuleForCountry,
+  sanitizeWhatsappInput,
+} from "@/lib/phone-rules";
 
 const TOTAL_STEPS = 5;
 
@@ -47,6 +62,11 @@ export default function RegisterPage() {
 
   // Step 2 — credentials
   const [email, setEmail] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [whatsappError, setWhatsappError] = useState<string | null>(null);
+  const [registerServiceError, setRegisterServiceError] = useState<
+    string | null
+  >(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +76,8 @@ export default function RegisterPage() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
+  const [registerOtpChannel, setRegisterOtpChannel] =
+    useState<OtpChannel>("email");
   const otpSubmittedRef = useRef<string | null>(null);
 
   // Steps 4–5 — PIN
@@ -89,14 +111,45 @@ export default function RegisterPage() {
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
+  const phoneRule = useMemo(
+    () => phoneRuleForCountry(selectedCountry),
+    [selectedCountry],
+  );
+
+  const whatsappCheck = useMemo(
+    () => checkPhoneForCountry(whatsappNumber, selectedCountry),
+    [whatsappNumber, selectedCountry],
+  );
+
   const { registerFn, isRegistering } = useRegistration(
     email.trim(),
     password,
     fullName,
     countryId,
     gender,
+    whatsappNumber,
   );
-  const { resend, isResending } = useResendOtp(email.trim());
+  const { resend, isResending } = useResendOtp(
+    email.trim() ? { kind: "email", email: email.trim() } : null,
+  );
+  const {
+    remaining: otpRemaining,
+    expired: otpExpired,
+    restart: restartOtpTtl,
+  } = useOtpTtl(step === 2, LOGIN_OTP_TTL_MS);
+
+  const formatWhatsappError = (value: string): string | null => {
+    const check = checkPhoneForCountry(value, selectedCountry);
+    if (check.ok) return null;
+    if (check.rule) {
+      return t("profile.phoneInvalid", {
+        index: check.rule.index,
+        count: check.rule.localDigits,
+        example: check.rule.example,
+      });
+    }
+    return t("profile.phoneDigitsOnly");
+  };
 
   const resetOtpBuffer = useCallback(() => {
     setOtp("");
@@ -129,6 +182,7 @@ export default function RegisterPage() {
   const canNextStep0 = !!countryId && !!firstName.trim() && !!lastName.trim() && !!gender;
   const canNextStep1 =
     /\S+@\S+\.\S+/.test(email.trim()) &&
+    (whatsappNumber.length === 0 || whatsappCheck.ok) &&
     password.length >= 6 &&
     confirmPassword === password;
 
@@ -153,7 +207,12 @@ export default function RegisterPage() {
     try {
       await resend();
       resetOtpBuffer();
-      toast.success(t("auth.otpResent"));
+      restartOtpTtl();
+      toast.success(
+        registerOtpChannel === "whatsapp"
+          ? t("auth.otpSentWhatsapp")
+          : t("auth.otpSentEmail"),
+      );
     } catch {
       toast.error(t("auth.otpResendError"));
     }
@@ -169,12 +228,57 @@ export default function RegisterPage() {
     if (step !== 1) return;
     if (!canNextStep1) return;
 
+    if (whatsappNumber.length > 0) {
+      const localError = formatWhatsappError(whatsappNumber);
+      if (localError) {
+        setWhatsappError(localError);
+        return;
+      }
+    }
+
+    setWhatsappError(null);
+    setRegisterServiceError(null);
+
     try {
-      await registerFn();
+      const result = await registerFn();
+      const channel = result.otpChannel;
+      setRegisterOtpChannel(channel);
+      persistWhatsappHint(email.trim(), whatsappNumber);
       resetOtpBuffer();
       go(2);
-      toast.success(t("auth.otpSent"));
-    } catch {
+      toast.success(
+        channel === "whatsapp"
+          ? t("auth.otpSentWhatsapp")
+          : t("auth.otpSentEmail"),
+      );
+    } catch (error) {
+      if (isConflict(error)) {
+        setWhatsappError(apiErrorMessage(error) ?? t("profile.phoneTaken"));
+        return;
+      }
+      if (isValidationError(error) && whatsappNumber.length > 0) {
+        setWhatsappError(
+          apiErrorMessage(error) ?? t("profile.whatsappUnreachable"),
+        );
+        return;
+      }
+      if (isValidationError(error)) {
+        toast.error(apiErrorMessage(error) ?? t("auth.registerError"));
+        return;
+      }
+      if (isServiceUnavailable(error)) {
+        setRegisterServiceError(
+          apiErrorMessage(error) ??
+            (whatsappNumber
+              ? t("auth.registerWhatsappUnavailable")
+              : t("auth.otpDeliveryError")),
+        );
+        return;
+      }
+      if (isForbiddenAuth(error)) {
+        toast.error(t("auth.emailAlreadyUsed"));
+        return;
+      }
       toast.error(t("auth.registerError"));
     }
   };
@@ -188,8 +292,14 @@ export default function RegisterPage() {
 
     (async () => {
       try {
-        const result = await verifyOtp(email.trim(), otp);
-        if (result?.user) fillState(result.user);
+        const result = await verifyOtp(
+          { kind: "email", email: email.trim() },
+          otp,
+        );
+        if (result?.user) {
+          persistWhatsappHint(result.user.email, result.user.whatsappNumber);
+          fillState(result.user);
+        }
         resetOtpBuffer();
         resetPinBuffers();
         go(3);
@@ -418,8 +528,14 @@ export default function RegisterPage() {
                   {t("auth.verifyCode")} <em>{t("auth.verifyCodeEm")}</em>
                 </h1>
                 <p className={styles.subtitle}>
-                  {t("auth.enterOtpSentTo")}{" "}
-                  <span className={styles.otpEmail}>{email.trim()}</span>
+                  {registerOtpChannel === "whatsapp"
+                    ? t("auth.enterOtpWhatsapp")
+                    : t("auth.enterOtpEmail")}{" "}
+                  <span className={styles.otpEmail}>
+                    {registerOtpChannel === "whatsapp"
+                      ? whatsappNumber
+                      : email.trim()}
+                  </span>
                 </p>
               </div>
 
@@ -430,6 +546,12 @@ export default function RegisterPage() {
                 error={otpError}
                 disabled={otpVerifying}
               />
+
+              <p className={styles.otpHint}>
+                {otpExpired
+                  ? t("auth.otpExpired")
+                  : t("auth.otpExpiresIn", { seconds: String(otpRemaining) })}
+              </p>
 
               <p className={styles.resendOtp}>
                 {t("auth.noCodeReceived")}{" "}
@@ -494,6 +616,62 @@ export default function RegisterPage() {
                     aria-label={t("common.email")}
                   />
                 </div>
+
+                <div>
+                  <span className={styles.label}>
+                    {t("auth.whatsappNumber")} ({t("auth.optional")})
+                  </span>
+                  <input
+                    className={`${styles.input} ${whatsappError ? styles.inputInvalid : ""}`}
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={15}
+                    placeholder={
+                      phoneRule?.example ?? t("auth.whatsappPlaceholder")
+                    }
+                    value={whatsappNumber}
+                    onChange={(e) => {
+                      setWhatsappNumber(sanitizeWhatsappInput(e.target.value));
+                      setWhatsappError(null);
+                      setRegisterServiceError(null);
+                    }}
+                    aria-label={t("auth.whatsappNumber")}
+                    aria-invalid={!!whatsappError}
+                  />
+                  {whatsappError ||
+                  (whatsappNumber.length > 0 && !whatsappCheck.ok) ? (
+                    <p className={styles.fieldError} role="alert">
+                      {whatsappError ?? formatWhatsappError(whatsappNumber)}
+                    </p>
+                  ) : (
+                    <p className={styles.fieldHint}>
+                      {t("auth.whatsappRegisterHint")}
+                      {phoneRule && (
+                        <>
+                          {" "}
+                          {t("profile.phoneFormatHint", {
+                            index: phoneRule.index,
+                            count: phoneRule.localDigits,
+                          })}
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                {registerServiceError && (
+                  <div className={styles.serviceError} role="alert">
+                    <span>{registerServiceError}</span>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isRegistering}
+                    >
+                      {isRegistering ? t("auth.creating") : t("common.retry")}
+                    </button>
+                  </div>
+                )}
 
                 <div className={styles.passwordField}>
                   <span className={styles.label}>{t("common.password")}</span>

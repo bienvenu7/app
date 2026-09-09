@@ -20,7 +20,9 @@ import {
 import { Auth } from "@/providers/AuthContext";
 import { isAuthEntryRoute, isAuthUtilityRoute } from "@/lib/auth-routes";
 import {
+  apiErrorMessage,
   isForbiddenAuth,
+  isOtpDeliveryFailed,
   isRateLimited,
   isUnauthorized,
   isValidationError,
@@ -31,8 +33,10 @@ import {
   clearPinAuth,
   getPinLockRemainingMs,
   getValidPinAuth,
+  getWhatsappHint,
   isPinLocked,
   isPinUnlockRequired,
+  persistWhatsappHint,
   PIN_MAX_ATTEMPTS,
   recordPinFailure,
   savePinAuth,
@@ -40,6 +44,15 @@ import {
   verifySavedPin,
   type PinAuth,
 } from "@/lib/storage";
+import { useOtpTtl } from "@/hooks/useOtpTtl";
+import type { AuthIdentifier, LoginMethod, OtpChannel } from "@/lib/auth-identifier";
+import {
+  LOGIN_OTP_TTL_MS,
+  RESET_OTP_TTL_MS,
+  WHATSAPP_PATTERN,
+  otpChannelFromStoredNumber,
+  sanitizeWhatsappInput,
+} from "@/lib/phone-rules";
 
 type Mode =
   | "checking"
@@ -70,7 +83,9 @@ function LoginFlow() {
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Credentials
+  const [loginKind, setLoginKind] = useState<LoginMethod>("email");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -88,7 +103,11 @@ function LoginFlow() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
-  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingIdentifier, setPendingIdentifier] =
+    useState<AuthIdentifier | null>(null);
+  const [pendingOtpChannel, setPendingOtpChannel] =
+    useState<OtpChannel>("email");
+  const [pendingPinEmail, setPendingPinEmail] = useState("");
   const otpSubmittedRef = useRef<string | null>(null);
 
   // PIN
@@ -99,10 +118,49 @@ function LoginFlow() {
   const [lockTick, setLockTick] = useState(0);
   const pinSubmitRef = useRef<string | null>(null);
 
-  const { postLogin, isLogin } = useAuthentication(email.trim(), password);
-  const { resend, isResending } = useResendOtp(pendingEmail);
+  const loginIdentifier: AuthIdentifier | null =
+    loginKind === "email"
+      ? email.trim()
+        ? { kind: "email", email: email.trim() }
+        : null
+      : phone
+        ? { kind: "phone", phone }
+        : null;
+
+  const { postLogin, isLogin } = useAuthentication(loginIdentifier, password);
+  const { resend, isResending } = useResendOtp(pendingIdentifier);
   const { requestReset, isRequestingReset } = useRequestPasswordReset();
   const { submitReset, isResettingPassword } = useResetPassword();
+  const {
+    remaining: loginOtpRemaining,
+    expired: loginOtpExpired,
+    restart: restartLoginOtpTtl,
+  } = useOtpTtl(mode === "verify-otp", LOGIN_OTP_TTL_MS);
+  const {
+    remaining: resetOtpRemaining,
+    expired: resetOtpExpired,
+    restart: restartResetOtpTtl,
+  } = useOtpTtl(mode === "forgot-reset", RESET_OTP_TTL_MS);
+
+  const loginOtpChannel: OtpChannel = pendingOtpChannel;
+  const resetOtpChannel = otpChannelFromStoredNumber(
+    getWhatsappHint(resetEmail),
+    { unknownIfMissing: true },
+  );
+
+  const otpSentMessage = (channel: "whatsapp" | "email" | "unknown") =>
+    channel === "whatsapp"
+      ? t("auth.otpSentWhatsapp")
+      : channel === "email"
+        ? t("auth.otpSentEmail")
+        : t("auth.otpSent");
+
+  const otpEnterMessage = (channel: "whatsapp" | "email" | "unknown") =>
+    channel === "whatsapp"
+      ? t("auth.enterOtpWhatsapp")
+      : channel === "email"
+        ? t("auth.enterOtpEmail")
+        : t("auth.enterOtpUnknown");
 
   useEffect(() => {
     const saved = getValidPinAuth();
@@ -268,8 +326,12 @@ function LoginFlow() {
       setNewPassword("");
       setConfirmNewPassword("");
       setMode("forgot-reset");
-      toast.success(t("auth.resetCodeSent"));
+      toast.success(otpSentMessage(resetOtpChannel));
     } catch (error) {
+      if (isOtpDeliveryFailed(error)) {
+        toast.error(apiErrorMessage(error) ?? t("auth.otpDeliveryError"));
+        return;
+      }
       toast.error(
         isRateLimited(error)
           ? t("auth.rateLimited")
@@ -284,8 +346,13 @@ function LoginFlow() {
       await requestReset(resetEmail.trim());
       setResetOtp("");
       setResetOtpError(false);
-      toast.success(t("auth.resetCodeSent"));
+      restartResetOtpTtl();
+      toast.success(otpSentMessage(resetOtpChannel));
     } catch (error) {
+      if (isOtpDeliveryFailed(error)) {
+        toast.error(apiErrorMessage(error) ?? t("auth.otpDeliveryError"));
+        return;
+      }
       toast.error(
         isRateLimited(error) ? t("auth.rateLimited") : t("auth.otpResendError"),
       );
@@ -332,18 +399,32 @@ function LoginFlow() {
     }
   };
 
+  const canSubmitLogin =
+    password.length >= 1 &&
+    (loginKind === "email"
+      ? /\S+@\S+\.\S+/.test(email.trim())
+      : WHATSAPP_PATTERN.test(phone));
+
   const handleLoginSubmit = async () => {
-    if (!/\S+@\S+\.\S+/.test(email.trim()) || password.length < 1) return;
+    if (!canSubmitLogin || !loginIdentifier) return;
 
     setVerifying(true);
     try {
-      await postLogin();
-      setPendingEmail(email.trim());
+      const result = await postLogin();
+      setPendingIdentifier(loginIdentifier);
+      setPendingOtpChannel(result.otpChannel);
+      setPendingPinEmail(
+        loginIdentifier.kind === "email" ? loginIdentifier.email : "",
+      );
       resetOtpBuffer();
       resetPinBuffers();
       setMode("verify-otp");
-      toast.success(t("auth.otpSent"));
+      toast.success(otpSentMessage(result.otpChannel));
     } catch (error) {
+      if (isOtpDeliveryFailed(error)) {
+        toast.error(apiErrorMessage(error) ?? t("auth.otpDeliveryError"));
+        return;
+      }
       toast.error(
         isRateLimited(error) ? t("auth.rateLimited") : t("auth.badCredentials"),
       );
@@ -353,11 +434,12 @@ function LoginFlow() {
   };
 
   const handleResendOtp = async () => {
-    if (!pendingEmail) return;
+    if (!pendingIdentifier) return;
     try {
       await resend();
       resetOtpBuffer();
-      toast.success(t("auth.otpResent"));
+      restartLoginOtpTtl();
+      toast.success(otpSentMessage(loginOtpChannel));
     } catch {
       toast.error(t("auth.otpResendError"));
     }
@@ -373,8 +455,13 @@ function LoginFlow() {
 
     (async () => {
       try {
-        const result = await verifyOtp(pendingEmail, otp);
-        if (result?.user) fillState(result.user);
+        if (!pendingIdentifier) return;
+        const result = await verifyOtp(pendingIdentifier, otp);
+        if (result?.user) {
+          persistWhatsappHint(result.user.email, result.user.whatsappNumber);
+          fillState(result.user);
+          if (result.user.email) setPendingPinEmail(result.user.email);
+        }
         resetOtpBuffer();
         resetPinBuffers();
         setMode("create-pin");
@@ -396,7 +483,7 @@ function LoginFlow() {
         }, 500);
       }
     })();
-  }, [otp, mode, pendingEmail, fillState, t]);
+  }, [otp, mode, pendingIdentifier, fillState, t]);
 
   // PIN creation — step 1
   useEffect(() => {
@@ -418,8 +505,13 @@ function LoginFlow() {
       (async () => {
         const now = Date.now();
         try {
+          const pinEmail =
+            pendingPinEmail ||
+            (pendingIdentifier?.kind === "email"
+              ? pendingIdentifier.email
+              : "");
           await savePinAuth({
-            email: pendingEmail,
+            email: pinEmail,
             pin,
             createdAt: now,
             lastUnlockAt: now,
@@ -445,7 +537,7 @@ function LoginFlow() {
       toast.error(t("auth.pinsMismatch"));
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [pin, mode, firstPin, pendingEmail, completeSessionAndGoHome, t]);
+  }, [pin, mode, firstPin, pendingPinEmail, pendingIdentifier, completeSessionAndGoHome, t]);
 
   // Returning user — PIN unlock
   useEffect(() => {
@@ -568,19 +660,60 @@ function LoginFlow() {
               <p className={styles.subtitle}>{t("auth.loginSubtitle")}</p>
             </div>
 
+            <div className={styles.modeToggle} role="tablist" aria-label={t("auth.loginMethod")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={loginKind === "email"}
+                className={`${styles.modeBtn} ${loginKind === "email" ? styles.selected : ""}`}
+                onClick={() => setLoginKind("email")}
+              >
+                {t("auth.loginByEmail")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={loginKind === "phone"}
+                className={`${styles.modeBtn} ${loginKind === "phone" ? styles.selected : ""}`}
+                onClick={() => setLoginKind("phone")}
+              >
+                {t("auth.loginByPhone")}
+              </button>
+            </div>
+
             <div className={styles.form}>
-              <div>
-                <span className={styles.label}>{t("common.email")}</span>
-                <input
-                  className={styles.input}
-                  type="email"
-                  placeholder={t("auth.emailPlaceholder")}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  aria-label={t("common.email")}
-                  autoFocus
-                />
-              </div>
+              {loginKind === "email" ? (
+                <div>
+                  <span className={styles.label}>{t("common.email")}</span>
+                  <input
+                    className={styles.input}
+                    type="email"
+                    placeholder={t("auth.emailPlaceholder")}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-label={t("common.email")}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <div>
+                  <span className={styles.label}>{t("common.phone")}</span>
+                  <input
+                    className={styles.input}
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={15}
+                    placeholder={t("auth.whatsappPlaceholder")}
+                    value={phone}
+                    onChange={(e) =>
+                      setPhone(sanitizeWhatsappInput(e.target.value))
+                    }
+                    aria-label={t("common.phone")}
+                    autoFocus
+                  />
+                </div>
+              )}
 
               <div className={styles.passwordField}>
                 <span className={styles.label}>{t("common.password")}</span>
@@ -623,12 +756,7 @@ function LoginFlow() {
             <button
               className={`${ui.btn} ${ui.btnPrimary}`}
               onClick={handleLoginSubmit}
-              disabled={
-                !/\S+@\S+\.\S+/.test(email.trim()) ||
-                password.length < 1 ||
-                isLogin ||
-                verifying
-              }
+              disabled={!canSubmitLogin || isLogin || verifying}
               style={{ marginTop: 26 }}
             >
               {isLogin || verifying ? t("auth.loggingIn") : t("auth.login")}
@@ -716,7 +844,11 @@ function LoginFlow() {
                 <em>{t("auth.forgotResetTitleEm")}</em>
               </h1>
               <p className={styles.subtitle}>
-                {t("auth.forgotResetSubtitle")}
+                {resetOtpChannel === "whatsapp"
+                  ? t("auth.forgotResetSubtitleWhatsapp")
+                  : resetOtpChannel === "email"
+                    ? t("auth.forgotResetSubtitleEmail")
+                    : t("auth.forgotResetSubtitleUnknown")}
                 <br />
                 <span className={styles.otpEmail}>{resetEmail.trim()}</span>
               </p>
@@ -732,6 +864,13 @@ function LoginFlow() {
                   error={resetOtpError}
                   disabled={isResettingPassword}
                 />
+                <p className={styles.otpHint}>
+                  {resetOtpExpired
+                    ? t("auth.otpExpired")
+                    : t("auth.otpExpiresIn", {
+                        seconds: String(resetOtpRemaining),
+                      })}
+                </p>
                 <p className={styles.resendOtp}>
                   {t("auth.noCodeReceived")}{" "}
                   <button
@@ -842,10 +981,7 @@ function LoginFlow() {
               <h1 className={styles.title}>
                 {t("auth.verifyCode")} <em>{t("auth.verifyCodeEm")}</em>
               </h1>
-              <p className={styles.subtitle}>
-                {t("auth.enterOtpSentTo")}{" "}
-                <span className={styles.otpEmail}>{pendingEmail}</span>
-              </p>
+              <p className={styles.subtitle}>{otpEnterMessage(loginOtpChannel)}</p>
             </div>
 
             <PinPad
@@ -855,6 +991,14 @@ function LoginFlow() {
               error={otpError}
               disabled={otpVerifying}
             />
+
+            <p className={styles.otpHint}>
+              {loginOtpExpired
+                ? t("auth.otpExpired")
+                : t("auth.otpExpiresIn", {
+                    seconds: String(loginOtpRemaining),
+                  })}
+            </p>
 
             <p className={styles.resendOtp}>
               {t("auth.noCodeReceived")}{" "}

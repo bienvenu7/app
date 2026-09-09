@@ -52,6 +52,33 @@
   line-height: 1.5;
 }
 
+.modeToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 22px;
+  padding: 4px;
+  border-radius: $r-md;
+  background: $bg-elevated-2;
+  border: 1px solid $border;
+}
+
+.modeBtn {
+  @include tap;
+  height: 42px;
+  border: none;
+  border-radius: $r-sm;
+  background: transparent;
+  color: $text-muted;
+  font-size: 14px;
+  font-weight: 600;
+
+  &.selected {
+    background: $gold-soft;
+    color: $gold;
+  }
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -85,6 +112,62 @@
   }
   &:focus {
     border-color: $gold;
+  }
+
+  &.inputInvalid {
+    border-color: rgba($danger, 0.55);
+  }
+}
+
+.fieldHint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: $text-dim;
+}
+
+.fieldError {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: $danger;
+}
+
+.serviceError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba($danger, 0.35);
+  border-radius: $r-md;
+  background: rgba($danger, 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+  color: $text;
+
+  span {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  button {
+    @include tap;
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid rgba($danger, 0.5);
+    border-radius: $r-pill;
+    background: transparent;
+    color: $danger;
+    font-size: 13px;
+    font-weight: 700;
+
+    &:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
   }
 }
 

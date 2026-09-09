@@ -9,6 +9,8 @@ export class AuthHttpError extends Error {
     | "validation"
     | "not_found"
     | "service_unavailable"
+    | "otp_delivery"
+    | "conflict"
     | "unknown";
   /** Seconds before the caller may retry, when the API advertises them. */
   retryAfter?: number;
@@ -111,6 +113,8 @@ function codeFromStatus(status: number): AuthHttpError["code"] | null {
   if (status === 403) return "forbidden";
   if (status === 404) return "not_found";
   if (status === 400) return "validation";
+  if (status === 405) return "otp_delivery";
+  if (status === 409) return "conflict";
   if (status === 503) return "service_unavailable";
   return null;
 }
@@ -160,7 +164,9 @@ export function toAuthHttpError(error: unknown): AuthHttpError | null {
       asCode === "forbidden" ||
       asCode === "validation" ||
       asCode === "not_found" ||
-      asCode === "service_unavailable"
+      asCode === "service_unavailable" ||
+      asCode === "otp_delivery" ||
+      asCode === "conflict"
     ) {
       const status =
         asCode === "rate_limit"
@@ -173,7 +179,11 @@ export function toAuthHttpError(error: unknown): AuthHttpError | null {
                 ? 404
                 : asCode === "service_unavailable"
                   ? 503
-                  : 400;
+                  : asCode === "otp_delivery"
+                    ? 405
+                    : asCode === "conflict"
+                      ? 409
+                      : 400;
       return new AuthHttpError(status, asCode);
     }
   }
@@ -208,11 +218,37 @@ function messageFromResponseData(data: unknown): string | undefined {
     }
     return trimmed;
   }
-  if (data && typeof data === "object" && "message" in data) {
-    const message = (data as { message: unknown }).message;
-    if (typeof message === "string") {
-      const trimmed = message.trim();
+  if (data && typeof data === "object") {
+    const rec = data as { message?: unknown; data?: unknown };
+    const fieldMessage = firstZodFieldMessage(rec.data);
+    if (typeof rec.message === "string") {
+      const trimmed = rec.message.trim();
+      if (
+        trimmed &&
+        trimmed.toLowerCase() !== "validation error"
+      ) {
+        return trimmed;
+      }
+    }
+    if (fieldMessage) return fieldMessage;
+    if (typeof rec.message === "string") {
+      const trimmed = rec.message.trim();
       return trimmed || undefined;
+    }
+  }
+  return undefined;
+}
+
+/** Corps Zod : `{ data: [{ whatsappNumber: "…" }, { phone: "…" }] }`. */
+function firstZodFieldMessage(data: unknown): string | undefined {
+  if (!Array.isArray(data)) return undefined;
+  for (const item of data) {
+    if (!item || typeof item !== "object") continue;
+    for (const value of Object.values(item as Record<string, unknown>)) {
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed) return trimmed;
+      }
     }
   }
   return undefined;
@@ -263,7 +299,17 @@ export function isServiceUnavailable(error: unknown): boolean {
   return toAuthHttpError(error)?.code === "service_unavailable";
 }
 
+/** 409 : numéro WhatsApp déjà lié à un autre compte. */
+export function isConflict(error: unknown): boolean {
+  return toAuthHttpError(error)?.code === "conflict";
+}
+
 /** Texte de l'API destiné à être affiché tel quel, quand il y en a un. */
 export function apiErrorMessage(error: unknown): string | undefined {
   return toAuthHttpError(error)?.apiMessage;
+}
+
+/** 405 : l'OTP n'a pas pu être envoyé (WhatsApp ou email). */
+export function isOtpDeliveryFailed(error: unknown): boolean {
+  return toAuthHttpError(error)?.code === "otp_delivery";
 }

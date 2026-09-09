@@ -79,11 +79,14 @@ const ru: Messages = {
     whatsappUnavailable:
       "Сейчас не удаётся отправить подтверждение в WhatsApp. Ваш номер не изменён, попробуйте позже.",
     phoneFormatHint:
-      "Введите код {index} (без +) и ровно {count} цифр после него.",
+      "Только цифры: код {index} (без +), затем {count} цифр.",
     phoneInvalid:
-      "Неверный номер для этой страны. Он должен начинаться с {index} и содержать ровно {count} цифр (напр. {example}).",
+      "Неверный номер для этой страны. Введите {index} и ровно {count} цифр, без + и пробелов (напр. {example}).",
     phoneCountryRequired:
       "Сначала выберите страну проживания, чтобы проверить номер.",
+    phoneDigitsOnly:
+      "Номер WhatsApp должен содержать только цифры с кодом страны (напр. 79025227326).",
+    phoneTaken: "Этот номер уже привязан к другому аккаунту.",
   },
   transactions: {
     title: "Мои",
@@ -128,7 +131,11 @@ const ru: Messages = {
   auth: {
     welcomeBack: "С",
     welcomeBackEm: "возвращением",
-    loginSubtitle: "Войдите в свой аккаунт.",
+    loginSubtitle: "Войдите по email или номеру телефона.",
+    loginMethod: "Способ входа",
+    loginByEmail: "Email",
+    loginByPhone: "Телефон",
+    optional: "необязательно",
     emailPlaceholder: "vous@exemple.com",
     passwordPlaceholder: "Ваш пароль",
     forgotPassword: "Забыли пароль?",
@@ -139,11 +146,17 @@ const ru: Messages = {
     forgotTitle: "Забыли",
     forgotTitleEm: "пароль",
     forgotSubtitle:
-      "Введите email. Если аккаунт существует, мы отправим код сброса.",
+      "Введите email. Если аккаунт существует, код сброса придёт в WhatsApp или на почту.",
     forgotResetTitle: "Новый",
     forgotResetTitleEm: "пароль",
     forgotResetSubtitle:
+      "Введите полученный код (действителен 10 мин) и новый пароль.",
+    forgotResetSubtitleWhatsapp:
+      "Введите код из WhatsApp (действителен 10 мин) и новый пароль.",
+    forgotResetSubtitleEmail:
       "Введите код из письма (действителен 10 мин) и новый пароль.",
+    forgotResetSubtitleUnknown:
+      "Введите код из WhatsApp или письма (действителен 10 мин) и новый пароль.",
     sendResetCode: "Отправить код",
     sendingResetCode: "Отправка кода...",
     resetCodeSent:
@@ -161,6 +174,18 @@ const ru: Messages = {
     verifyCode: "Проверьте ваш",
     verifyCodeEm: "код",
     enterOtpSentTo: "Введите 6-значный код, отправленный на",
+    enterOtpWhatsapp: "Введите 6-значный код из WhatsApp.",
+    enterOtpEmail: "Введите 6-значный код из письма.",
+    enterOtpUnknown:
+      "Введите 6-значный код из WhatsApp или письма.",
+    otpExpiresIn: "Код истекает через {seconds} с.",
+    otpExpired: "Код истёк. Запросите новый.",
+    whatsappNumber: "Номер WhatsApp",
+    whatsappPlaceholder: "79025227326",
+    whatsappRegisterHint:
+      "Необязательно. Если указан, код придёт в WhatsApp, иначе на почту.",
+    emailAlreadyUsed: "Аккаунт с этим email уже существует.",
+    otpDeliveryError: "Не удалось отправить код. Попробуйте снова.",
     noCodeReceived: "Не получили код?",
     sending: "Отправка...",
     resend: "Отправить снова",
@@ -178,8 +203,10 @@ const ru: Messages = {
     sessionExpired: "Ваша сессия истекла, войдите снова.",
     passwordUpdated: "Пароль обновлён. Войдите в аккаунт.",
     passwordResetError: "Не удалось сбросить пароль.",
-    otpSent: "6-значный код отправлен на вашу почту.",
-    badCredentials: "Неверный email или пароль.",
+    otpSent: "6-значный код отправлен в WhatsApp или на почту.",
+    otpSentWhatsapp: "6-значный код отправлен в WhatsApp.",
+    otpSentEmail: "6-значный код отправлен на почту.",
+    badCredentials: "Неверные данные для входа.",
     emailUnconfirmed:
       "Сначала подтвердите email. Мы отправили ссылку на вашу почту.",
     rateLimited:
@@ -217,6 +244,8 @@ const ru: Messages = {
     createAccount: "Создать аккаунт",
     alreadyAccount: "Уже есть аккаунт?",
     registerError: "Произошла ошибка, попробуйте снова.",
+    registerWhatsappUnavailable:
+      "Сейчас не удаётся отправить код в WhatsApp. Аккаунт не создан, попробуйте позже.",
     accountCreated: "Ваш аккаунт успешно создан!",
   },
   transfer: {

@@ -18,6 +18,34 @@ import {
   setRefreshCookie,
 } from "@/config/server-cookies";
 import { withAuthError } from "@/lib/auth-errors";
+import { displayWhatsappNumber } from "@/lib/phone-rules";
+import {
+  fallbackOtpChannel,
+  identifierPayload,
+  parseLoginMethod,
+  parseOtpChannel,
+  type AuthIdentifier,
+  type LoginMethod,
+  type OtpChannel,
+} from "@/lib/auth-identifier";
+
+export type LoginResult = {
+  message: string;
+  loginMethod: LoginMethod;
+  otpChannel: OtpChannel;
+};
+
+export type RegisterResult = {
+  message: string;
+  otpChannel: OtpChannel;
+};
+
+function sanitizeAuthProfile(user: IClientResponse): IClientResponse {
+  return {
+    ...user,
+    whatsappNumber: displayWhatsappNumber(user.whatsappNumber),
+  };
+}
 
 export const updateClient = async (
   data: IClientUpdate,
@@ -52,17 +80,32 @@ export const register = async (
   fullName: string,
   countryId: string,
   gender: string,
-): Promise<{ message: string }> => {
+  whatsappNumber?: string,
+): Promise<RegisterResult> => {
   return withAuthError(async () => {
-    const { data } = await instance.post("clients/register", {
-      email: email.toLowerCase(),
-      password,
-      fullName,
-      countryId,
-      gender,
-    });
-    return data;
-  }) as Promise<{ message: string }>;
+    const digits = displayWhatsappNumber(whatsappNumber);
+    const { data } = await instance.post<{
+      message?: string;
+      otpChannel?: string;
+    }>(
+      "clients/register",
+      {
+        email: email.toLowerCase(),
+        password,
+        fullName,
+        countryId,
+        gender,
+        ...(digits ? { whatsappNumber: digits } : {}),
+      },
+      // L'envoi OTP (WhatsApp ou email) peut dépasser le timeout par défaut.
+      { timeout: 35_000 },
+    );
+    return {
+      message: data?.message ?? "Un code de vérification a été envoyé.",
+      otpChannel:
+        parseOtpChannel(data?.otpChannel) ?? (digits ? "whatsapp" : "email"),
+    };
+  }) as Promise<RegisterResult>;
 };
 
 export const confirmEmail = async (hash: string) => {
@@ -79,14 +122,26 @@ export const reconfirmEmail = async (hash: string) => {
   });
 };
 
-export const login = async (email: string, password: string) => {
+export const login = async (
+  identifier: AuthIdentifier,
+  password: string,
+): Promise<LoginResult> => {
   return withAuthError(async () => {
-    await instance.post("auth/login", {
-      email: email.toLowerCase(),
+    const { data } = await instance.post<{
+      message?: string;
+      loginMethod?: string;
+      otpChannel?: string;
+    }>("auth/login", {
+      ...identifierPayload(identifier),
       password,
     });
-    return "done";
-  });
+    return {
+      message: data?.message ?? "done",
+      loginMethod: parseLoginMethod(data?.loginMethod) ?? identifier.kind,
+      otpChannel:
+        parseOtpChannel(data?.otpChannel) ?? fallbackOtpChannel(identifier),
+    };
+  }) as Promise<LoginResult>;
 };
 
 export const requestPasswordReset = async (
@@ -140,12 +195,15 @@ function pickBodyRefresh(data: TokenResponse | null | undefined): string | null 
   return token ? String(token) : null;
 }
 
-export const confirmOtp = async (email: string, newOtp: string) => {
+export const confirmOtp = async (
+  identifier: AuthIdentifier,
+  newOtp: string,
+) => {
   return withAuthError(async () => {
     const { data, headers } = await instance.post<TokenResponse>(
       "auth/verify-otp",
       {
-        email,
+        ...identifierPayload(identifier),
         otp: newOtp,
       },
     );
@@ -168,7 +226,7 @@ export const confirmOtp = async (email: string, newOtp: string) => {
 
     // Same action: the cookie store now has the access token, so get-auth
     // does not depend on a second round-trip that might miss Set-Cookie.
-    try {
+      try {
       const { data: user } = await instance.get<IClientResponse>("auth/get-auth", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -177,7 +235,7 @@ export const confirmOtp = async (email: string, newOtp: string) => {
       } catch {
         /* hint is best-effort */
       }
-      return { ok: true as const, user };
+      return { ok: true as const, user: sanitizeAuthProfile(user) };
     } catch {
       return { ok: true as const, user: null };
     }
@@ -185,22 +243,22 @@ export const confirmOtp = async (email: string, newOtp: string) => {
 };
 
 export const confirmOtpUpdate = async (
-  email: string,
+  identifier: AuthIdentifier,
   newOtp: string[],
 ): Promise<number> => {
   return withAuthError(async () => {
     const otp = newOtp.join("");
     const { status } = await instance.post("auth/verify-otp", {
-      email,
+      ...identifierPayload(identifier),
       otp,
     });
     return status;
   }) as Promise<number>;
 };
 
-export const resendOtp = async (email: string) => {
+export const resendOtp = async (identifier: AuthIdentifier) => {
   return withAuthError(async () => {
-    await instance.post("auth/resend-otp", { email });
+    await instance.post("auth/resend-otp", identifierPayload(identifier));
     return "done";
   });
 };
@@ -220,7 +278,7 @@ export const getAuth = async (): Promise<IClientResponse> => {
       // A 200 from the API is the session. Rewriting the hint cookie must
       // not turn that into a failed server action.
     }
-    return data;
+    return sanitizeAuthProfile(data);
   }) as Promise<IClientResponse>;
 };
 

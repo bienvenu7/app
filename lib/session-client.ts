@@ -1,4 +1,8 @@
 import { AuthHttpError, unwrapAction } from "@/lib/auth-errors";
+import {
+  identifierPayload,
+  type AuthIdentifier,
+} from "@/lib/auth-identifier";
 import type { IClientResponse } from "@/types/user";
 
 export type ConfirmOtpResult = { ok: true; user: IClientResponse | null };
@@ -33,7 +37,7 @@ export async function fetchSession(): Promise<IClientResponse> {
 }
 
 export async function verifyOtp(
-  email: string,
+  identifier: AuthIdentifier,
   otp: string,
 ): Promise<ConfirmOtpResult> {
   const response = await fetch(VERIFY_OTP_PATH, {
@@ -41,7 +45,7 @@ export async function verifyOtp(
     credentials: "same-origin",
     cache: "no-store",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, otp }),
+    body: JSON.stringify({ ...identifierPayload(identifier), otp }),
   });
   return readActionJson<ConfirmOtpResult>(response);
 }

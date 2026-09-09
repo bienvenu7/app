@@ -8,42 +8,59 @@ import {
   resetPassword,
 } from "@/app/actions/auth";
 import { unwrapAction } from "@/lib/auth-errors";
+import type { AuthIdentifier } from "@/lib/auth-identifier";
 import { fetchSession, verifyOtp } from "@/lib/session-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-export const useAuthentication = (email: string, password: string) => {
+export const useAuthentication = (
+  identifier: AuthIdentifier | null,
+  password: string,
+) => {
   const {
     mutateAsync: postLogin,
     isPending: isLogin,
     isError: loginError,
   } = useMutation({
-    mutationKey: ["login", email],
-    mutationFn: () => unwrapAction(login(email, password)),
+    mutationKey: ["login", identifier?.kind, identifier && "email" in identifier ? identifier.email : identifier?.phone],
+    mutationFn: () => {
+      if (!identifier) throw new Error("missing_identifier");
+      return unwrapAction(login(identifier, password));
+    },
   });
   return { postLogin, isLogin, loginError };
 };
 
-export const useOptCheck = (email: string, newOtp: string) => {
+export const useOptCheck = (identifier: AuthIdentifier | null, newOtp: string) => {
   const {
     mutateAsync: postOtp,
     isPending: lodingOtp,
     isError: otpError,
     isSuccess: successOtp,
   } = useMutation({
-    mutationKey: ["verify-otp", email],
-    mutationFn: () => verifyOtp(email, newOtp),
+    mutationKey: ["verify-otp", identifier?.kind],
+    mutationFn: () => {
+      if (!identifier) throw new Error("missing_identifier");
+      return verifyOtp(identifier, newOtp);
+    },
   });
   return { postOtp, lodingOtp, otpError, successOtp };
 };
 
-export const useResendOtp = (email: string) => {
+export const useResendOtp = (identifier: AuthIdentifier | null) => {
   const {
     mutateAsync: resend,
     isPending: isResending,
     isError: resendError,
   } = useMutation({
-    mutationKey: ["resend-otp", email],
-    mutationFn: () => unwrapAction(resendOtp(email)),
+    mutationKey: [
+      "resend-otp",
+      identifier?.kind,
+      identifier && "email" in identifier ? identifier.email : identifier?.phone,
+    ],
+    mutationFn: () => {
+      if (!identifier) throw new Error("missing_identifier");
+      return unwrapAction(resendOtp(identifier));
+    },
   });
   return { resend, isResending, resendError };
 };
@@ -92,6 +109,7 @@ export const useRegistration = (
   fullName: string,
   countryId: string,
   gender: string,
+  whatsappNumber: string,
 ) => {
   const {
     mutateAsync: registerFn,
@@ -100,7 +118,16 @@ export const useRegistration = (
   } = useMutation({
     mutationKey: ["register", email],
     mutationFn: () =>
-      unwrapAction(register(email, password, fullName, countryId, gender)),
+      unwrapAction(
+        register(
+          email,
+          password,
+          fullName,
+          countryId,
+          gender,
+          whatsappNumber || undefined,
+        ),
+      ),
   });
   return { registerFn, isRegisterError, isRegistering };
 };

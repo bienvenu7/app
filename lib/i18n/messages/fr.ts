@@ -76,11 +76,14 @@ const fr = {
     whatsappUnavailable:
       "Impossible d'envoyer la confirmation WhatsApp pour le moment. Votre numéro n'a pas été modifié, réessayez plus tard.",
     phoneFormatHint:
-      "Saisissez l'indicatif {index} (sans le +) suivi de exactement {count} chiffres.",
+      "Chiffres uniquement : indicatif {index} (sans +) puis {count} chiffres.",
     phoneInvalid:
-      "Numéro invalide pour ce pays. Il doit commencer par {index} suivi de exactement {count} chiffres (ex. {example}).",
+      "Numéro invalide pour ce pays. Saisissez {index} suivi de exactement {count} chiffres, sans + ni espaces (ex. {example}).",
     phoneCountryRequired:
       "Choisissez d'abord votre pays de résidence pour valider le numéro.",
+    phoneDigitsOnly:
+      "Le numéro WhatsApp doit contenir uniquement des chiffres avec l'indicatif pays (ex. 79025227326).",
+    phoneTaken: "Ce numéro est déjà associé à un autre compte.",
   },
   transactions: {
     title: "Mes",
@@ -125,7 +128,11 @@ const fr = {
   auth: {
     welcomeBack: "Bon",
     welcomeBackEm: "retour",
-    loginSubtitle: "Connectez-vous à votre compte.",
+    loginSubtitle: "Connectez-vous avec votre email ou votre numéro.",
+    loginMethod: "Mode de connexion",
+    loginByEmail: "Email",
+    loginByPhone: "Téléphone",
+    optional: "optionnel",
     emailPlaceholder: "vous@exemple.com",
     passwordPlaceholder: "Votre mot de passe",
     forgotPassword: "Mot de passe oublié ?",
@@ -136,11 +143,17 @@ const fr = {
     forgotTitle: "Mot de passe",
     forgotTitleEm: "oublié",
     forgotSubtitle:
-      "Entrez votre email. Si un compte existe, un code de réinitialisation vous sera envoyé.",
+      "Entrez votre email. Si un compte existe, un code de réinitialisation vous sera envoyé sur WhatsApp ou par email.",
     forgotResetTitle: "Nouveau",
     forgotResetTitleEm: "mot de passe",
     forgotResetSubtitle:
+      "Saisissez le code reçu (valide 10 min) et choisissez un nouveau mot de passe.",
+    forgotResetSubtitleWhatsapp:
+      "Saisissez le code reçu sur WhatsApp (valide 10 min) et choisissez un nouveau mot de passe.",
+    forgotResetSubtitleEmail:
       "Saisissez le code reçu par email (valide 10 min) et choisissez un nouveau mot de passe.",
+    forgotResetSubtitleUnknown:
+      "Saisissez le code reçu sur WhatsApp ou par email (valide 10 min) et choisissez un nouveau mot de passe.",
     sendResetCode: "Envoyer le code",
     sendingResetCode: "Envoi du code...",
     resetCodeSent: "Si un compte existe pour cet email, un code a été envoyé.",
@@ -157,6 +170,18 @@ const fr = {
     verifyCode: "Vérifiez votre",
     verifyCodeEm: "code",
     enterOtpSentTo: "Entrez le code à 6 chiffres envoyé à",
+    enterOtpWhatsapp: "Entrez le code à 6 chiffres envoyé sur WhatsApp.",
+    enterOtpEmail: "Entrez le code à 6 chiffres envoyé par email.",
+    enterOtpUnknown:
+      "Entrez le code à 6 chiffres envoyé sur WhatsApp ou par email.",
+    otpExpiresIn: "Le code expire dans {seconds} s.",
+    otpExpired: "Le code a expiré. Demandez-en un nouveau.",
+    whatsappNumber: "Numéro WhatsApp",
+    whatsappPlaceholder: "79025227326",
+    whatsappRegisterHint:
+      "Optionnel. S'il est renseigné, le code part sur WhatsApp ; sinon par email.",
+    emailAlreadyUsed: "Un compte existe déjà avec cet email.",
+    otpDeliveryError: "Impossible d'envoyer le code. Réessayez.",
     noCodeReceived: "Vous n'avez pas reçu le code ?",
     sending: "Envoi...",
     resend: "Renvoyer",
@@ -174,8 +199,10 @@ const fr = {
     sessionExpired: "Votre session a expiré, veuillez vous reconnecter.",
     passwordUpdated: "Votre mot de passe a été mis à jour. Connectez-vous.",
     passwordResetError: "Impossible de réinitialiser le mot de passe.",
-    otpSent: "Un code à 6 chiffres vous a été envoyé par email.",
-    badCredentials: "Email ou mot de passe incorrect.",
+    otpSent: "Un code à 6 chiffres vous a été envoyé sur WhatsApp ou par email.",
+    otpSentWhatsapp: "Un code à 6 chiffres vous a été envoyé sur WhatsApp.",
+    otpSentEmail: "Un code à 6 chiffres vous a été envoyé par email.",
+    badCredentials: "Identifiants incorrects.",
     emailUnconfirmed:
       "Confirmez d'abord votre adresse email. Un lien vous a été envoyé.",
     rateLimited: "Trop de tentatives. Réessayez dans quelques minutes.",
@@ -211,6 +238,8 @@ const fr = {
     createAccount: "Créer le compte",
     alreadyAccount: "Déjà un compte ?",
     registerError: "Une erreur s'est produite, veuillez réessayer.",
+    registerWhatsappUnavailable:
+      "Impossible d'envoyer le code WhatsApp pour le moment. Aucun compte n'a été créé, réessayez plus tard.",
     accountCreated: "Votre compte a été créé avec succès !",
   },
   transfer: {

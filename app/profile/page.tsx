@@ -11,6 +11,7 @@ import { Auth } from "@/providers/AuthContext";
 import { updateClient } from "@/app/actions/auth";
 import {
   apiErrorMessage,
+  isConflict,
   isServiceUnavailable,
   isValidationError,
   unwrapAction,
@@ -25,8 +26,9 @@ import type { ICountry } from "@/types/country";
 import { useT } from "@/lib/i18n";
 import {
   checkPhoneForCountry,
-  normalizePhone,
+  displayWhatsappNumber,
   phoneRuleForCountry,
+  sanitizeWhatsappInput,
 } from "@/lib/phone-rules";
 
 function splitFullName(fullName?: string) {
@@ -62,7 +64,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     setEmail(user.email ?? "");
-    setPhone(user.whatsappNumber ?? "");
+    setPhone(displayWhatsappNumber(user.whatsappNumber));
     setCountryId(user.Country?.id ?? "");
   }, [user]);
 
@@ -100,12 +102,15 @@ export default function ProfilePage() {
       return loadingCountries ? null : t("profile.phoneCountryRequired");
     }
     const check = checkPhoneForCountry(value, countryForPhone);
-    if (check.ok || check.reason === "unknown_country") return null;
-    return t("profile.phoneInvalid", {
-      index: check.rule.index,
-      count: check.rule.localDigits,
-      example: check.rule.example,
-    });
+    if (check.ok) return null;
+    if (check.rule) {
+      return t("profile.phoneInvalid", {
+        index: check.rule.index,
+        count: check.rule.localDigits,
+        example: check.rule.example,
+      });
+    }
+    return t("profile.phoneDigitsOnly");
   };
 
   const filteredCountries = useMemo(() => {
@@ -116,7 +121,9 @@ export default function ProfilePage() {
   }, [countries, countrySearch]);
 
   const phoneChanged = useMemo(
-    () => normalizePhone(phone) !== normalizePhone(user?.whatsappNumber ?? ""),
+    () =>
+      displayWhatsappNumber(phone) !==
+      displayWhatsappNumber(user?.whatsappNumber),
     [phone, user],
   );
 
@@ -126,7 +133,7 @@ export default function ProfilePage() {
       unwrapAction(
         updateClient({
           // Envoyer le numéro inchangé serait un aller-retour WhatsApp pour rien.
-          phone: phoneChanged ? phone.trim() : undefined,
+          phone: phoneChanged ? displayWhatsappNumber(phone) : undefined,
           countryId: countryId || undefined,
         }),
       ),
@@ -170,6 +177,13 @@ export default function ProfilePage() {
       const refreshed = await fetchSession();
       fillState(refreshed);
     } catch (error) {
+      // 409 : le numéro appartient déjà à un autre compte.
+      if (isConflict(error)) {
+        setPhoneError(apiErrorMessage(error) ?? t("profile.phoneTaken"));
+        phoneRef.current?.focus();
+        return;
+      }
+
       // 400 : numéro injoignable ou mal formé. Rien n'a été enregistré, pas
       // même les autres champs de la requête — la saisie doit être corrigée.
       if (isValidationError(error)) {
@@ -294,13 +308,13 @@ export default function ProfilePage() {
             id="profile-phone"
             ref={phoneRef}
             type="tel"
-            inputMode="tel"
-            placeholder={
-              phoneRule ? `+${phoneRule.example}` : "+242 06 123 4567"
-            }
+            inputMode="numeric"
+            autoComplete="tel"
+            maxLength={15}
+            placeholder={phoneRule?.example ?? t("auth.whatsappPlaceholder")}
             value={phone}
             onChange={(e) => {
-              setPhone(e.target.value);
+              setPhone(sanitizeWhatsappInput(e.target.value));
               setPhoneError(null);
             }}
             aria-label={t("common.phone")}
@@ -381,16 +395,18 @@ export default function ProfilePage() {
                       (item) => item.id === c.id,
                     );
                     const check = checkPhoneForCountry(phone, nextCountry);
-                    if (!phone.trim() || check.ok || check.reason === "unknown_country") {
+                    if (!phone.trim() || check.ok) {
                       setPhoneError(null);
                       return;
                     }
                     setPhoneError(
-                      t("profile.phoneInvalid", {
-                        index: check.rule.index,
-                        count: check.rule.localDigits,
-                        example: check.rule.example,
-                      }),
+                      check.rule
+                        ? t("profile.phoneInvalid", {
+                            index: check.rule.index,
+                            count: check.rule.localDigits,
+                            example: check.rule.example,
+                          })
+                        : t("profile.phoneDigitsOnly"),
                     );
                   }}
                   role="option"

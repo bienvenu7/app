@@ -75,6 +75,7 @@ const TX_KEY = "afrue.transactions"
 const DRAFT_KEY = "afrue.draft"
 const PROFILE_KEY = "afrue.profile"
 const PIN_KEY = "afrue.pinAuth"
+const WHATSAPP_HINT_KEY = "afrue.whatsappHint"
 const LEGACY_PII_KEYS = [TX_KEY, DRAFT_KEY, PROFILE_KEY] as const
 
 /** 3 months */
@@ -305,4 +306,49 @@ export function touchPinUnlock(auth: PinAuth) {
 export function clearPinAuth() {
   if (!isBrowser()) return
   localStorage.removeItem(PIN_KEY)
+}
+
+/**
+ * Dernier `whatsappNumber` connu par email — pour les libellés OTP
+ * (WhatsApp vs email) quand le profil n'est pas encore chargé.
+ * `undefined` = jamais vu ; `""` = compte sans WhatsApp valide.
+ */
+function readWhatsappHints(): Record<string, string> {
+  if (!isBrowser()) return {}
+  try {
+    const raw = localStorage.getItem(WHATSAPP_HINT_KEY)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== "object") return {}
+    return parsed as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+export function persistWhatsappHint(
+  email: string,
+  whatsappNumber: string | undefined | null,
+) {
+  if (!isBrowser()) return
+  const key = email.trim().toLowerCase()
+  if (!key) return
+  const hints = readWhatsappHints()
+  const cleaned =
+    !whatsappNumber || whatsappNumber === "-"
+      ? ""
+      : whatsappNumber.replace(/\D/g, "")
+  hints[key] = cleaned
+  try {
+    localStorage.setItem(WHATSAPP_HINT_KEY, JSON.stringify(hints))
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function getWhatsappHint(email: string): string | undefined {
+  const key = email.trim().toLowerCase()
+  if (!key) return undefined
+  const hints = readWhatsappHints()
+  return Object.prototype.hasOwnProperty.call(hints, key) ? hints[key] : undefined
 }

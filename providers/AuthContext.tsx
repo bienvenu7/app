@@ -4,7 +4,7 @@ import { clearSessionCookies } from "@/app/actions/auth";
 import { isUnauthorized } from "@/lib/auth-errors";
 import { fetchSession } from "@/lib/session-client";
 import { clearAuthSession, hasAuthSession } from "@/config/cookies";
-import { wipeLegacyPiiStorage } from "@/lib/storage";
+import { persistWhatsappHint, wipeLegacyPiiStorage } from "@/lib/storage";
 import type { IClientResponse } from "@/types/user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -79,10 +79,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fillState = useCallback(
     (nextUser: IClientResponse) => {
       setHasToken(true);
+      persistWhatsappHint(nextUser.email, nextUser.whatsappNumber);
       queryClient.setQueryData(AUTH_QUERY_KEY, nextUser);
     },
     [queryClient],
   );
+
+  useEffect(() => {
+    if (!user?.email) return;
+    persistWhatsappHint(user.email, user.whatsappNumber);
+  }, [user]);
 
   const setSelectedCode = useCallback((code: string) => {
     setSelectedCodeState(code || null);
