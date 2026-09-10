@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { confirmOtp } from "@/app/actions/auth";
 import { isActionErrorResult } from "@/lib/auth-errors";
-import type { AuthIdentifier } from "@/lib/auth-identifier";
+import { parseXorIdentifier } from "@/lib/auth-identifier";
 import { isSameOriginRequest } from "@/lib/same-origin";
-import { sanitizeWhatsappInput } from "@/lib/phone-rules";
 
 /**
  * OTP verify — lives outside `/auth/login|register` so nginx `afrue_auth`
@@ -27,23 +26,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const rec = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const email = typeof rec.email === "string" ? rec.email.trim() : "";
-  const phone =
-    typeof rec.phone === "string" ? sanitizeWhatsappInput(rec.phone) : "";
+  const rec =
+    body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const otp = typeof rec.otp === "string" ? rec.otp.trim() : "";
-  const hasEmail = !!email;
-  const hasPhone = !!phone;
-  if (!otp || hasEmail === hasPhone) {
+  const identifier = parseXorIdentifier(rec);
+  if (!otp || !identifier) {
     return NextResponse.json(
       { __authError: { status: 400, code: "validation" } },
       { status: 400 },
     );
   }
-
-  const identifier: AuthIdentifier = hasEmail
-    ? { kind: "email", email }
-    : { kind: "phone", phone };
 
   const result = await confirmOtp(identifier, otp);
   if (isActionErrorResult(result)) {

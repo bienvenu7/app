@@ -8,7 +8,7 @@ import {
   resetPassword,
 } from "@/app/actions/auth";
 import { unwrapAction } from "@/lib/auth-errors";
-import type { AuthIdentifier } from "@/lib/auth-identifier";
+import { identifierKey, type AuthIdentifier } from "@/lib/auth-identifier";
 import { fetchSession, verifyOtp } from "@/lib/session-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -21,7 +21,7 @@ export const useAuthentication = (
     isPending: isLogin,
     isError: loginError,
   } = useMutation({
-    mutationKey: ["login", identifier?.kind, identifier && "email" in identifier ? identifier.email : identifier?.phone],
+    mutationKey: ["login", identifierKey(identifier)],
     mutationFn: () => {
       if (!identifier) throw new Error("missing_identifier");
       return unwrapAction(login(identifier, password));
@@ -54,8 +54,7 @@ export const useResendOtp = (identifier: AuthIdentifier | null) => {
   } = useMutation({
     mutationKey: [
       "resend-otp",
-      identifier?.kind,
-      identifier && "email" in identifier ? identifier.email : identifier?.phone,
+      identifierKey(identifier),
     ],
     mutationFn: () => {
       if (!identifier) throw new Error("missing_identifier");
@@ -72,7 +71,8 @@ export const useRequestPasswordReset = () => {
     isError: requestResetError,
   } = useMutation({
     mutationKey: ["forgot-password"],
-    mutationFn: (email: string) => unwrapAction(requestPasswordReset(email)),
+    mutationFn: (identifier: AuthIdentifier) =>
+      unwrapAction(requestPasswordReset(identifier)),
   });
   return { requestReset, isRequestingReset, requestResetError };
 };
@@ -86,14 +86,14 @@ export const useResetPassword = () => {
   } = useMutation({
     mutationKey: ["reset-password"],
     mutationFn: ({
-      email,
+      identifier,
       otp,
       password,
     }: {
-      email: string;
+      identifier: AuthIdentifier;
       otp: string;
       password: string;
-    }) => unwrapAction(resetPassword(email, otp, password)),
+    }) => unwrapAction(resetPassword(identifier, otp, password)),
   });
   return {
     submitReset,

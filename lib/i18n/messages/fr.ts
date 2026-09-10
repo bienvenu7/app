@@ -143,7 +143,7 @@ const fr = {
     forgotTitle: "Mot de passe",
     forgotTitleEm: "oublié",
     forgotSubtitle:
-      "Entrez votre email. Si un compte existe, un code de réinitialisation vous sera envoyé sur WhatsApp ou par email.",
+      "Entrez votre email ou votre numéro. Si un compte existe, un code de réinitialisation vous sera envoyé par email ou sur WhatsApp.",
     forgotResetTitle: "Nouveau",
     forgotResetTitleEm: "mot de passe",
     forgotResetSubtitle:
@@ -156,7 +156,7 @@ const fr = {
       "Saisissez le code reçu sur WhatsApp ou par email (valide 10 min) et choisissez un nouveau mot de passe.",
     sendResetCode: "Envoyer le code",
     sendingResetCode: "Envoi du code...",
-    resetCodeSent: "Si un compte existe pour cet email, un code a été envoyé.",
+    resetCodeSent: "Si un compte existe, un code a été envoyé.",
     newPassword: "Nouveau mot de passe",
     minChars: "Au moins 6 caractères",
     retypePassword: "Retapez votre mot de passe",

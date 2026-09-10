@@ -33,7 +33,11 @@ import { persistWhatsappHint, savePinAuth } from "@/lib/storage";
 import { Auth } from "@/providers/AuthContext";
 import type { ICountry } from "@/types/country";
 import { useT } from "@/lib/i18n";
-import type { OtpChannel } from "@/lib/auth-identifier";
+import {
+  identifierDisplay,
+  type AuthIdentifier,
+  type OtpChannel,
+} from "@/lib/auth-identifier";
 import {
   LOGIN_OTP_TTL_MS,
   checkPhoneForCountry,
@@ -78,6 +82,8 @@ export default function RegisterPage() {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [registerOtpChannel, setRegisterOtpChannel] =
     useState<OtpChannel>("email");
+  const [pendingOtpIdentifier, setPendingOtpIdentifier] =
+    useState<AuthIdentifier | null>(null);
   const otpSubmittedRef = useRef<string | null>(null);
 
   // Steps 4–5 — PIN
@@ -121,6 +127,8 @@ export default function RegisterPage() {
     [whatsappNumber, selectedCountry],
   );
 
+  const otpIdentifier = pendingOtpIdentifier;
+
   const { registerFn, isRegistering } = useRegistration(
     email.trim(),
     password,
@@ -129,9 +137,7 @@ export default function RegisterPage() {
     gender,
     whatsappNumber,
   );
-  const { resend, isResending } = useResendOtp(
-    email.trim() ? { kind: "email", email: email.trim() } : null,
-  );
+  const { resend, isResending } = useResendOtp(otpIdentifier);
   const {
     remaining: otpRemaining,
     expired: otpExpired,
@@ -203,7 +209,7 @@ export default function RegisterPage() {
   };
 
   const handleResendOtp = async () => {
-    if (!email.trim()) return;
+    if (!otpIdentifier) return;
     try {
       await resend();
       resetOtpBuffer();
@@ -243,6 +249,11 @@ export default function RegisterPage() {
       const result = await registerFn();
       const channel = result.otpChannel;
       setRegisterOtpChannel(channel);
+      setPendingOtpIdentifier(
+        channel === "whatsapp" && whatsappNumber
+          ? { kind: "whatsapp", whatsappNumber }
+          : { kind: "email", email: email.trim() },
+      );
       persistWhatsappHint(email.trim(), whatsappNumber);
       resetOtpBuffer();
       go(2);
@@ -286,16 +297,14 @@ export default function RegisterPage() {
   useEffect(() => {
     if (step !== 2 || otp.length !== 6) return;
     if (otpSubmittedRef.current === otp) return;
+    if (!otpIdentifier) return;
 
     otpSubmittedRef.current = otp;
     setOtpVerifying(true);
 
     (async () => {
       try {
-        const result = await verifyOtp(
-          { kind: "email", email: email.trim() },
-          otp,
-        );
+        const result = await verifyOtp(otpIdentifier, otp);
         if (result?.user) {
           persistWhatsappHint(result.user.email, result.user.whatsappNumber);
           fillState(result.user);
@@ -321,7 +330,7 @@ export default function RegisterPage() {
         }, 500);
       }
     })();
-  }, [otp, step, email, fillState, resetOtpBuffer, resetPinBuffers, t]);
+  }, [otp, step, otpIdentifier, fillState, resetOtpBuffer, resetPinBuffers, t]);
 
   useEffect(() => {
     if (step !== 3 || pin.length !== 5) return;
@@ -532,9 +541,11 @@ export default function RegisterPage() {
                     ? t("auth.enterOtpWhatsapp")
                     : t("auth.enterOtpEmail")}{" "}
                   <span className={styles.otpEmail}>
-                    {registerOtpChannel === "whatsapp"
-                      ? whatsappNumber
-                      : email.trim()}
+                    {pendingOtpIdentifier
+                      ? identifierDisplay(pendingOtpIdentifier)
+                      : registerOtpChannel === "whatsapp"
+                        ? whatsappNumber
+                        : email.trim()}
                   </span>
                 </p>
               </div>

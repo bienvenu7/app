@@ -146,7 +146,7 @@ const ru: Messages = {
     forgotTitle: "Забыли",
     forgotTitleEm: "пароль",
     forgotSubtitle:
-      "Введите email. Если аккаунт существует, код сброса придёт в WhatsApp или на почту.",
+      "Введите email или номер телефона. Если аккаунт существует, код сброса придёт на почту или в WhatsApp.",
     forgotResetTitle: "Новый",
     forgotResetTitleEm: "пароль",
     forgotResetSubtitle:
@@ -160,7 +160,7 @@ const ru: Messages = {
     sendResetCode: "Отправить код",
     sendingResetCode: "Отправка кода...",
     resetCodeSent:
-      "Если аккаунт с этим email существует, код отправлен.",
+      "Если аккаунт существует, код отправлен.",
     newPassword: "Новый пароль",
     minChars: "Не менее 6 символов",
     retypePassword: "Повторите пароль",

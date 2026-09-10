@@ -33,7 +33,6 @@ import {
   clearPinAuth,
   getPinLockRemainingMs,
   getValidPinAuth,
-  getWhatsappHint,
   isPinLocked,
   isPinUnlockRequired,
   persistWhatsappHint,
@@ -47,10 +46,13 @@ import {
 import { useOtpTtl } from "@/hooks/useOtpTtl";
 import type { AuthIdentifier, LoginMethod, OtpChannel } from "@/lib/auth-identifier";
 import {
+  fallbackOtpChannel,
+  identifierDisplay,
+} from "@/lib/auth-identifier";
+import {
   LOGIN_OTP_TTL_MS,
   RESET_OTP_TTL_MS,
   WHATSAPP_PATTERN,
-  otpChannelFromStoredNumber,
   sanitizeWhatsappInput,
 } from "@/lib/phone-rules";
 
@@ -91,7 +93,11 @@ function LoginFlow() {
   const [verifying, setVerifying] = useState(false);
 
   // Forgot password
+  const [resetKind, setResetKind] = useState<LoginMethod>("email");
   const [resetEmail, setResetEmail] = useState("");
+  const [resetPhone, setResetPhone] = useState("");
+  const [pendingResetIdentifier, setPendingResetIdentifier] =
+    useState<AuthIdentifier | null>(null);
   const [resetOtp, setResetOtp] = useState("");
   const [resetOtpError, setResetOtpError] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -143,10 +149,11 @@ function LoginFlow() {
   } = useOtpTtl(mode === "forgot-reset", RESET_OTP_TTL_MS);
 
   const loginOtpChannel: OtpChannel = pendingOtpChannel;
-  const resetOtpChannel = otpChannelFromStoredNumber(
-    getWhatsappHint(resetEmail),
-    { unknownIfMissing: true },
-  );
+  const resetOtpChannel: OtpChannel = pendingResetIdentifier
+    ? fallbackOtpChannel(pendingResetIdentifier)
+    : resetKind === "phone"
+      ? "whatsapp"
+      : "email";
 
   const otpSentMessage = (channel: "whatsapp" | "email" | "unknown") =>
     channel === "whatsapp"
@@ -279,16 +286,30 @@ function LoginFlow() {
     [fillState, router, returnTo],
   );
 
-  const canRequestReset = /\S+@\S+\.\S+/.test(resetEmail.trim());
+  const resetIdentifier: AuthIdentifier | null =
+    resetKind === "email"
+      ? resetEmail.trim()
+        ? { kind: "email", email: resetEmail.trim() }
+        : null
+      : resetPhone
+        ? { kind: "phone", phone: resetPhone }
+        : null;
+
+  const canRequestReset =
+    resetKind === "email"
+      ? /\S+@\S+\.\S+/.test(resetEmail.trim())
+      : WHATSAPP_PATTERN.test(resetPhone);
 
   const canConfirmReset =
-    canRequestReset &&
+    !!pendingResetIdentifier &&
     resetOtp.length === 6 &&
     newPassword.length >= 6 &&
     confirmNewPassword === newPassword;
 
   const clearForgotForm = () => {
     setResetEmail("");
+    setResetPhone("");
+    setPendingResetIdentifier(null);
     setResetOtp("");
     setResetOtpError(false);
     setNewPassword("");
@@ -299,7 +320,9 @@ function LoginFlow() {
 
   const handleOpenForgotPassword = () => {
     clearForgotForm();
+    setResetKind(loginKind);
     setResetEmail(email.trim());
+    setResetPhone(phone);
     setMode("forgot-password");
   };
 
@@ -317,16 +340,17 @@ function LoginFlow() {
   };
 
   const handleForgotPasswordSubmit = async () => {
-    if (!canRequestReset) return;
+    if (!canRequestReset || !resetIdentifier) return;
 
     try {
-      await requestReset(resetEmail.trim());
+      await requestReset(resetIdentifier);
+      setPendingResetIdentifier(resetIdentifier);
       setResetOtp("");
       setResetOtpError(false);
       setNewPassword("");
       setConfirmNewPassword("");
       setMode("forgot-reset");
-      toast.success(otpSentMessage(resetOtpChannel));
+      toast.success(otpSentMessage(fallbackOtpChannel(resetIdentifier)));
     } catch (error) {
       if (isOtpDeliveryFailed(error)) {
         toast.error(apiErrorMessage(error) ?? t("auth.otpDeliveryError"));
@@ -341,9 +365,9 @@ function LoginFlow() {
   };
 
   const handleResendResetCode = async () => {
-    if (!canRequestReset) return;
+    if (!pendingResetIdentifier) return;
     try {
-      await requestReset(resetEmail.trim());
+      await requestReset(pendingResetIdentifier);
       setResetOtp("");
       setResetOtpError(false);
       restartResetOtpTtl();
@@ -363,8 +387,9 @@ function LoginFlow() {
     if (!canConfirmReset) return;
 
     try {
+      if (!pendingResetIdentifier) return;
       await submitReset({
-        email: resetEmail.trim(),
+        identifier: pendingResetIdentifier,
         otp: resetOtp,
         password: newPassword,
       });
@@ -372,7 +397,17 @@ function LoginFlow() {
       resetState();
       setSavedAuth(null);
       setGreetingName(null);
-      setEmail(resetEmail.trim());
+      if (pendingResetIdentifier.kind === "email") {
+        setLoginKind("email");
+        setEmail(pendingResetIdentifier.email);
+      } else {
+        setLoginKind("phone");
+        setPhone(
+          pendingResetIdentifier.kind === "phone"
+            ? pendingResetIdentifier.phone
+            : pendingResetIdentifier.whatsappNumber,
+        );
+      }
       setPassword("");
       clearForgotForm();
       setMode("credentials");
@@ -790,22 +825,66 @@ function LoginFlow() {
               <p className={styles.subtitle}>{t("auth.forgotSubtitle")}</p>
             </div>
 
+            <div className={styles.modeToggle} role="tablist" aria-label={t("auth.loginMethod")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={resetKind === "email"}
+                className={`${styles.modeBtn} ${resetKind === "email" ? styles.selected : ""}`}
+                onClick={() => setResetKind("email")}
+              >
+                {t("auth.loginByEmail")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={resetKind === "phone"}
+                className={`${styles.modeBtn} ${resetKind === "phone" ? styles.selected : ""}`}
+                onClick={() => setResetKind("phone")}
+              >
+                {t("auth.loginByPhone")}
+              </button>
+            </div>
+
             <div className={styles.form}>
-              <div>
-                <span className={styles.label}>{t("common.email")}</span>
-                <input
-                  className={styles.input}
-                  type="email"
-                  placeholder={t("auth.emailPlaceholder")}
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  aria-label={t("common.email")}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleForgotPasswordSubmit();
-                  }}
-                />
-              </div>
+              {resetKind === "email" ? (
+                <div>
+                  <span className={styles.label}>{t("common.email")}</span>
+                  <input
+                    className={styles.input}
+                    type="email"
+                    placeholder={t("auth.emailPlaceholder")}
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    aria-label={t("common.email")}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleForgotPasswordSubmit();
+                    }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <span className={styles.label}>{t("common.phone")}</span>
+                  <input
+                    className={styles.input}
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={15}
+                    placeholder={t("auth.whatsappPlaceholder")}
+                    value={resetPhone}
+                    onChange={(e) =>
+                      setResetPhone(sanitizeWhatsappInput(e.target.value))
+                    }
+                    aria-label={t("common.phone")}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleForgotPasswordSubmit();
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div className={styles.stepFooter} style={{ marginTop: 26 }}>
@@ -850,7 +929,11 @@ function LoginFlow() {
                     ? t("auth.forgotResetSubtitleEmail")
                     : t("auth.forgotResetSubtitleUnknown")}
                 <br />
-                <span className={styles.otpEmail}>{resetEmail.trim()}</span>
+                <span className={styles.otpEmail}>
+                  {pendingResetIdentifier
+                    ? identifierDisplay(pendingResetIdentifier)
+                    : ""}
+                </span>
               </p>
             </div>
 
@@ -981,7 +1064,17 @@ function LoginFlow() {
               <h1 className={styles.title}>
                 {t("auth.verifyCode")} <em>{t("auth.verifyCodeEm")}</em>
               </h1>
-              <p className={styles.subtitle}>{otpEnterMessage(loginOtpChannel)}</p>
+              <p className={styles.subtitle}>
+                {otpEnterMessage(loginOtpChannel)}
+                {pendingIdentifier ? (
+                  <>
+                    {" "}
+                    <span className={styles.otpEmail}>
+                      {identifierDisplay(pendingIdentifier)}
+                    </span>
+                  </>
+                ) : null}
+              </p>
             </div>
 
             <PinPad

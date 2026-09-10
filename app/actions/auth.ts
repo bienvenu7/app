@@ -20,8 +20,10 @@ import {
 import { withAuthError } from "@/lib/auth-errors";
 import { displayWhatsappNumber } from "@/lib/phone-rules";
 import {
+  emailOrPhonePayload,
   fallbackOtpChannel,
   identifierPayload,
+  loginMethodFromIdentifier,
   parseLoginMethod,
   parseOtpChannel,
   type AuthIdentifier,
@@ -122,22 +124,31 @@ export const reconfirmEmail = async (hash: string) => {
   });
 };
 
+const OTP_DELIVERY_TIMEOUT = { timeout: 35_000 };
+
 export const login = async (
   identifier: AuthIdentifier,
   password: string,
 ): Promise<LoginResult> => {
   return withAuthError(async () => {
+    const payload = emailOrPhonePayload(identifier);
     const { data } = await instance.post<{
       message?: string;
       loginMethod?: string;
       otpChannel?: string;
-    }>("auth/login", {
-      ...identifierPayload(identifier),
-      password,
-    });
+    }>(
+      "auth/login",
+      {
+        ...payload,
+        password,
+      },
+      "phone" in payload ? OTP_DELIVERY_TIMEOUT : undefined,
+    );
     return {
       message: data?.message ?? "done",
-      loginMethod: parseLoginMethod(data?.loginMethod) ?? identifier.kind,
+      loginMethod:
+        parseLoginMethod(data?.loginMethod) ??
+        loginMethodFromIdentifier(identifier),
       otpChannel:
         parseOtpChannel(data?.otpChannel) ?? fallbackOtpChannel(identifier),
     };
@@ -145,24 +156,27 @@ export const login = async (
 };
 
 export const requestPasswordReset = async (
-  email: string,
+  identifier: AuthIdentifier,
 ): Promise<{ message: string }> => {
   return withAuthError(async () => {
-    const { data } = await instance.post("clients/forgot-password", {
-      email,
-    });
+    const payload = emailOrPhonePayload(identifier);
+    const { data } = await instance.post(
+      "clients/forgot-password",
+      payload,
+      "phone" in payload ? OTP_DELIVERY_TIMEOUT : undefined,
+    );
     return data;
   }) as Promise<{ message: string }>;
 };
 
 export const resetPassword = async (
-  email: string,
+  identifier: AuthIdentifier,
   otp: string,
   password: string,
 ): Promise<{ message: string }> => {
   return withAuthError(async () => {
     const { data } = await instance.patch("clients/reset-password", {
-      email,
+      ...emailOrPhonePayload(identifier),
       otp,
       password,
     });
@@ -172,10 +186,10 @@ export const resetPassword = async (
 };
 
 export const updatePassword = async (
-  email: string,
+  identifier: AuthIdentifier,
   otp: string,
   password: string,
-) => resetPassword(email, otp, password);
+) => resetPassword(identifier, otp, password);
 
 function pickAccessToken(data: TokenResponse | null | undefined): string | null {
   if (!data) return null;
@@ -258,7 +272,12 @@ export const confirmOtpUpdate = async (
 
 export const resendOtp = async (identifier: AuthIdentifier) => {
   return withAuthError(async () => {
-    await instance.post("auth/resend-otp", identifierPayload(identifier));
+    const payload = identifierPayload(identifier);
+    await instance.post(
+      "auth/resend-otp",
+      payload,
+      "email" in payload ? undefined : OTP_DELIVERY_TIMEOUT,
+    );
     return "done";
   });
 };
