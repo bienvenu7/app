@@ -48,7 +48,7 @@ export const sendChatbotMessage = async (
 ): Promise<ChatbotReply> => {
   return withAuthError(async () => {
     const message = body.message?.trim();
-    const action = body.action?.trim();
+    const action = body.action;
     if (!message && !action) {
       throw new AuthHttpError(400, "validation", "empty_message");
     }

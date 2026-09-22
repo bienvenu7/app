@@ -417,7 +417,7 @@ const ru: Messages = {
     agentOnline: "Оператор подключён",
     agentTyping: "Оператор печатает",
     agentBadge: "Оператор",
-    txErrorFallback: "Проблема с переводом",
+    errorChips: "Переводы с ошибкой сегодня",
     attachAria: "Прикрепить файл",
     attachHint: "JPEG, PNG, WebP или PDF · макс. 10 МБ",
     uploadProof: "Отправить подтверждение",

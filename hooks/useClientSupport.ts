@@ -16,11 +16,10 @@ import {
   localSupportMessage,
   mergeSupportMessage,
   parseSupportMessage,
-  suggestionsOrDefault,
+  persistActiveTxid,
+  readPersistedTxid,
   transactionIdFromProofInput,
-  DEFAULT_TX_ERROR_SUGGESTION,
   type ChatbotRequest,
-  type ChatChoice,
   type ChatInput,
   type ChatSuggestion,
   type ChatbotReply,
@@ -42,10 +41,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const [status, setStatus] = useState<SupportStatus>("NONE");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [suggestions, setSuggestions] = useState<ChatSuggestion[]>([
-    DEFAULT_TX_ERROR_SUGGESTION,
-  ]);
-  const [choices, setChoices] = useState<ChatChoice[]>([]);
+  const [suggestions, setSuggestions] = useState<ChatSuggestion[]>([]);
   const [prompt, setPrompt] = useState<ChatInput | undefined>(undefined);
   const [activeTxid, setActiveTxid] = useState<string | null>(null);
   const [agentTyping, setAgentTyping] = useState(false);
@@ -60,6 +56,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const promptRef = useRef<ChatInput | undefined>(undefined);
   const activeTxidRef = useRef<string | null>(null);
   const typingTimerRef = useRef<number | undefined>(undefined);
+  const loadThreadRef = useRef<() => Promise<void>>(async () => {});
 
   const syncStatus = useCallback((next: SupportStatus) => {
     statusRef.current = next;
@@ -79,6 +76,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const syncTxid = useCallback((next: string | null) => {
     activeTxidRef.current = next;
     setActiveTxid(next);
+    persistActiveTxid(next);
   }, []);
 
   const joinThread = useCallback((id: string) => {
@@ -88,8 +86,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const applyReply = useCallback(
     (data: ChatbotReply) => {
       syncThreadId(data.threadId);
-      setSuggestions(suggestionsOrDefault(data.suggestions));
-      setChoices(data.choices ?? []);
+      setSuggestions(data.suggestions);
       syncPrompt(data.input);
 
       if (data.waiting) {
@@ -157,9 +154,12 @@ export function useClientSupport(isAuthenticated: boolean) {
       syncStatus(nextStatus === "CLOSED" ? "CLOSED" : nextStatus);
       syncThreadId(data.thread?.id ?? null);
       setMessages(data.messages);
-      setSuggestions(suggestionsOrDefault(data.suggestions));
-      setChoices([]);
-      syncPrompt(undefined);
+      setSuggestions(data.suggestions);
+      syncPrompt(data.input);
+      if (!activeTxidRef.current) {
+        const stored = readPersistedTxid();
+        if (stored) syncTxid(stored);
+      }
       setAgentTyping(false);
 
       if (data.thread && isLiveSupportStatus(data.thread.status)) {
@@ -168,15 +168,16 @@ export function useClientSupport(isAuthenticated: boolean) {
     } finally {
       setLoadingThread(false);
     }
-  }, [isAuthenticated, joinThread, syncPrompt, syncStatus, syncThreadId]);
+  }, [isAuthenticated, joinThread, syncPrompt, syncStatus, syncThreadId, syncTxid]);
+
+  loadThreadRef.current = loadThread;
 
   useEffect(() => {
     if (!isAuthenticated) {
       syncStatus("NONE");
       syncThreadId(null);
       setMessages([]);
-      setSuggestions([DEFAULT_TX_ERROR_SUGGESTION]);
-      setChoices([]);
+      setSuggestions([]);
       syncPrompt(undefined);
       syncTxid(null);
       setAgentTyping(false);
@@ -203,8 +204,6 @@ export function useClientSupport(isAuthenticated: boolean) {
       next.on("support:waiting", (data: SupportWaitingPayload) => {
         if (data.threadId) syncThreadId(data.threadId);
         syncStatus("WAITING");
-        setChoices([]);
-        syncPrompt(undefined);
         setAgentTyping(false);
         if (data.threadId) next.emit("support:join", { threadId: data.threadId });
       });
@@ -212,8 +211,6 @@ export function useClientSupport(isAuthenticated: boolean) {
       next.on("support:accepted", (data: SupportWaitingPayload) => {
         if (data.threadId) syncThreadId(data.threadId);
         syncStatus("LIVE");
-        setChoices([]);
-        syncPrompt(undefined);
         if (data.threadId) next.emit("support:join", { threadId: data.threadId });
       });
 
@@ -231,10 +228,10 @@ export function useClientSupport(isAuthenticated: boolean) {
       next.on("support:closed", () => {
         syncStatus("CLOSED");
         syncThreadId(null);
-        setChoices([]);
         syncPrompt(undefined);
         syncTxid(null);
         setAgentTyping(false);
+        void loadThreadRef.current();
       });
 
       next.on("support:history", (data: SupportHistoryPayload) => {
@@ -309,20 +306,19 @@ export function useClientSupport(isAuthenticated: boolean) {
 
   const sendSuggestion = useCallback(
     async (suggestion: ChatSuggestion) => {
-      await postBot({ action: "tx_error" }, suggestion.label);
+      syncTxid(suggestion.txid);
+      if (statusRef.current === "LIVE") {
+        if (!emitLiveText(suggestion.label)) {
+          await postBot({ message: suggestion.label }, suggestion.label);
+        }
+        return;
+      }
+      await postBot(
+        { action: suggestion.action, txid: suggestion.txid },
+        suggestion.label,
+      );
     },
-    [postBot],
-  );
-
-  const sendChoice = useCallback(
-    async (choice: ChatChoice) => {
-      if (choice.txid) syncTxid(choice.txid);
-      const body: ChatbotRequest = { action: choice.action };
-      if (choice.txid) body.txid = choice.txid;
-      if (choice.value) body.value = choice.value;
-      await postBot(body, choice.label);
-    },
-    [postBot, syncTxid],
+    [emitLiveText, postBot, syncTxid],
   );
 
   const sendPhoneFix = useCallback(
@@ -403,7 +399,6 @@ export function useClientSupport(isAuthenticated: boolean) {
     threadId,
     messages,
     suggestions,
-    choices,
     prompt,
     activeTxid,
     agentTyping,
@@ -413,7 +408,6 @@ export function useClientSupport(isAuthenticated: boolean) {
     loadThread,
     sendText,
     sendSuggestion,
-    sendChoice,
     sendPhoneFix,
     uploadProof,
     uploadLiveFile,

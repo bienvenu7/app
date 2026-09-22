@@ -2,25 +2,14 @@ export const CHATBOT_MESSAGE_MAX_LENGTH = 2000;
 
 export type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
 export type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
-export type ChatbotAction =
-  | "tx_error"
-  | "select_tx"
-  | "fix"
-  | "proof_done"
-  | "handoff"
-  | string;
+export type ChatbotAction = "select_tx" | "fix" | "proof_done" | "handoff";
 
+/** Une TX ERROR du jour — message présélectionné. */
 export type ChatSuggestion = {
   id: string;
   label: string;
-};
-
-export type ChatChoice = {
-  id: string;
-  label: string;
-  action: ChatbotAction;
-  txid?: string;
-  value?: string;
+  action: "select_tx";
+  txid: string;
 };
 
 export type ChatInput =
@@ -39,7 +28,6 @@ export type ChatbotReply = {
   threadId: string;
   suggestions: ChatSuggestion[];
   waiting?: boolean;
-  choices?: ChatChoice[];
   input?: ChatInput;
 };
 
@@ -63,6 +51,7 @@ export type ClientThreadResponse = {
   } | null;
   messages: SupportMessage[];
   suggestions: ChatSuggestion[];
+  input?: ChatInput;
 };
 
 export type ThreadFileResponse = {
@@ -77,10 +66,7 @@ export type SupportSocketAuth = {
   expiresAt: number;
 };
 
-export const DEFAULT_TX_ERROR_SUGGESTION: ChatSuggestion = {
-  id: "tx_error",
-  label: "Problème avec une transaction",
-};
+const ACTIVE_TXID_KEY = "afrue-support-active-txid";
 
 const THREAD_STATUSES: readonly ThreadStatus[] = [
   "BOT",
@@ -111,11 +97,23 @@ export function isLiveSupportStatus(
   return status === "WAITING" || status === "LIVE";
 }
 
-export function suggestionsOrDefault(
-  suggestions: ChatSuggestion[] | undefined,
-): ChatSuggestion[] {
-  if (suggestions?.length) return suggestions;
-  return [DEFAULT_TX_ERROR_SUGGESTION];
+export function persistActiveTxid(txid: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (txid) sessionStorage.setItem(ACTIVE_TXID_KEY, txid);
+    else sessionStorage.removeItem(ACTIVE_TXID_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPersistedTxid(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(ACTIVE_TXID_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function isReceiverPhoneInput(
@@ -175,20 +173,10 @@ function parseSuggestion(value: unknown): ChatSuggestion | null {
   const id = asString(rec.id);
   const label = asString(rec.label);
   if (!id || !label) return null;
-  return { id, label };
-}
-
-function parseChoice(value: unknown): ChatChoice | null {
-  const rec = asRecord(value);
-  if (!rec) return null;
-  const id = asString(rec.id);
-  const label = asString(rec.label);
-  const action = asString(rec.action);
-  if (!id || !label || !action) return null;
-  const choice: ChatChoice = { id, label, action };
-  if (asString(rec.txid)) choice.txid = rec.txid as string;
-  if (asString(rec.value)) choice.value = rec.value as string;
-  return choice;
+  const fromId = id.startsWith("select_tx:") ? id.slice("select_tx:".length) : "";
+  const txid = asString(rec.txid) ?? (fromId || undefined);
+  if (!txid) return null;
+  return { id, label, action: "select_tx", txid };
 }
 
 function parseChatInput(value: unknown): ChatInput | undefined {
@@ -225,16 +213,9 @@ export function parseChatbotReply(value: unknown): ChatbotReply | null {
   const reply: ChatbotReply = {
     reply: rec.reply,
     threadId,
-    suggestions: suggestionsOrDefault(suggestions),
+    suggestions,
   };
   if (rec.waiting === true) reply.waiting = true;
-
-  if (Array.isArray(rec.choices)) {
-    const choices = rec.choices
-      .map(parseChoice)
-      .filter((item): item is ChatChoice => !!item);
-    if (choices.length) reply.choices = choices;
-  }
 
   const input = parseChatInput(rec.input);
   if (input) reply.input = input;
@@ -246,7 +227,7 @@ export function parseClientThread(value: unknown): ClientThreadResponse {
   const empty: ClientThreadResponse = {
     thread: null,
     messages: [],
-    suggestions: [DEFAULT_TX_ERROR_SUGGESTION],
+    suggestions: [],
   };
   if (!rec) return empty;
 
@@ -277,10 +258,12 @@ export function parseClientThread(value: unknown): ClientThreadResponse {
         .filter((item): item is ChatSuggestion => !!item)
     : [];
 
+  const input = parseChatInput(rec.input);
   return {
     thread,
     messages,
-    suggestions: suggestionsOrDefault(suggestions),
+    suggestions,
+    ...(input ? { input } : {}),
   };
 }
 

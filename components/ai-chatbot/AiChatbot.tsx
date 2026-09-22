@@ -141,7 +141,6 @@ export function AiChatbot() {
     status,
     messages,
     suggestions,
-    choices,
     prompt,
     agentTyping,
     sending,
@@ -149,7 +148,6 @@ export function AiChatbot() {
     loadThread,
     sendText,
     sendSuggestion,
-    sendChoice,
     sendPhoneFix,
     uploadProof,
     uploadLiveFile,
@@ -159,10 +157,10 @@ export function AiChatbot() {
   } = support;
 
   const busy = sending || uploading;
-  const phonePrompt = isReceiverPhoneInput(prompt);
+  const phonePrompt = isReceiverPhoneInput(prompt) && status !== "LIVE";
   const proofPrompt = isProofFileInput(prompt);
   const liveMode = isLiveSupportStatus(status);
-  const botMode = status === "BOT" || status === "NONE" || status === "CLOSED";
+  const showGuidedInput = !!prompt && status !== "LIVE";
 
   const fabRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -208,7 +206,7 @@ export function AiChatbot() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending, agentTyping, isOpen, choices, suggestions]);
+  }, [messages, sending, agentTyping, isOpen, suggestions]);
 
   useEffect(() => {
     if (!isOpen || !isAuthenticated) return;
@@ -325,21 +323,9 @@ export function AiChatbot() {
     if (status === "LIVE") setClientTyping(true);
   };
 
-  const handleSuggestion = async () => {
-    const suggestion = suggestions[0] ?? {
-      id: "tx_error",
-      label: t("chatbot.txErrorFallback"),
-    };
+  const handleSuggestion = async (suggestion: (typeof suggestions)[number]) => {
     try {
       await sendSuggestion(suggestion);
-    } catch (error) {
-      toast.error(toastSendError(error));
-    }
-  };
-
-  const handleChoice = async (choice: (typeof choices)[number]) => {
-    try {
-      await sendChoice(choice);
     } catch (error) {
       toast.error(toastSendError(error));
     }
@@ -516,36 +502,26 @@ export function AiChatbot() {
                 <p className={styles.banner}>{t("chatbot.waiting")}</p>
               )}
 
-              {botMode && suggestions[0] && (
+              {suggestions.length > 0 && (
                 <div className={styles.suggestions}>
-                  <button
-                    type="button"
-                    className={styles.suggestionBtn}
-                    disabled={busy}
-                    onClick={() => void handleSuggestion()}
-                  >
-                    {suggestions[0].label}
-                  </button>
+                  <p className={styles.proofHint}>{t("chatbot.errorChips")}</p>
+                  <div className={styles.chips}>
+                    {suggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.id}
+                        type="button"
+                        className={styles.suggestionBtn}
+                        disabled={busy}
+                        onClick={() => void handleSuggestion(suggestion)}
+                      >
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {botMode && choices.length > 0 && (
-                <div className={styles.choices}>
-                  {choices.map((choice) => (
-                    <button
-                      key={choice.id}
-                      type="button"
-                      className={styles.choiceBtn}
-                      disabled={busy}
-                      onClick={() => void handleChoice(choice)}
-                    >
-                      {choice.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {botMode && proofPrompt && (
+              {showGuidedInput && proofPrompt && (
                 <div className={styles.guided}>
                   <p className={styles.proofHint}>{t("chatbot.attachHint")}</p>
                   <div className={styles.proofRow}>

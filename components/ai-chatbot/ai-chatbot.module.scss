@@ -274,7 +274,6 @@ $z-panel: 90;
 }
 
 .suggestions,
-.choices,
 .guided {
   display: flex;
   flex-direction: column;
@@ -282,16 +281,20 @@ $z-panel: 90;
   padding: 0 14px 12px;
 }
 
-.suggestionBtn,
-.choiceBtn {
-  width: 100%;
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestionBtn {
   text-align: left;
-  padding: 10px 12px;
-  border-radius: $r-sm;
+  padding: 8px 12px;
+  border-radius: $r-pill;
   border: 1px solid rgba($gold, 0.35);
   background: $gold-soft;
   color: $gold-strong;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.35;
   cursor: pointer;
   @include tap;
@@ -305,12 +308,6 @@ $z-panel: 90;
     opacity: 0.45;
     cursor: not-allowed;
   }
-}
-
-.choiceBtn {
-  background: $bg-elevated-2;
-  color: $text;
-  border-color: $border;
 }
 
 .proofRow {
