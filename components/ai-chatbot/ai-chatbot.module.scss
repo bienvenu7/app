@@ -166,6 +166,10 @@ $z-panel: 90;
   font-size: 12px;
   color: $success;
   margin-top: 1px;
+
+  &.waiting {
+    color: $gold;
+  }
 }
 
 .close {
@@ -216,7 +220,8 @@ $z-panel: 90;
     }
   }
 
-  &.assistant {
+  &.assistant,
+  &.admin {
     align-self: flex-start;
 
     .bubble {
@@ -226,6 +231,107 @@ $z-panel: 90;
       border-bottom-left-radius: 4px;
     }
   }
+
+  &.admin .bubble {
+    border-color: rgba($gold, 0.28);
+  }
+}
+
+.authorBadge {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $gold;
+  margin-bottom: 4px;
+}
+
+.fileImage {
+  display: block;
+  max-width: 220px;
+  max-height: 180px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  object-fit: cover;
+}
+
+.fileLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.banner {
+  margin: 0 14px 0;
+  padding: 10px 12px;
+  border-radius: $r-sm;
+  background: $gold-soft;
+  border: 1px solid rgba($gold, 0.28);
+  color: $gold;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.suggestions,
+.choices,
+.guided {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+
+.suggestionBtn,
+.choiceBtn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: $r-sm;
+  border: 1px solid rgba($gold, 0.35);
+  background: $gold-soft;
+  color: $gold-strong;
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+  @include tap;
+
+  &:hover:not(:disabled) {
+    border-color: rgba($gold, 0.55);
+    background: rgba(232, 192, 100, 0.22);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.choiceBtn {
+  background: $bg-elevated-2;
+  color: $text;
+  border-color: $border;
+}
+
+.proofRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fileName {
+  font-size: 12px;
+  color: $text-muted;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proofHint {
+  font-size: 12px;
+  color: $text-dim;
 }
 
 .bubble {
@@ -315,6 +421,7 @@ $z-panel: 90;
   }
 }
 
+.attach,
 .send {
   display: flex;
   align-items: center;
@@ -323,10 +430,30 @@ $z-panel: 90;
   height: 42px;
   border: none;
   border-radius: 50%;
-  background: linear-gradient(135deg, $gold-strong 0%, $gold 100%);
-  color: $bg;
   flex-shrink: 0;
   @include tap;
+}
+
+.attach {
+  background: $bg-elevated-2;
+  color: $gold;
+  border: 1px solid $border;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.send {
+  background: linear-gradient(135deg, $gold-strong 0%, $gold 100%);
+  color: $bg;
 
   &:disabled {
     opacity: 0.4;

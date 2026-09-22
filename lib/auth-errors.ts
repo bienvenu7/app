@@ -115,7 +115,7 @@ function codeFromStatus(status: number): AuthHttpError["code"] | null {
   if (status === 400) return "validation";
   if (status === 405) return "otp_delivery";
   if (status === 409) return "conflict";
-  if (status === 503) return "service_unavailable";
+  if (status === 502 || status === 503) return "service_unavailable";
   return null;
 }
 

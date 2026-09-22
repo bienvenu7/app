@@ -1,8 +1,338 @@
 export const CHATBOT_MESSAGE_MAX_LENGTH = 2000;
 
-export type IChatbotResponse = { reply: string };
+export type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
+export type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
+export type ChatbotAction =
+  | "tx_error"
+  | "select_tx"
+  | "fix"
+  | "proof_done"
+  | "handoff"
+  | string;
 
-export function getChatbotReply(data: IChatbotResponse | string): string {
+export type ChatSuggestion = {
+  id: string;
+  label: string;
+};
+
+export type ChatChoice = {
+  id: string;
+  label: string;
+  action: ChatbotAction;
+  txid?: string;
+  value?: string;
+};
+
+export type ChatInput =
+  | { type: "text"; name: "receiverPhone"; placeholder: string }
+  | { type: "file"; transactionId: string; endpoint: string };
+
+export type ChatbotRequest = {
+  message?: string;
+  action?: ChatbotAction;
+  txid?: string;
+  value?: string;
+};
+
+export type ChatbotReply = {
+  reply: string;
+  threadId: string;
+  suggestions: ChatSuggestion[];
+  waiting?: boolean;
+  choices?: ChatChoice[];
+  input?: ChatInput;
+};
+
+export type SupportMessage = {
+  id: string;
+  threadId: string;
+  author: SupportAuthor;
+  text: string;
+  createdAt: string;
+  filename?: string;
+  uri?: string;
+  mime?: string;
+};
+
+export type ClientThreadResponse = {
+  thread: {
+    id: string;
+    status: ThreadStatus;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  messages: SupportMessage[];
+  suggestions: ChatSuggestion[];
+};
+
+export type ThreadFileResponse = {
+  threadId: string;
+  status: ThreadStatus;
+  message: SupportMessage;
+};
+
+export type SupportSocketAuth = {
+  token: string;
+  url: string;
+  expiresAt: number;
+};
+
+export const DEFAULT_TX_ERROR_SUGGESTION: ChatSuggestion = {
+  id: "tx_error",
+  label: "Problème avec une transaction",
+};
+
+const THREAD_STATUSES: readonly ThreadStatus[] = [
+  "BOT",
+  "WAITING",
+  "LIVE",
+  "CLOSED",
+];
+const AUTHORS: readonly SupportAuthor[] = ["CLIENT", "BOT", "ADMIN"];
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+export function getChatbotReply(data: ChatbotReply | string): string {
   if (typeof data === "string") return data;
-  return data.reply ?? "Je n'ai pas pu traiter la réponse.";
+  return typeof data.reply === "string" ? data.reply : "";
+}
+
+export function isLiveSupportStatus(
+  status: ThreadStatus | "NONE" | null | undefined,
+): boolean {
+  return status === "WAITING" || status === "LIVE";
+}
+
+export function suggestionsOrDefault(
+  suggestions: ChatSuggestion[] | undefined,
+): ChatSuggestion[] {
+  if (suggestions?.length) return suggestions;
+  return [DEFAULT_TX_ERROR_SUGGESTION];
+}
+
+export function isReceiverPhoneInput(
+  input: ChatInput | undefined,
+): input is Extract<ChatInput, { type: "text" }> {
+  return input?.type === "text" && input.name === "receiverPhone";
+}
+
+export function isProofFileInput(
+  input: ChatInput | undefined,
+): input is Extract<ChatInput, { type: "file" }> {
+  return input?.type === "file";
+}
+
+/** UUID de la TX pour `POST /v3/file/upload/:id` — jamais un endpoint arbitraire. */
+export function transactionIdFromProofInput(
+  input: Extract<ChatInput, { type: "file" }>,
+): string | null {
+  const direct = input.transactionId?.trim();
+  if (direct) return direct;
+  const match = input.endpoint.match(/\/file\/upload\/([^/?#]+)/i);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+export function parseSupportMessage(
+  value: unknown,
+  fallbackThreadId = "",
+): SupportMessage | null {
+  const rec = asRecord(value);
+  if (!rec) return null;
+  const id = asString(rec.id);
+  const author = asString(rec.author);
+  if (!id || !author || !AUTHORS.includes(author as SupportAuthor)) return null;
+
+  const message: SupportMessage = {
+    id,
+    threadId: asString(rec.threadId) ?? fallbackThreadId,
+    author: author as SupportAuthor,
+    text: typeof rec.text === "string" ? rec.text : "",
+    createdAt:
+      asString(rec.createdAt) ?? new Date().toISOString(),
+  };
+  if (asString(rec.filename)) message.filename = rec.filename as string;
+  if (asString(rec.uri)) message.uri = rec.uri as string;
+  if (asString(rec.mime)) message.mime = rec.mime as string;
+  return message;
+}
+
+function parseSuggestion(value: unknown): ChatSuggestion | null {
+  const rec = asRecord(value);
+  if (!rec) return null;
+  const id = asString(rec.id);
+  const label = asString(rec.label);
+  if (!id || !label) return null;
+  return { id, label };
+}
+
+function parseChoice(value: unknown): ChatChoice | null {
+  const rec = asRecord(value);
+  if (!rec) return null;
+  const id = asString(rec.id);
+  const label = asString(rec.label);
+  const action = asString(rec.action);
+  if (!id || !label || !action) return null;
+  const choice: ChatChoice = { id, label, action };
+  if (asString(rec.txid)) choice.txid = rec.txid as string;
+  if (asString(rec.value)) choice.value = rec.value as string;
+  return choice;
+}
+
+function parseChatInput(value: unknown): ChatInput | undefined {
+  const rec = asRecord(value);
+  if (!rec) return undefined;
+  if (rec.type === "text" && rec.name === "receiverPhone") {
+    return {
+      type: "text",
+      name: "receiverPhone",
+      placeholder: asString(rec.placeholder) ?? "",
+    };
+  }
+  if (rec.type === "file") {
+    const transactionId = asString(rec.transactionId) ?? "";
+    const endpoint = asString(rec.endpoint) ?? "";
+    if (!transactionId && !endpoint) return undefined;
+    return { type: "file", transactionId, endpoint };
+  }
+  return undefined;
+}
+
+export function parseChatbotReply(value: unknown): ChatbotReply | null {
+  const rec = asRecord(value);
+  if (!rec || typeof rec.reply !== "string") return null;
+  const threadId = asString(rec.threadId);
+  if (!threadId) return null;
+
+  const suggestions = Array.isArray(rec.suggestions)
+    ? rec.suggestions
+        .map(parseSuggestion)
+        .filter((item): item is ChatSuggestion => !!item)
+    : [];
+
+  const reply: ChatbotReply = {
+    reply: rec.reply,
+    threadId,
+    suggestions: suggestionsOrDefault(suggestions),
+  };
+  if (rec.waiting === true) reply.waiting = true;
+
+  if (Array.isArray(rec.choices)) {
+    const choices = rec.choices
+      .map(parseChoice)
+      .filter((item): item is ChatChoice => !!item);
+    if (choices.length) reply.choices = choices;
+  }
+
+  const input = parseChatInput(rec.input);
+  if (input) reply.input = input;
+  return reply;
+}
+
+export function parseClientThread(value: unknown): ClientThreadResponse {
+  const rec = asRecord(value);
+  const empty: ClientThreadResponse = {
+    thread: null,
+    messages: [],
+    suggestions: [DEFAULT_TX_ERROR_SUGGESTION],
+  };
+  if (!rec) return empty;
+
+  let thread: ClientThreadResponse["thread"] = null;
+  const threadRec = asRecord(rec.thread);
+  if (threadRec) {
+    const id = asString(threadRec.id);
+    const status = asString(threadRec.status);
+    if (id && status && THREAD_STATUSES.includes(status as ThreadStatus)) {
+      thread = {
+        id,
+        status: status as ThreadStatus,
+        createdAt: asString(threadRec.createdAt) ?? "",
+        updatedAt: asString(threadRec.updatedAt) ?? "",
+      };
+    }
+  }
+
+  const messages = Array.isArray(rec.messages)
+    ? rec.messages
+        .map((item) => parseSupportMessage(item, thread?.id ?? ""))
+        .filter((item): item is SupportMessage => !!item)
+    : [];
+
+  const suggestions = Array.isArray(rec.suggestions)
+    ? rec.suggestions
+        .map(parseSuggestion)
+        .filter((item): item is ChatSuggestion => !!item)
+    : [];
+
+  return {
+    thread,
+    messages,
+    suggestions: suggestionsOrDefault(suggestions),
+  };
+}
+
+export function parseThreadFileResponse(
+  value: unknown,
+): ThreadFileResponse | null {
+  const rec = asRecord(value);
+  if (!rec) return null;
+  const threadId = asString(rec.threadId);
+  const status = asString(rec.status);
+  const message = parseSupportMessage(rec.message, threadId ?? "");
+  if (
+    !threadId ||
+    !status ||
+    !THREAD_STATUSES.includes(status as ThreadStatus) ||
+    !message
+  ) {
+    return null;
+  }
+  return { threadId, status: status as ThreadStatus, message };
+}
+
+export function mergeSupportMessage(
+  list: SupportMessage[],
+  incoming: SupportMessage,
+): SupportMessage[] {
+  if (list.some((item) => item.id === incoming.id)) return list;
+  const withoutOptimistic = list.filter(
+    (item) =>
+      !(
+        item.id.startsWith("local-") &&
+        item.author === incoming.author &&
+        item.text === incoming.text &&
+        item.uri === incoming.uri
+      ),
+  );
+  return [...withoutOptimistic, incoming];
+}
+
+export function localSupportMessage(
+  author: SupportAuthor,
+  text: string,
+  extras?: Partial<Pick<SupportMessage, "threadId" | "filename" | "uri" | "mime">>,
+): SupportMessage {
+  return {
+    id: `local-${author}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    threadId: extras?.threadId ?? "",
+    author,
+    text,
+    createdAt: new Date().toISOString(),
+    ...(extras?.filename ? { filename: extras.filename } : {}),
+    ...(extras?.uri ? { uri: extras.uri } : {}),
+    ...(extras?.mime ? { mime: extras.mime } : {}),
+  };
 }

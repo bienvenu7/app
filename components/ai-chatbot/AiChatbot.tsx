@@ -2,19 +2,34 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, Send, X } from "lucide-react";
+import { Bot, Paperclip, Send, X } from "lucide-react";
 import { toast } from "sonner";
-import { getChatbotReply, CHATBOT_MESSAGE_MAX_LENGTH } from "@/lib/chatbot";
-import { useSendMessage } from "@/hooks/useFile";
+import {
+  CHATBOT_MESSAGE_MAX_LENGTH,
+  isLiveSupportStatus,
+  isProofFileInput,
+  isReceiverPhoneInput,
+  type SupportAuthor,
+  type SupportMessage,
+} from "@/lib/chatbot";
+import { useClientSupport } from "@/hooks/useClientSupport";
 import styles from "./ai-chatbot.module.scss";
-import { useI18n, useT } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { Auth } from "@/providers/AuthContext";
 import {
+  isConflict,
   isForbiddenAuth,
   isRateLimited,
+  isServiceUnavailable,
   isUnauthorized,
   isValidationError,
 } from "@/lib/auth-errors";
+import {
+  PROOF_FILE_ACCEPT,
+  validateProofFiles,
+} from "@/lib/upload-proof";
+import { compressImageFile } from "@/lib/compress-image";
+import { sanitizeWhatsappInput, WHATSAPP_PATTERN } from "@/lib/phone-rules";
 
 const FAB_SIZE_MOBILE = 44;
 const FAB_SIZE_DESKTOP = 56;
@@ -26,12 +41,6 @@ function getFabSize() {
   if (typeof window === "undefined") return FAB_SIZE_MOBILE;
   return window.innerWidth >= BP_DESKTOP ? FAB_SIZE_DESKTOP : FAB_SIZE_MOBILE;
 }
-
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
 
 function getBottomOffset() {
   if (typeof window === "undefined") return 100;
@@ -71,9 +80,52 @@ function loadStoredPosition(): { x: number; y: number } | null {
   }
 }
 
+function messageTone(author: SupportAuthor): "user" | "assistant" | "admin" {
+  if (author === "CLIENT") return "user";
+  if (author === "ADMIN") return "admin";
+  return "assistant";
+}
+
+function MessageBubble({ message }: { message: SupportMessage }) {
+  const t = useT();
+  const tone = messageTone(message.author);
+  const isImage = !!message.uri && !!message.mime?.startsWith("image/");
+  const fileLabel = message.filename || message.uri;
+
+  return (
+    <div className={`${styles.message} ${styles[tone]}`}>
+      <div className={styles.bubble}>
+        {message.author === "ADMIN" && (
+          <span className={styles.authorBadge}>{t("chatbot.agentBadge")}</span>
+        )}
+        {isImage && message.uri && (
+          <a href={message.uri} target="_blank" rel="noopener noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={message.uri}
+              alt={message.filename ?? ""}
+              className={styles.fileImage}
+            />
+          </a>
+        )}
+        {!isImage && message.uri && fileLabel && (
+          <a
+            href={message.uri}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.fileLink}
+          >
+            {t("chatbot.downloadFile", { name: fileLabel })}
+          </a>
+        )}
+        {message.text ? message.text : null}
+      </div>
+    </div>
+  );
+}
+
 export function AiChatbot() {
   const t = useT();
-  const { locale } = useI18n();
   const {
     state: { isAuthenticated, isLoading: authLoading },
   } = Auth();
@@ -81,18 +133,43 @@ export function AiChatbot() {
     null,
   );
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: t("chatbot.greeting"),
-    },
-  ]);
   const [input, setInput] = useState("");
-  const { mutateAsync, isPending } = useSendMessage("chatbot");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+
+  const support = useClientSupport(isAuthenticated);
+  const {
+    status,
+    messages,
+    suggestions,
+    choices,
+    prompt,
+    agentTyping,
+    sending,
+    uploading,
+    loadThread,
+    sendText,
+    sendSuggestion,
+    sendChoice,
+    sendPhoneFix,
+    uploadProof,
+    uploadLiveFile,
+    setClientTyping,
+    socketError,
+    clearSocketError,
+  } = support;
+
+  const busy = sending || uploading;
+  const phonePrompt = isReceiverPhoneInput(prompt);
+  const proofPrompt = isProofFileInput(prompt);
+  const liveMode = isLiveSupportStatus(status);
+  const botMode = status === "BOT" || status === "NONE" || status === "CLOSED";
 
   const fabRef = useRef<HTMLButtonElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const openedOnce = useRef(false);
+  const loadThreadRef = useRef(loadThread);
+  loadThreadRef.current = loadThread;
   const dragState = useRef({
     pointerId: -1,
     startX: 0,
@@ -101,21 +178,6 @@ export function AiChatbot() {
     originY: 0,
     moved: false,
   });
-
-  useEffect(() => {
-    setMessages((prev) => {
-      if (prev.length === 1 && prev[0]?.id === "welcome") {
-        return [
-          {
-            id: "welcome",
-            role: "assistant",
-            content: t("chatbot.greeting"),
-          },
-        ];
-      }
-      return prev;
-    });
-  }, [locale, t]);
 
   useEffect(() => {
     const stored = loadStoredPosition();
@@ -146,7 +208,26 @@ export function AiChatbot() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isPending, isOpen]);
+  }, [messages, sending, agentTyping, isOpen, choices, suggestions]);
+
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated) return;
+    if (!openedOnce.current) {
+      openedOnce.current = true;
+      return;
+    }
+    void loadThreadRef.current();
+  }, [isOpen, isAuthenticated]);
+
+  useEffect(() => {
+    if (!socketError) return;
+    toast.error(socketError);
+    clearSocketError();
+  }, [socketError, clearSocketError]);
+
+  useEffect(() => {
+    if (status === "CLOSED") setInput("");
+  }, [status]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!position) return;
@@ -187,58 +268,41 @@ export function AiChatbot() {
     dragState.current.pointerId = -1;
   };
 
+  const toastSendError = useCallback(
+    (error: unknown) => {
+      if (isRateLimited(error)) return t("chatbot.rateLimited");
+      if (isUnauthorized(error) || isForbiddenAuth(error)) {
+        return t("chatbot.authRequired");
+      }
+      if (isValidationError(error)) return t("chatbot.messageTooLong");
+      if (isServiceUnavailable(error)) return t("chatbot.aiUnavailable");
+      if (isConflict(error)) return t("chatbot.fileWrongStatus");
+      return t("chatbot.sendError");
+    },
+    [t],
+  );
+
   const handleSendMessage = useCallback(async () => {
     const trimmed = input.trim();
-    if (!trimmed || isPending) return;
+    const phoneValue = sanitizeWhatsappInput(trimmed);
+    if (!trimmed || busy) return;
 
     if (trimmed.length > CHATBOT_MESSAGE_MAX_LENGTH) {
       toast.error(t("chatbot.messageTooLong"));
       return;
     }
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: trimmed,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
     setInput("");
-
     try {
-      const data = await mutateAsync(trimmed);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: getChatbotReply(data),
-        },
-      ]);
-    } catch (error) {
-      let errorToast = t("chatbot.sendError");
-      let fallback = t("chatbot.errorFallback");
-
-      if (isRateLimited(error)) {
-        errorToast = t("chatbot.rateLimited");
-      } else if (isUnauthorized(error) || isForbiddenAuth(error)) {
-        errorToast = t("chatbot.authRequired");
-        fallback = t("chatbot.authRequired");
-      } else if (isValidationError(error)) {
-        errorToast = t("chatbot.messageTooLong");
+      if (phonePrompt && WHATSAPP_PATTERN.test(phoneValue)) {
+        await sendPhoneFix(phoneValue);
+      } else {
+        await sendText(trimmed);
       }
-
-      toast.error(errorToast);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: fallback,
-        },
-      ]);
+    } catch (error) {
+      toast.error(toastSendError(error));
     }
-  }, [input, isPending, mutateAsync, t]);
+  }, [busy, input, phonePrompt, sendPhoneFix, sendText, t, toastSendError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,6 +315,95 @@ export function AiChatbot() {
       void handleSendMessage();
     }
   };
+
+  const handleInputChange = (value: string) => {
+    setInput(
+      phonePrompt
+        ? sanitizeWhatsappInput(value)
+        : value.slice(0, CHATBOT_MESSAGE_MAX_LENGTH),
+    );
+    if (status === "LIVE") setClientTyping(true);
+  };
+
+  const handleSuggestion = async () => {
+    const suggestion = suggestions[0] ?? {
+      id: "tx_error",
+      label: t("chatbot.txErrorFallback"),
+    };
+    try {
+      await sendSuggestion(suggestion);
+    } catch (error) {
+      toast.error(toastSendError(error));
+    }
+  };
+
+  const handleChoice = async (choice: (typeof choices)[number]) => {
+    try {
+      await sendChoice(choice);
+    } catch (error) {
+      toast.error(toastSendError(error));
+    }
+  };
+
+  const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (fileRef.current) fileRef.current.value = "";
+    if (!files.length) return;
+
+    const result = validateProofFiles(files, 0);
+    if (!result.ok) {
+      if (result.error === "invalid_type") {
+        toast.error(t("validate.invalidFileType"));
+      } else if (result.error === "file_too_large") {
+        toast.error(t("validate.fileTooLarge"));
+      } else {
+        toast.error(t("validate.tooManyFiles", { max: 1 }));
+      }
+      return;
+    }
+
+    const file = result.files[0];
+    if (!file) return;
+
+    if (proofPrompt) {
+      setProofFile(file);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const compressed = await compressImageFile(file);
+        await uploadLiveFile(compressed, input.trim() || undefined);
+        setInput("");
+      } catch (error) {
+        toast.error(
+          isConflict(error) ? t("chatbot.fileWrongStatus") : t("chatbot.fileError"),
+        );
+      }
+    })();
+  };
+
+  const handleProofUpload = async () => {
+    if (!proofFile || busy) return;
+    try {
+      const compressed = await compressImageFile(proofFile);
+      await uploadProof(compressed);
+      setProofFile(null);
+    } catch (error) {
+      toast.error(toastSendError(error));
+    }
+  };
+
+  const subtitle =
+    status === "WAITING"
+      ? t("chatbot.waitingSubtitle")
+      : status === "LIVE"
+        ? t("chatbot.agentOnline")
+        : t("chatbot.online");
+
+  const placeholder = phonePrompt
+    ? prompt.placeholder || t("chatbot.placeholder")
+    : t("chatbot.placeholder");
 
   if (authLoading || !isAuthenticated || !position) return null;
 
@@ -305,7 +458,13 @@ export function AiChatbot() {
                     <h2 id="ai-chat-title" className={styles.title}>
                       {t("chatbot.title")}
                     </h2>
-                    <p className={styles.subtitle}>{t("chatbot.online")}</p>
+                    <p
+                      className={`${styles.subtitle} ${
+                        status === "WAITING" ? styles.waiting : ""
+                      }`}
+                    >
+                      {subtitle}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -319,17 +478,31 @@ export function AiChatbot() {
               </header>
 
               <div className={styles.messages}>
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`${styles.message} ${styles[message.role]}`}
-                  >
-                    <div className={styles.bubble}>{message.content}</div>
-                  </div>
-                ))}
-                {isPending && (
+                {messages.length === 0 && (
                   <div className={`${styles.message} ${styles.assistant}`}>
-                    <div className={styles.typing} aria-label={t("chatbot.typing")}>
+                    <div className={styles.bubble}>
+                      {status === "CLOSED"
+                        ? t("chatbot.closedHint")
+                        : t("chatbot.greeting")}
+                    </div>
+                  </div>
+                )}
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
+                ))}
+                {status === "CLOSED" && messages.length > 0 && (
+                  <div className={`${styles.message} ${styles.assistant}`}>
+                    <div className={styles.bubble}>{t("chatbot.closedHint")}</div>
+                  </div>
+                )}
+                {(sending || agentTyping) && (
+                  <div className={`${styles.message} ${styles.assistant}`}>
+                    <div
+                      className={styles.typing}
+                      aria-label={
+                        agentTyping ? t("chatbot.agentTyping") : t("chatbot.typing")
+                      }
+                    >
                       <span />
                       <span />
                       <span />
@@ -339,23 +512,104 @@ export function AiChatbot() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {status === "WAITING" && (
+                <p className={styles.banner}>{t("chatbot.waiting")}</p>
+              )}
+
+              {botMode && suggestions[0] && (
+                <div className={styles.suggestions}>
+                  <button
+                    type="button"
+                    className={styles.suggestionBtn}
+                    disabled={busy}
+                    onClick={() => void handleSuggestion()}
+                  >
+                    {suggestions[0].label}
+                  </button>
+                </div>
+              )}
+
+              {botMode && choices.length > 0 && (
+                <div className={styles.choices}>
+                  {choices.map((choice) => (
+                    <button
+                      key={choice.id}
+                      type="button"
+                      className={styles.choiceBtn}
+                      disabled={busy}
+                      onClick={() => void handleChoice(choice)}
+                    >
+                      {choice.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {botMode && proofPrompt && (
+                <div className={styles.guided}>
+                  <p className={styles.proofHint}>{t("chatbot.attachHint")}</p>
+                  <div className={styles.proofRow}>
+                    <button
+                      type="button"
+                      className={styles.suggestionBtn}
+                      disabled={busy}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      {t("chatbot.chooseFile")}
+                    </button>
+                    {proofFile && (
+                      <>
+                        <span className={styles.fileName}>{proofFile.name}</span>
+                        <button
+                          type="button"
+                          className={styles.suggestionBtn}
+                          disabled={busy}
+                          onClick={() => void handleProofUpload()}
+                        >
+                          {t("chatbot.uploadProof")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <form className={styles.inputArea} onSubmit={handleSubmit}>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept={PROOF_FILE_ACCEPT}
+                  hidden
+                  onChange={pickFile}
+                />
+                {liveMode && (
+                  <button
+                    type="button"
+                    className={styles.attach}
+                    disabled={busy}
+                    onClick={() => fileRef.current?.click()}
+                    aria-label={t("chatbot.attachAria")}
+                  >
+                    <Paperclip />
+                  </button>
+                )}
                 <textarea
                   className={styles.input}
                   value={input}
-                  onChange={(e) =>
-                    setInput(e.target.value.slice(0, CHATBOT_MESSAGE_MAX_LENGTH))
-                  }
+                  onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={handleInputKeyDown}
-                  placeholder={t("chatbot.placeholder")}
+                  placeholder={placeholder}
                   rows={1}
-                  maxLength={CHATBOT_MESSAGE_MAX_LENGTH}
+                  inputMode={phonePrompt ? "numeric" : "text"}
+                  maxLength={
+                    phonePrompt ? 15 : CHATBOT_MESSAGE_MAX_LENGTH
+                  }
                   aria-label={t("chatbot.messageAria")}
                 />
                 <button
                   type="submit"
                   className={styles.send}
-                  disabled={!input.trim() || isPending}
+                  disabled={!input.trim() || busy}
                   aria-label={t("chatbot.sendAria")}
                 >
                   <Send />
