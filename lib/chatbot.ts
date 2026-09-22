@@ -28,6 +28,7 @@ export type ChatbotReply = {
   threadId: string;
   suggestions: ChatSuggestion[];
   waiting?: boolean;
+  choices?: ChatSuggestion[];
   input?: ChatInput;
 };
 
@@ -87,8 +88,35 @@ function asString(value: unknown): string | undefined {
 }
 
 export function getChatbotReply(data: ChatbotReply | string): string {
-  if (typeof data === "string") return data;
-  return typeof data.reply === "string" ? data.reply : "";
+  if (typeof data === "string") return sanitizeBotReply(data);
+  return sanitizeBotReply(typeof data.reply === "string" ? data.reply : "");
+}
+
+const INTERNAL_COMPLAIN =
+  /\(?\b(ERREUR_CAPTURE|MAUVAIS_NUMERO|MONTANT_INCORRECT|SEUIL_ATTEINT)\b\)?/gi;
+const UPLOAD_PATH = /\/v3\/file\/upload\/[^\s)\].,;]*/gi;
+const UUID_RE =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
+
+/** Jamais de lien d'upload, UUID ou code complain dans une bulle. */
+export function sanitizeBotReply(text: string): string {
+  return text
+    .replace(UPLOAD_PATH, "")
+    .replace(INTERNAL_COMPLAIN, "")
+    .replace(UUID_RE, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+([.,;:!?])/g, "$1")
+    .trim();
+}
+
+/** Temps 1 : préférer `choices` ; sinon `suggestions`. */
+export function buttonsFromReply(data: {
+  choices?: ChatSuggestion[];
+  suggestions: ChatSuggestion[];
+}): ChatSuggestion[] {
+  return data.choices ?? data.suggestions;
 }
 
 export function isLiveSupportStatus(
@@ -216,6 +244,12 @@ export function parseChatbotReply(value: unknown): ChatbotReply | null {
     suggestions,
   };
   if (rec.waiting === true) reply.waiting = true;
+
+  if (Array.isArray(rec.choices)) {
+    reply.choices = rec.choices
+      .map(parseSuggestion)
+      .filter((item): item is ChatSuggestion => !!item);
+  }
 
   const input = parseChatInput(rec.input);
   if (input) reply.input = input;

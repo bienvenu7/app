@@ -421,7 +421,7 @@ const ru: Messages = {
     attachAria: "Прикрепить файл",
     attachHint: "JPEG, PNG, WebP или PDF · макс. 10 МБ",
     uploadProof: "Отправить подтверждение",
-    chooseFile: "Выбрать файл",
+    chooseFile: "Прикрепить подтверждение",
     phoneInvalid: "Неверный номер (9–15 цифр, без +).",
     aiUnavailable: "Помощник временно недоступен.",
     fileError: "Не удалось отправить файл.",

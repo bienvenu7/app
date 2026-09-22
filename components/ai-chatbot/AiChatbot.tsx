@@ -9,6 +9,7 @@ import {
   isLiveSupportStatus,
   isProofFileInput,
   isReceiverPhoneInput,
+  sanitizeBotReply,
   type SupportAuthor,
   type SupportMessage,
 } from "@/lib/chatbot";
@@ -118,7 +119,11 @@ function MessageBubble({ message }: { message: SupportMessage }) {
             {t("chatbot.downloadFile", { name: fileLabel })}
           </a>
         )}
-        {message.text ? message.text : null}
+        {message.text
+          ? message.author === "BOT"
+            ? sanitizeBotReply(message.text)
+            : message.text
+          : null}
       </div>
     </div>
   );

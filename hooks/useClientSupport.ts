@@ -11,6 +11,7 @@ import {
 import { uploadFiles } from "@/app/actions/file";
 import { unwrapAction } from "@/lib/auth-errors";
 import {
+  buttonsFromReply,
   isLiveSupportStatus,
   isProofFileInput,
   localSupportMessage,
@@ -18,6 +19,7 @@ import {
   parseSupportMessage,
   persistActiveTxid,
   readPersistedTxid,
+  sanitizeBotReply,
   transactionIdFromProofInput,
   type ChatbotRequest,
   type ChatInput,
@@ -86,7 +88,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const applyReply = useCallback(
     (data: ChatbotReply) => {
       syncThreadId(data.threadId);
-      setSuggestions(data.suggestions);
+      setSuggestions(buttonsFromReply(data));
       syncPrompt(data.input);
 
       if (data.waiting) {
@@ -102,7 +104,9 @@ export function useClientSupport(isAuthenticated: boolean) {
       if (data.reply) {
         setMessages((prev) => [
           ...prev,
-          localSupportMessage("BOT", data.reply, { threadId: data.threadId }),
+          localSupportMessage("BOT", sanitizeBotReply(data.reply), {
+            threadId: data.threadId,
+          }),
         ]);
       }
     },
@@ -153,7 +157,13 @@ export function useClientSupport(isAuthenticated: boolean) {
       const nextStatus = data.thread?.status ?? "NONE";
       syncStatus(nextStatus === "CLOSED" ? "CLOSED" : nextStatus);
       syncThreadId(data.thread?.id ?? null);
-      setMessages(data.messages);
+      setMessages(
+        data.messages.map((item) =>
+          item.author === "BOT"
+            ? { ...item, text: sanitizeBotReply(item.text) }
+            : item,
+        ),
+      );
       setSuggestions(data.suggestions);
       syncPrompt(data.input);
       if (!activeTxidRef.current) {
@@ -217,7 +227,11 @@ export function useClientSupport(isAuthenticated: boolean) {
       next.on("support:message", (raw: unknown) => {
         const parsed = parseSupportMessage(raw, threadIdRef.current ?? "");
         if (!parsed) return;
-        setMessages((prev) => mergeSupportMessage(prev, parsed));
+        const nextMsg =
+          parsed.author === "BOT"
+            ? { ...parsed, text: sanitizeBotReply(parsed.text) }
+            : parsed;
+        setMessages((prev) => mergeSupportMessage(prev, nextMsg));
         setAgentTyping(false);
       });
 
@@ -241,6 +255,11 @@ export function useClientSupport(isAuthenticated: boolean) {
                 parseSupportMessage(item, threadIdRef.current ?? ""),
               )
               .filter((item): item is SupportMessage => !!item)
+              .map((item) =>
+                item.author === "BOT"
+                  ? { ...item, text: sanitizeBotReply(item.text) }
+                  : item,
+              )
           : [];
         setMessages(nextMessages);
       });

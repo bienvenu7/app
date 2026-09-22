@@ -410,7 +410,7 @@ const fr = {
     attachAria: "Joindre un fichier",
     attachHint: "JPEG, PNG, WebP ou PDF · 10 Mo max",
     uploadProof: "Envoyer la preuve",
-    chooseFile: "Choisir un fichier",
+    chooseFile: "Joindre le justificatif",
     phoneInvalid: "Numéro invalide (9 à 15 chiffres, sans +).",
     aiUnavailable: "L'assistant est temporairement indisponible.",
     fileError: "Impossible d'envoyer le fichier.",
