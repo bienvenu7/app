@@ -35,7 +35,12 @@ export type ChatSuggestion = {
 
 export type ChatInput =
   | { type: "text"; name: "receiverPhone"; placeholder: string }
-  | { type: "file"; transactionId: string; endpoint: string };
+  | {
+      type: "file";
+      transactionId: string;
+      endpoint: string;
+      txid?: string;
+    };
 
 export type ChatbotRequest = {
   message?: string;
@@ -199,19 +204,30 @@ export function isProofFileInput(
   return input?.type === "file";
 }
 
-/** UUID de la TX pour `POST /v3/file/upload/:id` — jamais un endpoint arbitraire. */
-export function transactionIdFromProofInput(
-  input: Extract<ChatInput, { type: "file" }>,
-): string | null {
-  const direct = input.transactionId?.trim();
-  if (direct) return direct;
-  const match = input.endpoint.match(/\/file\/upload\/([^/?#]+)/i);
+const PROOF_UPLOAD_ID =
+  /\/file\/upload\/([^/?#]+)/i;
+const PROOF_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function idFromUploadEndpoint(endpoint: string): string | null {
+  const match = endpoint.match(PROOF_UPLOAD_ID);
   if (!match?.[1]) return null;
   try {
     return decodeURIComponent(match[1]);
   } catch {
     return match[1];
   }
+}
+
+/** UUID de la TX pour `POST /v3/file/upload/:id`. L'endpoint prime sur un txid court. */
+export function transactionIdFromProofInput(
+  input: Extract<ChatInput, { type: "file" }>,
+): string | null {
+  const fromEndpoint = idFromUploadEndpoint(input.endpoint ?? "");
+  const direct = input.transactionId?.trim() || "";
+  if (fromEndpoint && PROOF_UUID.test(fromEndpoint)) return fromEndpoint;
+  if (direct && PROOF_UUID.test(direct)) return direct;
+  return fromEndpoint || direct || null;
 }
 
 export function parseSupportMessage(
@@ -280,8 +296,14 @@ function parseChatInput(value: unknown): ChatInput | undefined {
   if (rec.type === "file") {
     const transactionId = asString(rec.transactionId) ?? "";
     const endpoint = asString(rec.endpoint) ?? "";
+    const txid = asString(rec.txid);
     if (!transactionId && !endpoint) return undefined;
-    return { type: "file", transactionId, endpoint };
+    return {
+      type: "file",
+      transactionId,
+      endpoint,
+      ...(txid ? { txid } : {}),
+    };
   }
   return undefined;
 }

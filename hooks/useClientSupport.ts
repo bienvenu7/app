@@ -496,7 +496,9 @@ export function useClientSupport(isAuthenticated: boolean) {
         throw new Error("no_proof_input");
       }
       const transactionId = transactionIdFromProofInput(input);
-      const txid = activeTxidRef.current;
+      const txid =
+        activeTxidRef.current || input.txid || readPersistedTxid();
+      if (txid) syncTxid(txid);
       if (!transactionId || !txid) {
         throw new Error("missing_tx");
       }
@@ -509,7 +511,7 @@ export function useClientSupport(isAuthenticated: boolean) {
         setUploading(false);
       }
     },
-    [postBot],
+    [postBot, syncTxid],
   );
 
   const uploadLiveFile = useCallback(async (file: File, comment?: string) => {

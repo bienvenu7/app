@@ -19,6 +19,7 @@ import styles from "./ai-chatbot.module.scss";
 import { useT } from "@/lib/i18n";
 import { Auth } from "@/providers/AuthContext";
 import {
+  apiErrorMessage,
   isConflict,
   isForbiddenAuth,
   isRateLimited,
@@ -30,7 +31,7 @@ import {
   PROOF_FILE_ACCEPT,
   validateProofFiles,
 } from "@/lib/upload-proof";
-import { compressImageFile } from "@/lib/compress-image";
+import { compressImageFilesForUpload } from "@/lib/compress-image";
 import { sanitizeWhatsappInput } from "@/lib/phone-rules";
 
 const FAB_SIZE_MOBILE = 44;
@@ -367,10 +368,12 @@ export function AiChatbot() {
     if (proofPrompt) {
       void (async () => {
         try {
-          const compressed = await compressImageFile(file);
-          await uploadProof(compressed);
+          const [compressed] = await compressImageFilesForUpload([file]);
+          await uploadProof(compressed ?? file);
         } catch (error) {
-          toast.error(toastSendError(error));
+          const detail = apiErrorMessage(error);
+          const safe = detail ? sanitizeBotReply(detail) : "";
+          toast.error(safe || t("chatbot.fileError"));
         }
       })();
       return;
@@ -378,8 +381,8 @@ export function AiChatbot() {
 
     void (async () => {
       try {
-        const compressed = await compressImageFile(file);
-        await uploadLiveFile(compressed, input.trim() || undefined);
+        const [compressed] = await compressImageFilesForUpload([file]);
+        await uploadLiveFile(compressed ?? file, input.trim() || undefined);
         setInput("");
       } catch (error) {
         toast.error(
