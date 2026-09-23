@@ -237,7 +237,7 @@ export function useClientSupport(isAuthenticated: boolean) {
             : item,
         ),
       );
-      setChoices([]);
+      setChoices(choicesFromReply(data));
       setPinned(pinnedFromPayload(data));
       syncPrompt(data.input);
       setAgentReadyMessage(null);

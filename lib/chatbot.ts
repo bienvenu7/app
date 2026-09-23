@@ -83,6 +83,7 @@ export type ClientThreadResponse = {
   messages: SupportMessage[];
   suggestions: ChatPinned[];
   pinned?: ChatPinned;
+  choices?: ChatSuggestion[];
   input?: ChatInput;
 };
 
@@ -377,6 +378,11 @@ export function parseClientThread(value: unknown): ClientThreadResponse {
 
   const suggestions = parsePinnedList(rec.suggestions);
   const pinned = parsePinned(rec.pinned) ?? suggestions[0];
+  const choices = Array.isArray(rec.choices)
+    ? rec.choices
+        .map(parseSuggestion)
+        .filter((item): item is ChatSuggestion => !!item)
+    : undefined;
 
   const input = parseChatInput(rec.input);
   return {
@@ -384,6 +390,7 @@ export function parseClientThread(value: unknown): ClientThreadResponse {
     messages,
     suggestions,
     ...(pinned ? { pinned } : {}),
+    ...(choices ? { choices } : {}),
     ...(input ? { input } : {}),
   };
 }
