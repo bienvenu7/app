@@ -21,6 +21,7 @@ import {
   readPersistedTxid,
   receiverPhoneValue,
   sanitizeBotReply,
+  TRANSACTION_PROBLEM_MESSAGE,
   transactionIdFromProofInput,
   type ChatbotRequest,
   type ChatInput,
@@ -462,6 +463,13 @@ export function useClientSupport(isAuthenticated: boolean) {
     [postBot, syncTxid],
   );
 
+  const sendTransactionProblem = useCallback(
+    async (label: string) => {
+      await postBot({ message: TRANSACTION_PROBLEM_MESSAGE }, label);
+    },
+    [postBot],
+  );
+
   const sendPhoneFix = useCallback(
     async (value: string) => {
       const digits = receiverPhoneValue(value);
@@ -548,6 +556,7 @@ export function useClientSupport(isAuthenticated: boolean) {
     uploading,
     loadThread,
     sendText,
+    sendTransactionProblem,
     sendSuggestion,
     sendPhoneFix,
     uploadProof,

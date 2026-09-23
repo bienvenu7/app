@@ -151,6 +151,7 @@ export function AiChatbot() {
     sending,
     uploading,
     sendText,
+    sendTransactionProblem,
     sendSuggestion,
     sendPhoneFix,
     uploadProof,
@@ -166,6 +167,8 @@ export function AiChatbot() {
   const proofPrompt = isProofFileInput(prompt);
   const liveMode = isLiveSupportStatus(status);
   const showGuidedInput = !!prompt && status !== "LIVE";
+  const showStarterActions =
+    suggestions.length === 0 && !showGuidedInput && !liveMode;
 
   const fabRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -324,6 +327,14 @@ export function AiChatbot() {
         : value.slice(0, CHATBOT_MESSAGE_MAX_LENGTH),
     );
     if (status === "LIVE" || status === "WAITING") setClientTyping(true);
+  };
+
+  const handleTransactionProblem = async () => {
+    try {
+      await sendTransactionProblem(t("chatbot.transactionProblem"));
+    } catch (error) {
+      toast.error(toastSendError(error));
+    }
   };
 
   const handleSuggestion = async (suggestion: (typeof suggestions)[number]) => {
@@ -504,6 +515,21 @@ export function AiChatbot() {
                 <p className={styles.banner}>
                   {agentReadyMessage || t("chatbot.agentReady")}
                 </p>
+              )}
+
+              {showStarterActions && (
+                <div className={styles.suggestions}>
+                  <div className={styles.chips}>
+                    <button
+                      type="button"
+                      className={`${styles.suggestionBtn} ${styles.txChoice}`}
+                      disabled={busy}
+                      onClick={() => void handleTransactionProblem()}
+                    >
+                      {t("chatbot.transactionProblem")}
+                    </button>
+                  </div>
+                </div>
               )}
 
               {suggestions.length > 0 && (

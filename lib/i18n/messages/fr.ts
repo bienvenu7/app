@@ -386,6 +386,7 @@ const fr = {
   chatbot: {
     greeting:
       "Bonjour ! Je suis l'assistant AFRU-E. Posez-moi vos questions sur les transferts, les frais ou votre compte.",
+    transactionProblem: "Problème avec une transaction",
     errorFallback:
       "Désolé, une erreur s'est produite. Veuillez réessayer dans un instant.",
     sendError: "Impossible d'envoyer le message. Réessayez.",

@@ -1,5 +1,9 @@
 export const CHATBOT_MESSAGE_MAX_LENGTH = 2000;
 
+/** Phrase qui ouvre la liste des transactions du jour via POST /v3/chatbot/message. */
+export const TRANSACTION_PROBLEM_MESSAGE =
+  "j'ai un problème avec une transaction";
+
 export type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
 export type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
 export type ChatbotAction = "select_tx" | "fix" | "proof_done" | "handoff";
