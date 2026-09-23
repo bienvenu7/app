@@ -14,31 +14,40 @@ Docs liées :
 
 ## 0. Contrat produit (à respecter à la lettre)
 
-### Parcours erreur = 2 temps
+### Les TX en erreur n’apparaissent que si le client en parle
 
-| Temps | Déclencheur                                                         | `reply`                                                                | Boutons                                        |
-| ----- | ------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------- |
-| 1     | Le client **parle** d’une erreur de transaction (sans avoir cliqué) | « Veuillez choisir la transaction pour continuer. »                    | `choices` = **un bouton par TX ERROR du jour** |
-| 2     | Clic sur un bouton                                                  | L’IA explique le motif **en langage courant** et demande la correction | `input` = champ n° ou file picker              |
+**Interdit** : un bloc permanent « Transferts en erreur aujourd’hui » sous un « bonjour », une FAQ, ou au montage du widget.
 
-L’IA backend **ne choisit jamais** une TX toute seule.  
-Interdit : « J’ai trouvé votre transfert b5d5264ed3… Envoyez un justificatif. »
+| Situation                                              | Boutons ERROR                                | L’IA parle des ERROR                                |
+| ------------------------------------------------------ | -------------------------------------------- | --------------------------------------------------- |
+| « bonjour », salut, FAQ, statut                        | **Aucun.** `suggestions: []`, `choices` omis | Non                                                 |
+| `GET /thread` au open / refresh                        | **Aucun.** `suggestions: []`                 | Non                                                 |
+| Le client **écrit** qu’il a un problème de transaction | `choices` = un bouton par TX ERROR           | « Veuillez choisir la transaction pour continuer. » |
+| Clic sur un bouton                                     | `input` (champ / file picker)                | Motif en langage courant + correction               |
+
+Si `choices` est **omis** dans **cette** réponse : retire les boutons. Ne recycle pas une ancienne liste.
+
+### Parcours erreur = 2 temps (seulement après notification client)
+
+| Temps | Déclencheur                                     | `reply`                                             | Boutons   |
+| ----- | ----------------------------------------------- | --------------------------------------------------- | --------- |
+| 1     | Le client **parle** d’une erreur de transaction | « Veuillez choisir la transaction pour continuer. » | `choices` |
+| 2     | Clic `{ action: "select_tx", txid }`            | Motif en langage courant + ce qu’il faut corriger   | `input`   |
+
+L’IA **ne choisit jamais** une TX toute seule.  
+Interdit : « J’ai trouvé votre transfert b5d5264ed3… » ou « indiquez-moi sa référence » sur un simple bonjour.
+
+Un « d’accord », « ok », « merci », ou une TX déjà en cours, n’est **pas** une phrase toute faite. L’IA rédige une réponse courte et humaine (ex. « Parfait, je reste disponible si besoin. »). Ne pas renvoyer « Cette transaction est déjà en cours. » tel quel.
 
 ### Ce qui ne doit **jamais** apparaître dans une bulle
 
-- Lien ou chemin `/v3/file/upload/…`
-- UUID de transaction
-- Code interne `ERREUR_CAPTURE`, `MAUVAIS_NUMERO`, `MONTANT_INCORRECT`, `SEUIL_ATTEINT`
+- Lien `/v3/file/upload/…` ou UUID
+- Code `ERREUR_CAPTURE`, `MAUVAIS_NUMERO`, `MONTANT_INCORRECT`, `SEUIL_ATTEINT`
+- Bloc « Transferts en erreur aujourd’hui » si `choices` est absent
 - Bouton générique « Problème avec une transaction »
 
-Le file picker vient de `input.type === "file"`. `input.endpoint` est **interne** : tu l’utilises pour le `POST`, tu ne l’affiches pas.
-
-### Après correction
-
-La TX passe `ERROR` → `INPROGRESS` et **sort** de `choices` / `suggestions`.  
-Remplace les boutons à **chaque** réponse HTTP.
-
-S’il n’y a aucune ERROR aujourd’hui : `choices` omis, `suggestions: []`, `reply` = « Aucune transaction en erreur aujourd’hui. »
+Garde les **espaces** du `reply` (ne pas coller les mots).  
+`input.endpoint` est interne : file picker, pas un lien affiché.
 
 ---
 
@@ -46,12 +55,12 @@ S’il n’y a aucune ERROR aujourd’hui : `choices` omis, `suggestions: []`, `
 
 Trois modes, un seul widget :
 
-| Mode           | `thread.status`        | Comportement UI                                                                                    |
-| -------------- | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| Bot            | `BOT`                  | Bulles. Si `choices` : boutons ERROR sous la bulle. Si `input` : champ ou file picker.             |
-| File d’attente | `WAITING`              | « Un agent va vous répondre ». Socket. Les boutons ERROR restent utilisables pour auto-correction. |
-| Agent          | `LIVE`                 | Chat temps réel. Pièces jointes. Typing. Les boutons ERROR ne relancent **pas** le bot.            |
-| Fermé          | `CLOSED` ou pas de fil | Le prochain message crée un fil `BOT`.                                                             |
+| Mode           | `thread.status`        | Comportement UI                                                                                                    |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Bot            | `BOT`                  | Bulles. Boutons ERROR **uniquement** si `choices` est dans la dernière réponse. Si `input` : champ ou file picker. |
+| File d’attente | `WAITING`              | « Un agent va vous répondre ». Socket. Les boutons ERROR restent utilisables pour auto-correction.                 |
+| Agent          | `LIVE`                 | Chat temps réel. Pièces jointes. Typing. Les boutons ERROR ne relancent **pas** le bot.                            |
+| Fermé          | `CLOSED` ou pas de fil | Le prochain message crée un fil `BOT`.                                                                             |
 
 `GET /v3/chatbot/thread` au montage et après refresh décide le mode.
 
@@ -106,8 +115,11 @@ type ChatbotReply = {
   threadId: string;
   suggestions: ChatSuggestion[];
   waiting?: boolean;
-  choices?: ChatSuggestion[]; // présent au temps 1 (liste à choisir)
-  input?: ChatInput; // présent au temps 2 (correction)
+  live?: boolean; // un agent a pris le fil
+  status?: ThreadStatus;
+  echo?: SupportMessage; // ton message déjà stocké (WAITING / LIVE)
+  choices?: ChatSuggestion[];
+  input?: ChatInput;
 };
 
 type SupportMessage = {
@@ -153,27 +165,20 @@ Authorization: Bearer <accessToken>
 {
   "thread": { "id": "…", "status": "BOT", "createdAt": "…", "updatedAt": "…" },
   "messages": [],
-  "suggestions": [
-    {
-      "id": "select_tx:AE12",
-      "label": "AE12 · 150 · Ali K.",
-      "action": "select_tx",
-      "txid": "AE12"
-    }
-  ]
+  "suggestions": []
 }
 ```
 
-Si `thread` est `null` : widget vide + boutons ERROR s’il y en a. Le premier `POST /message` crée le fil.
+Si `thread` est `null` : widget vide, **sans** liste ERROR. Le premier `POST /message` crée le fil.
 
 Si un parcours erreur est en cours, `input` peut déjà être présent (après refresh).
 
-| `status`          | Au chargement                                                     |
-| ----------------- | ----------------------------------------------------------------- |
-| `BOT`             | Afficher `messages`. Zone de saisie. Boutons `suggestions`.       |
-| `WAITING`         | Afficher `messages`. `socket.emit('support:join', { threadId })`. |
-| `LIVE`            | Idem + saisie live + pièces jointes.                              |
-| absent / `CLOSED` | Nouveau chat bot.                                                 |
+| `status`          | Au chargement                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `BOT`             | Afficher `messages`. Zone de saisie. **Pas** de boutons ERROR (sauf si tu viens d’un POST qui a renvoyé `choices`). |
+| `WAITING`         | Afficher `messages`. `socket.emit('support:join', { threadId })`.                                                   |
+| `LIVE`            | Idem + saisie live + pièces jointes.                                                                                |
+| absent / `CLOSED` | Nouveau chat bot.                                                                                                   |
 
 ### 4.2 Envoyer un message
 
@@ -335,32 +340,41 @@ Dès que `waiting === true` : mode file (§7).
 L’IA peut citer **les** TX du client (statut, txid) mais n’invente pas.  
 Dès que le texte parle d’une **erreur de transfert** : bascule automatique au **temps 1** (§5.1). Ne pas afficher une TX « trouvée » par l’IA.
 
-Dès que `waiting === true` : file d’attente. Ne plus attendre une nouvelle phrase DeepSeek.
+Dès que `waiting === true` : file d’attente. Ne plus attendre une nouvelle phrase DeepSeek.  
+Si `live === true` ou `status === "LIVE"` : un agent est là. **`reply` est vide** — n’affiche pas une ancienne phrase bot.
 
-Tu peux encore `POST /message` en `WAITING` : le texte est **stocké et poussé à l’agent**, la réponse HTTP est `{ reply, waiting: true }`.
+Tu peux encore `POST /message` en `WAITING` / `LIVE` : le texte est stocké et poussé en socket. La réponse HTTP est `{ reply: "", waiting: true, live?, echo }`. Affiche `echo` comme ta bulle, pas `reply`.
 
 ---
 
-## 7. File d’attente et agent (socket)
+## 7. File d’attente et agent (socket) — obligatoire pour le live
+
+Connecter le socket **dès le login**, pas seulement à l’ouverture du widget.  
+`auth.token` = access JWT. Origines autorisées : `app.afrue.com` / `www.app.afrue.com` (même liste que l’API HTTP).
+
+Au `connection`, si un fil `WAITING` / `LIVE` existe, le serveur **rattache tout seul** le client à `support:{threadId}` et renvoie `support:waiting` ou `support:accepted`.
 
 ### Events à écouter (dès la connexion)
 
-| Event              | Quand                  | UI                                                     |
-| ------------------ | ---------------------- | ------------------------------------------------------ |
-| `support:waiting`  | Handoff                | Mode file. `threadId` dans le payload.                 |
-| `support:accepted` | Un agent a pris le fil | Mode LIVE. `support:join` si pas déjà fait.            |
-| `support:message`  | Nouveau message        | Ajouter la bulle (`author`, `text`, `uri` si fichier). |
-| `support:typing`   | Agent écrit            | Indicateur.                                            |
-| `support:closed`   | Agent a fermé          | Revenir au bot. Recharger `GET /thread`.               |
-| `support:history`  | Après `join`           | Remplacer la liste par `messages`.                     |
-| `support:error`    | Refus                  | Toast `message`.                                       |
+| Event              | Payload                                                            | UI                                                                                                    |
+| ------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `support:waiting`  | `{ threadId, status: "WAITING" }`                                  | Mode file. Banner « un agent va vous répondre ». `support:join`.                                      |
+| `support:accepted` | `{ threadId, adminId, status: "LIVE", agentReady: true, message }` | Mode LIVE. Banner + bulle avec `message` (« Un agent est connecté et prêt à vous répondre. »).        |
+| `support:message`  | `SupportMessage`                                                   | **Ajouter la bulle**. `author === "ADMIN"` = agent. `author === "BOT"` peut être l’annonce d’arrivée. |
+| `support:typing`   | `{ threadId, userId, isAdmin, isTyping }`                          | Si `isAdmin && isTyping` : « L’agent écrit… ». Sinon cacher.                                          |
+| `support:closed`   | `{ threadId, status: "CLOSED" }`                                   | Revenir au bot. `GET /thread`.                                                                        |
+| `support:history`  | `{ threadId, status, messages }`                                   | Remplacer les bulles (après `join`).                                                                  |
+| `support:error`    | `{ message }`                                                      | Toast.                                                                                                |
+
+Sans ces listeners, **aucune interaction live** : le POST chatbot ne renvoie plus de phrase IA.
 
 ### Events à émettre
 
 ```ts
 socket.emit("support:join", { threadId });
-socket.emit("support:message", { threadId, text }); // LIVE / WAITING
+socket.emit("support:message", { threadId, text }); // préféré en WAITING / LIVE
 socket.emit("support:typing", { threadId, isTyping: true });
+// debounce : isTyping false 1–2 s après la dernière touche
 ```
 
 Le client **ne peut pas** `accept` ni `close`.
@@ -368,8 +382,8 @@ Le client **ne peut pas** `accept` ni `close`.
 ### Refresh
 
 1. `GET /v3/chatbot/thread`
-2. Si `WAITING` ou `LIVE` → reconnecter → `support:join`
-3. Afficher `messages` + `suggestions` + `input` éventuel
+2. Si `WAITING` ou `LIVE` → socket déjà rattaché au connect, plus `support:join` pour l’historique
+3. Afficher `messages` (l’annonce agent est une bulle `BOT`)
 
 ### Pièce jointe live
 
@@ -484,14 +498,22 @@ export function buttonsFromReply(data: {
 
 ## 10. Checklist agent web app
 
-- [ ] `GET /v3/chatbot/thread` à l’ouverture du widget et au refresh
-- [ ] Temps 1 : afficher `reply` + **un bouton par** `choices` (fallback `suggestions`)
+- [ ] `GET /v3/chatbot/thread` à l’ouverture : **aucun** bloc ERROR (`suggestions` est vide)
+- [ ] Boutons ERROR **seulement** si `choices` est présent dans **cette** réponse
+- [ ] « bonjour » / FAQ : pas de liste, pas de « indiquez la référence »
+- [ ] Temps 1 : `reply` + **un bouton par** `choices`
 - [ ] Clic bouton = `{ action: "select_tx", txid }` — jamais le `label` en `message`
-- [ ] Ne pas inventer « J’ai trouvé votre transfert… » côté front
-- [ ] Remplacer les boutons après **chaque** `POST /message`
+- [ ] Retirer les boutons dès que `choices` est omis
+- [ ] Ne pas inventer « J’ai trouvé votre transfert… » ni un titre « Transferts en erreur aujourd’hui » en permanence
+- [ ] Conserver les espaces de `reply` (ne pas coller les mots)
 - [ ] `input.type === "text"` → champ n° ; submit = `{ action: "fix", txid, value }`
 - [ ] `input.type === "file"` → file picker (pas de lien dans la bulle) → `POST input.endpoint` puis `{ action: "proof_done", txid }`
 - [ ] Ne jamais afficher `input.endpoint`, un UUID, ou `(ERREUR_CAPTURE)`
+- [ ] Socket connecté au login (pas seulement dans le widget)
+- [ ] `support:accepted` → banner + `payload.message` (agent prêt)
+- [ ] `support:typing` si `isAdmin` → « L’agent écrit… »
+- [ ] `support:message` → append bulle (`ADMIN` / `CLIENT` / `BOT`)
+- [ ] `waiting` / `live` : ne pas afficher `reply` comme une nouvelle phrase bot ; utiliser `echo` + socket
 - [ ] `waiting: true` → UI file + `support:join`
 - [ ] Bulles `author` : CLIENT / BOT / ADMIN
 - [ ] Fichier live : afficher `uri` si présent
@@ -502,8 +524,10 @@ export function buttonsFromReply(data: {
 
 ## 11. Ce que tu ne fais pas
 
-- Inventer un bouton « Problème avec une transaction » si la liste est vide
+- Afficher un bloc permanent « Transferts en erreur aujourd’hui »
+- Inventer un bouton « Problème avec une transaction » si `choices` est omis
 - Choisir une TX à la place de l’utilisateur
+- Demander une référence de transfert sur un simple bonjour
 - Afficher un lien d’upload ou un code `complain`
 - Changer le montant déclaré d’une TX
 - Corriger une TX qui n’est plus `ERROR`

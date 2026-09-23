@@ -159,6 +159,7 @@ export function AiChatbot() {
     setClientTyping,
     socketError,
     clearSocketError,
+    agentReadyMessage,
   } = support;
 
   const busy = sending || uploading;
@@ -506,10 +507,14 @@ export function AiChatbot() {
               {status === "WAITING" && (
                 <p className={styles.banner}>{t("chatbot.waiting")}</p>
               )}
+              {status === "LIVE" && (
+                <p className={styles.banner}>
+                  {agentReadyMessage || t("chatbot.agentReady")}
+                </p>
+              )}
 
               {suggestions.length > 0 && (
                 <div className={styles.suggestions}>
-                  <p className={styles.proofHint}>{t("chatbot.errorChips")}</p>
                   <div className={styles.chips}>
                     {suggestions.map((suggestion) => (
                       <button

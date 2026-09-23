@@ -31,9 +31,26 @@ import {
 
 type SupportStatus = ThreadStatus | "NONE";
 
-type SupportWaitingPayload = { threadId?: string };
-type SupportTypingPayload = { threadId?: string; isTyping?: boolean };
-type SupportHistoryPayload = { messages?: unknown[] };
+type SupportWaitingPayload = { threadId?: string; status?: string };
+type SupportAcceptedPayload = {
+  threadId?: string;
+  adminId?: string;
+  status?: string;
+  agentReady?: boolean;
+  message?: string;
+};
+type SupportTypingPayload = {
+  threadId?: string;
+  userId?: string;
+  isAdmin?: boolean;
+  isTyping?: boolean;
+};
+type SupportHistoryPayload = {
+  threadId?: string;
+  status?: string;
+  messages?: unknown[];
+};
+type SupportClosedPayload = { threadId?: string; status?: string };
 type SupportErrorPayload = { message?: string };
 
 const TYPING_IDLE_MS = 2000;
@@ -51,6 +68,9 @@ export function useClientSupport(isAuthenticated: boolean) {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [socketError, setSocketError] = useState<string | null>(null);
+  const [agentReadyMessage, setAgentReadyMessage] = useState<string | null>(
+    null,
+  );
 
   const socketRef = useRef<Socket | null>(null);
   const statusRef = useRef<SupportStatus>("NONE");
@@ -91,7 +111,15 @@ export function useClientSupport(isAuthenticated: boolean) {
       setSuggestions(buttonsFromReply(data));
       syncPrompt(data.input);
 
-      if (data.waiting) {
+      const liveNow =
+        data.live === true || data.status === "LIVE";
+      const waitingNow =
+        data.waiting === true || data.status === "WAITING";
+
+      if (liveNow) {
+        syncStatus("LIVE");
+        joinThread(data.threadId);
+      } else if (waitingNow) {
         syncStatus("WAITING");
         joinThread(data.threadId);
       } else if (
@@ -101,7 +129,16 @@ export function useClientSupport(isAuthenticated: boolean) {
         syncStatus("BOT");
       }
 
-      if (data.reply) {
+      if (data.echo) {
+        const echo =
+          data.echo.author === "BOT"
+            ? { ...data.echo, text: sanitizeBotReply(data.echo.text) }
+            : data.echo;
+        setMessages((prev) => mergeSupportMessage(prev, echo));
+      }
+
+      const skipReply = liveNow || waitingNow;
+      if (data.reply && !skipReply) {
         setMessages((prev) => [
           ...prev,
           localSupportMessage("BOT", sanitizeBotReply(data.reply), {
@@ -164,8 +201,9 @@ export function useClientSupport(isAuthenticated: boolean) {
             : item,
         ),
       );
-      setSuggestions(data.suggestions);
+      setSuggestions([]);
       syncPrompt(data.input);
+      setAgentReadyMessage(null);
       if (!activeTxidRef.current) {
         const stored = readPersistedTxid();
         if (stored) syncTxid(stored);
@@ -191,6 +229,7 @@ export function useClientSupport(isAuthenticated: boolean) {
       syncPrompt(undefined);
       syncTxid(null);
       setAgentTyping(false);
+      setAgentReadyMessage(null);
       return;
     }
     void loadThread();
@@ -218,9 +257,21 @@ export function useClientSupport(isAuthenticated: boolean) {
         if (data.threadId) next.emit("support:join", { threadId: data.threadId });
       });
 
-      next.on("support:accepted", (data: SupportWaitingPayload) => {
+      next.on("support:accepted", (data: SupportAcceptedPayload) => {
         if (data.threadId) syncThreadId(data.threadId);
         syncStatus("LIVE");
+        if (data.message) {
+          const text = sanitizeBotReply(data.message);
+          setAgentReadyMessage(text);
+          setMessages((prev) =>
+            mergeSupportMessage(
+              prev,
+              localSupportMessage("BOT", text, {
+                threadId: data.threadId ?? threadIdRef.current ?? "",
+              }),
+            ),
+          );
+        }
         if (data.threadId) next.emit("support:join", { threadId: data.threadId });
       });
 
@@ -236,19 +287,25 @@ export function useClientSupport(isAuthenticated: boolean) {
       });
 
       next.on("support:typing", (data: SupportTypingPayload) => {
-        setAgentTyping(data?.isTyping === true);
+        setAgentTyping(data?.isAdmin === true && data?.isTyping === true);
       });
 
-      next.on("support:closed", () => {
+      next.on("support:closed", (_data: SupportClosedPayload) => {
         syncStatus("CLOSED");
         syncThreadId(null);
         syncPrompt(undefined);
         syncTxid(null);
         setAgentTyping(false);
+        setAgentReadyMessage(null);
+        setSuggestions([]);
         void loadThreadRef.current();
       });
 
       next.on("support:history", (data: SupportHistoryPayload) => {
+        if (data?.threadId) syncThreadId(data.threadId);
+        if (data?.status === "LIVE" || data?.status === "WAITING") {
+          syncStatus(data.status);
+        }
         const nextMessages = Array.isArray(data?.messages)
           ? data.messages
               .map((item) =>
@@ -433,5 +490,6 @@ export function useClientSupport(isAuthenticated: boolean) {
     setClientTyping,
     socketError,
     clearSocketError,
+    agentReadyMessage,
   };
 }

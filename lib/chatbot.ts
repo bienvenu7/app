@@ -23,15 +23,6 @@ export type ChatbotRequest = {
   value?: string;
 };
 
-export type ChatbotReply = {
-  reply: string;
-  threadId: string;
-  suggestions: ChatSuggestion[];
-  waiting?: boolean;
-  choices?: ChatSuggestion[];
-  input?: ChatInput;
-};
-
 export type SupportMessage = {
   id: string;
   threadId: string;
@@ -41,6 +32,18 @@ export type SupportMessage = {
   filename?: string;
   uri?: string;
   mime?: string;
+};
+
+export type ChatbotReply = {
+  reply: string;
+  threadId: string;
+  suggestions: ChatSuggestion[];
+  waiting?: boolean;
+  live?: boolean;
+  status?: ThreadStatus;
+  echo?: SupportMessage;
+  choices?: ChatSuggestion[];
+  input?: ChatInput;
 };
 
 export type ClientThreadResponse = {
@@ -98,25 +101,23 @@ const UPLOAD_PATH = /\/v3\/file\/upload\/[^\s)\].,;]*/gi;
 const UUID_RE =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 
-/** Jamais de lien d'upload, UUID ou code complain dans une bulle. */
+/** Jamais de lien d'upload, UUID ou code complain — garder les espaces du reply. */
 export function sanitizeBotReply(text: string): string {
   return text
-    .replace(UPLOAD_PATH, "")
-    .replace(INTERNAL_COMPLAIN, "")
-    .replace(UUID_RE, "")
+    .replace(UPLOAD_PATH, " ")
+    .replace(INTERNAL_COMPLAIN, " ")
+    .replace(UUID_RE, " ")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/ +\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]+([.,;:!?])/g, "$1")
     .trim();
 }
 
-/** Temps 1 : préférer `choices` ; sinon `suggestions`. */
+/** Boutons ERROR seulement si `choices` est dans cette réponse. */
 export function buttonsFromReply(data: {
   choices?: ChatSuggestion[];
-  suggestions: ChatSuggestion[];
 }): ChatSuggestion[] {
-  return data.choices ?? data.suggestions;
+  return data.choices ?? [];
 }
 
 export function isLiveSupportStatus(
@@ -228,7 +229,7 @@ function parseChatInput(value: unknown): ChatInput | undefined {
 
 export function parseChatbotReply(value: unknown): ChatbotReply | null {
   const rec = asRecord(value);
-  if (!rec || typeof rec.reply !== "string") return null;
+  if (!rec) return null;
   const threadId = asString(rec.threadId);
   if (!threadId) return null;
 
@@ -239,11 +240,20 @@ export function parseChatbotReply(value: unknown): ChatbotReply | null {
     : [];
 
   const reply: ChatbotReply = {
-    reply: rec.reply,
+    reply: typeof rec.reply === "string" ? rec.reply : "",
     threadId,
     suggestions,
   };
   if (rec.waiting === true) reply.waiting = true;
+  if (rec.live === true) reply.live = true;
+
+  const status = asString(rec.status);
+  if (status && THREAD_STATUSES.includes(status as ThreadStatus)) {
+    reply.status = status as ThreadStatus;
+  }
+
+  const echo = parseSupportMessage(rec.echo, threadId);
+  if (echo) reply.echo = echo;
 
   if (Array.isArray(rec.choices)) {
     reply.choices = rec.choices

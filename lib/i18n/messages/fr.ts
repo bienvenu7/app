@@ -406,7 +406,7 @@ const fr = {
     agentOnline: "Agent connecté",
     agentTyping: "L'agent écrit",
     agentBadge: "Agent",
-    errorChips: "Transferts en erreur aujourd'hui",
+    agentReady: "Un agent est connecté et prêt à vous répondre.",
     attachAria: "Joindre un fichier",
     attachHint: "JPEG, PNG, WebP ou PDF · 10 Mo max",
     uploadProof: "Envoyer la preuve",
