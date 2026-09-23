@@ -21,7 +21,7 @@ function buildCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://va.vercel-scripts.com https://vitals.vercel-insights.com",
+    "connect-src 'self' https://api.afrue.com wss://api.afrue.com https://va.vercel-scripts.com https://vitals.vercel-insights.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

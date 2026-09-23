@@ -205,7 +205,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const emitLiveText = useCallback((text: string) => {
     const id = threadIdRef.current;
     const socket = socketRef.current;
-    if (!socket || !id || statusRef.current !== "LIVE") return false;
+    if (!socket || !id || !isLiveSupportStatus(statusRef.current)) return false;
     setMessages((prev) => [
       ...prev,
       localSupportMessage("CLIENT", text, { threadId: id }),
@@ -440,7 +440,10 @@ export function useClientSupport(isAuthenticated: boolean) {
       const text = raw.trim();
       if (!text) return;
 
-      if (statusRef.current === "LIVE" && emitLiveText(text)) return;
+      if (isLiveSupportStatus(statusRef.current)) {
+        emitLiveText(text);
+        return;
+      }
       await postBot({ message: text }, text);
     },
     [emitLiveText, postBot],
@@ -450,9 +453,7 @@ export function useClientSupport(isAuthenticated: boolean) {
     async (suggestion: ChatSuggestion) => {
       syncTxid(suggestion.txid);
       if (statusRef.current === "LIVE") {
-        if (!emitLiveText(suggestion.label)) {
-          await postBot({ message: suggestion.label }, suggestion.label);
-        }
+        emitLiveText(suggestion.label);
         return;
       }
       await postBot(
