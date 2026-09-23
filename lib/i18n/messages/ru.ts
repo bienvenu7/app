@@ -418,6 +418,8 @@ const ru: Messages = {
     agentTyping: "Оператор печатает",
     agentBadge: "Оператор",
     agentReady: "Оператор подключён и готов вам ответить.",
+    agentJoined: "Оператор присоединился к чату.",
+    agentLeft: "Оператор покинул чат.",
     attachAria: "Прикрепить файл",
     attachHint: "JPEG, PNG, WebP или PDF · макс. 10 МБ",
     uploadProof: "Отправить подтверждение",

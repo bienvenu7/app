@@ -72,16 +72,18 @@ Un agent ne voit que les fils de son pays. `DEV` / `SUPER_ADMIN` voient tout.
 
 ## Events serveur → clients
 
-| Event | Qui | Payload |
-|---|---|---|
-| `support:request` | Admins du pays | `{ threadId, clientId, preview, status: 'WAITING' }` |
-| `support:waiting` | Client | `{ threadId, status: 'WAITING' }` |
-| `support:accepted` | Room + client + admins pays | `{ threadId, adminId, status: 'LIVE', agentReady: true, message }` |
-| `support:message` | Room + client (+ admins si WAITING) | `{ id, threadId, author, text, createdAt, filename?, uri?, mime? }` |
-| `support:typing` | Room + client (+ admins si le client tape) | `{ threadId, userId, isAdmin, isTyping }` |
-| `support:closed` | Room + client + admins pays | `{ threadId, status: 'CLOSED' }` |
-| `support:history` | Celui qui join/accept | `{ threadId, status, messages }` |
-| `support:error` | Émetteur | `{ message }` |
+| Event                  | Qui                                        | Payload                                                             |
+| ---------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| `support:request`      | Admins du pays                             | `{ threadId, clientId, preview, status: 'WAITING' }`                |
+| `support:waiting`      | Client                                     | `{ threadId, status: 'WAITING' }`                                   |
+| `support:accepted`     | Room + client + admins pays                | `{ threadId, adminId, status: 'LIVE', agentReady: true, message }`  |
+| `support:agent-joined` | Room + client                              | `{ threadId, adminId, message }`                                    |
+| `support:agent-left`   | Room + client                              | `{ threadId, adminId, message }`                                    |
+| `support:message`      | Room + client (+ admins si WAITING)        | `{ id, threadId, author, text, createdAt, filename?, uri?, mime? }` |
+| `support:typing`       | Room + client (+ admins si le client tape) | `{ threadId, userId, isAdmin, isTyping }`                           |
+| `support:closed`       | Room + client + admins pays                | `{ threadId, status: 'CLOSED' }`                                    |
+| `support:history`      | Celui qui join/accept                      | `{ threadId, status, messages }`                                    |
+| `support:error`        | Émetteur                                   | `{ message }`                                                       |
 
 `author` : `CLIENT` \| `BOT` \| `ADMIN`.
 
@@ -90,16 +92,23 @@ Un agent ne voit que les fils de son pays. `DEV` / `SUPER_ADMIN` voient tout.
 ## Events client / admin → serveur
 
 ```ts
-socket.emit('support:join', { threadId });
-socket.emit('support:accept', { threadId }); // admin
-socket.emit('support:message', { threadId, text });
-socket.emit('support:typing', { threadId, isTyping });
-socket.emit('support:close', { threadId }); // admin
+socket.emit("support:join", { threadId });
+socket.emit("support:accept", { threadId }); // admin — première prise
+socket.emit("support:message", { threadId, text });
+socket.emit("support:typing", { threadId, isTyping });
+socket.emit("support:leave", { threadId }); // admin quitte la vue (fil reste LIVE)
+socket.emit("support:close", { threadId }); // admin ferme le fil
 ```
 
-- Client : join seulement son fil. Au `connection`, un fil `WAITING` / `LIVE` le rattache tout seul et renvoie `waiting` ou `accepted`.
-- Admin : join / accept / close seulement si son pays = pays du client (ou rôle global).
-- `support:accept` (ou 1er message admin) : `WAITING` → `LIVE`, le client reçoit `accepted` + une bulle bot « Un agent est connecté… ».
-- Texte live : `support:message` uniquement. CORS socket = mêmes origines que l’API (`app.afrue.com` inclus).
-- Un autre agent du même pays peut reprendre (`support:join` sur un fil `LIVE`).
-- `CLOSED` : le prochain `POST /v3/chatbot/message` du client ouvre un nouveau fil `BOT`.
+- Client : join seulement son fil. Au `connection`, un fil `WAITING` / `LIVE` le rattache tout seul.
+- Admin : join / accept / leave / close si son pays = pays du client (ou rôle global).
+- `support:accept` : `WAITING` → `LIVE` + bulle « Un agent est connecté… ».
+- `support:join` sur un `LIVE` sans agent : bulle « Un agent a rejoint le chat. »
+- `support:leave` / disconnect du dernier agent : bulle « L’agent a quitté le chat. »
+- Texte live : `support:message` uniquement.
+
+## Production (pourquoi un refresh suffisait)
+
+L’API tourne en **3 process PM2** (`7001` / `7002` / `7003`) derrière Nginx. Sans adapter, `io.to(room)` n’atteint que les sockets **du même process**. Client et agent atterrissent souvent sur deux instances → le message est en base (visible au refresh) mais **pas poussé**.
+
+Les 3 instances partagent maintenant les rooms via **Postgres** (`@socket.io/postgres-adapter`, table `socket_io_attachments`). CORS socket = mêmes origines que l’API (`app.afrue.com` inclus).

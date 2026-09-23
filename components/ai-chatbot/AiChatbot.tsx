@@ -326,7 +326,7 @@ export function AiChatbot() {
         ? sanitizeWhatsappInput(value)
         : value.slice(0, CHATBOT_MESSAGE_MAX_LENGTH),
     );
-    if (status === "LIVE") setClientTyping(true);
+    if (status === "LIVE" || status === "WAITING") setClientTyping(true);
   };
 
   const handleSuggestion = async (suggestion: (typeof suggestions)[number]) => {

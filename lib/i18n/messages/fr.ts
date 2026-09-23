@@ -407,6 +407,8 @@ const fr = {
     agentTyping: "L'agent écrit",
     agentBadge: "Agent",
     agentReady: "Un agent est connecté et prêt à vous répondre.",
+    agentJoined: "Un agent a rejoint le chat.",
+    agentLeft: "L'agent a quitté le chat.",
     attachAria: "Joindre un fichier",
     attachHint: "JPEG, PNG, WebP ou PDF · 10 Mo max",
     uploadProof: "Envoyer la preuve",

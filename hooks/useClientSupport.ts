@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/chatbot";
 import { uploadFiles } from "@/app/actions/file";
 import { unwrapAction } from "@/lib/auth-errors";
+import { useT } from "@/lib/i18n";
 import {
   buttonsFromReply,
   isLiveSupportStatus,
@@ -51,12 +52,18 @@ type SupportHistoryPayload = {
   messages?: unknown[];
 };
 type SupportClosedPayload = { threadId?: string; status?: string };
+type SupportAgentPayload = {
+  threadId?: string;
+  adminId?: string;
+  message?: string;
+};
 type SupportErrorPayload = { message?: string };
 
 const TYPING_IDLE_MS = 2000;
 const TOKEN_REFRESH_SKEW_MS = 60_000;
 
 export function useClientSupport(isAuthenticated: boolean) {
+  const t = useT();
   const [status, setStatus] = useState<SupportStatus>("NONE");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -104,6 +111,23 @@ export function useClientSupport(isAuthenticated: boolean) {
   const joinThread = useCallback((id: string) => {
     socketRef.current?.emit("support:join", { threadId: id });
   }, []);
+
+  const appendBotNotice = useCallback(
+    (threadId: string | undefined, message: string | undefined) => {
+      if (!message?.trim()) return;
+      const text = sanitizeBotReply(message);
+      setAgentReadyMessage(text);
+      setMessages((prev) =>
+        mergeSupportMessage(
+          prev,
+          localSupportMessage("BOT", text, {
+            threadId: threadId ?? threadIdRef.current ?? "",
+          }),
+        ),
+      );
+    },
+    [],
+  );
 
   const applyReply = useCallback(
     (data: ChatbotReply) => {
@@ -260,19 +284,21 @@ export function useClientSupport(isAuthenticated: boolean) {
       next.on("support:accepted", (data: SupportAcceptedPayload) => {
         if (data.threadId) syncThreadId(data.threadId);
         syncStatus("LIVE");
-        if (data.message) {
-          const text = sanitizeBotReply(data.message);
-          setAgentReadyMessage(text);
-          setMessages((prev) =>
-            mergeSupportMessage(
-              prev,
-              localSupportMessage("BOT", text, {
-                threadId: data.threadId ?? threadIdRef.current ?? "",
-              }),
-            ),
-          );
-        }
+        appendBotNotice(data.threadId, data.message || t("chatbot.agentReady"));
         if (data.threadId) next.emit("support:join", { threadId: data.threadId });
+      });
+
+      next.on("support:agent-joined", (data: SupportAgentPayload) => {
+        if (data.threadId) syncThreadId(data.threadId);
+        syncStatus("LIVE");
+        appendBotNotice(data.threadId, data.message || t("chatbot.agentJoined"));
+        if (data.threadId) next.emit("support:join", { threadId: data.threadId });
+      });
+
+      next.on("support:agent-left", (data: SupportAgentPayload) => {
+        if (data.threadId) syncThreadId(data.threadId);
+        setAgentTyping(false);
+        appendBotNotice(data.threadId, data.message || t("chatbot.agentLeft"));
       });
 
       next.on("support:message", (raw: unknown) => {
@@ -360,7 +386,7 @@ export function useClientSupport(isAuthenticated: boolean) {
       socket?.disconnect();
       socketRef.current = null;
     };
-  }, [isAuthenticated, syncPrompt, syncStatus, syncThreadId, syncTxid]);
+  }, [appendBotNotice, isAuthenticated, syncPrompt, syncStatus, syncThreadId, syncTxid, t]);
 
   const sendText = useCallback(
     async (raw: string) => {
@@ -455,7 +481,7 @@ export function useClientSupport(isAuthenticated: boolean) {
   const setClientTyping = useCallback((isTyping: boolean) => {
     const id = threadIdRef.current;
     const socket = socketRef.current;
-    if (!id || !socket || statusRef.current !== "LIVE") return;
+    if (!id || !socket || !isLiveSupportStatus(statusRef.current)) return;
 
     if (isTyping) {
       socket.emit("support:typing", { threadId: id, isTyping: true });
