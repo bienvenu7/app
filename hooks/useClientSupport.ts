@@ -361,6 +361,9 @@ export function useClientSupport(isAuthenticated: boolean) {
           auth: { token: auth.token },
           transports: ["websocket", "polling"],
         });
+        socket.on("connect_error", (err) => {
+          setSocketError(err.message);
+        });
         socketRef.current = socket;
         attach(socket);
 

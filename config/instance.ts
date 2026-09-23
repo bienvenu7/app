@@ -19,8 +19,8 @@ import {
 import { toAuthHttpError } from "@/lib/auth-errors";
 
 /**
- * BFF — axios serveur uniquement. Le navigateur n'appelle pas api.afrue.com
- * et n'a plus de rewrite `/v3` (C1).
+ * BFF — axios serveur uniquement. Le navigateur n'appelle pas cette URL.
+ * Le socket client utilise `NEXT_PUBLIC_API_URL` (origine sans `/v3`).
  */
 // export const baseURL = "https://api.afrue.com/v3/";
 export const baseURL = "http://localhost:7001/v3/";

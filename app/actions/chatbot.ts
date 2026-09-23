@@ -25,13 +25,27 @@ import {
   MAX_PROOF_FILE_BYTES,
 } from "@/lib/upload-proof";
 
+/**
+ * Le navigateur se connecte ici — pas le BFF.
+ * `baseURL` (localhost:7001/v3) est uniquement pour axios côté serveur.
+ * Envoyer localhost au client casse le socket dès que la page n'est pas
+ * ouverte sur la même machine que l'API.
+ */
 function socketOrigin(): string {
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "");
   if (fromEnv) return fromEnv.replace(/\/v3$/i, "");
+
   try {
-    return new URL(baseURL).origin;
+    const origin = new URL(baseURL).origin;
+    const loopback = /localhost|127\.0\.0\.1/i.test(origin);
+    if (loopback && process.env.NODE_ENV === "production") {
+      return "https://api.afrue.com";
+    }
+    return origin;
   } catch {
-    return "http://localhost:7001";
+    return process.env.NODE_ENV === "production"
+      ? "https://api.afrue.com"
+      : "http://localhost:7001";
   }
 }
 
