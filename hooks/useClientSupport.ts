@@ -10,7 +10,6 @@ import {
 } from "@/app/actions/chatbot";
 import { uploadFiles } from "@/app/actions/file";
 import { unwrapAction } from "@/lib/auth-errors";
-import { useT } from "@/lib/i18n";
 import {
   buttonsFromReply,
   isLiveSupportStatus,
@@ -39,6 +38,7 @@ type SupportAcceptedPayload = {
   status?: string;
   agentReady?: boolean;
   message?: string;
+  replay?: boolean;
 };
 type SupportTypingPayload = {
   threadId?: string;
@@ -63,7 +63,6 @@ const TYPING_IDLE_MS = 2000;
 const TOKEN_REFRESH_SKEW_MS = 60_000;
 
 export function useClientSupport(isAuthenticated: boolean) {
-  const t = useT();
   const [status, setStatus] = useState<SupportStatus>("NONE");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -112,21 +111,30 @@ export function useClientSupport(isAuthenticated: boolean) {
     socketRef.current?.emit("support:join", { threadId: id });
   }, []);
 
-  const appendBotNotice = useCallback(
-    (threadId: string | undefined, message: string | undefined) => {
+  const matchesOpenThread = useCallback((eventThreadId: string | undefined) => {
+    if (!eventThreadId) return false;
+    const current = threadIdRef.current;
+    return !current || current === eventThreadId;
+  }, []);
+
+  const appendSystem = useCallback(
+    (eventThreadId: string | undefined, message: string | undefined) => {
       if (!message?.trim()) return;
+      if (eventThreadId && !matchesOpenThread(eventThreadId)) return;
       const text = sanitizeBotReply(message);
-      setAgentReadyMessage(text);
-      setMessages((prev) =>
-        mergeSupportMessage(
+      setMessages((prev) => {
+        if (prev.some((item) => item.author === "BOT" && item.text === text)) {
+          return prev;
+        }
+        return mergeSupportMessage(
           prev,
           localSupportMessage("BOT", text, {
-            threadId: threadId ?? threadIdRef.current ?? "",
+            threadId: eventThreadId ?? threadIdRef.current ?? "",
           }),
-        ),
-      );
+        );
+      });
     },
-    [],
+    [matchesOpenThread],
   );
 
   const applyReply = useCallback(
@@ -135,10 +143,9 @@ export function useClientSupport(isAuthenticated: boolean) {
       setSuggestions(buttonsFromReply(data));
       syncPrompt(data.input);
 
-      const liveNow =
-        data.live === true || data.status === "LIVE";
-      const waitingNow =
-        data.waiting === true || data.status === "WAITING";
+      const alreadyHuman = isLiveSupportStatus(statusRef.current);
+      const liveNow = data.live === true || data.status === "LIVE";
+      const waitingNow = data.waiting === true || data.status === "WAITING";
 
       if (liveNow) {
         syncStatus("LIVE");
@@ -161,7 +168,7 @@ export function useClientSupport(isAuthenticated: boolean) {
         setMessages((prev) => mergeSupportMessage(prev, echo));
       }
 
-      const skipReply = liveNow || waitingNow;
+      const skipReply = liveNow || waitingNow || alreadyHuman;
       if (data.reply && !skipReply) {
         setMessages((prev) => [
           ...prev,
@@ -198,16 +205,14 @@ export function useClientSupport(isAuthenticated: boolean) {
   const emitLiveText = useCallback((text: string) => {
     const id = threadIdRef.current;
     const socket = socketRef.current;
+    if (!socket || !id || statusRef.current !== "LIVE") return false;
     setMessages((prev) => [
       ...prev,
-      localSupportMessage("CLIENT", text, { threadId: id ?? "" }),
+      localSupportMessage("CLIENT", text, { threadId: id }),
     ]);
-    if (socket && id) {
-      socket.emit("support:message", { threadId: id, text });
-      socket.emit("support:typing", { threadId: id, isTyping: false });
-      return true;
-    }
-    return false;
+    socket.emit("support:message", { threadId: id, text });
+    socket.emit("support:typing", { threadId: id, isTyping: false });
+    return true;
   }, []);
 
   const loadThread = useCallback(async () => {
@@ -267,6 +272,10 @@ export function useClientSupport(isAuthenticated: boolean) {
     let socket: Socket | null = null;
 
     const attach = (next: Socket) => {
+      next.on("connect_error", (err: Error) => {
+        console.warn("[socket]", err.message);
+      });
+
       next.on("connect", () => {
         const id = threadIdRef.current;
         if (id && isLiveSupportStatus(statusRef.current)) {
@@ -275,35 +284,50 @@ export function useClientSupport(isAuthenticated: boolean) {
       });
 
       next.on("support:waiting", (data: SupportWaitingPayload) => {
-        if (data.threadId) syncThreadId(data.threadId);
+        if (!data.threadId) return;
+        syncThreadId(data.threadId);
         syncStatus("WAITING");
         setAgentTyping(false);
-        if (data.threadId) next.emit("support:join", { threadId: data.threadId });
+        next.emit("support:join", { threadId: data.threadId });
       });
 
       next.on("support:accepted", (data: SupportAcceptedPayload) => {
-        if (data.threadId) syncThreadId(data.threadId);
+        if (!data.threadId) return;
+        syncThreadId(data.threadId);
         syncStatus("LIVE");
-        appendBotNotice(data.threadId, data.message || t("chatbot.agentReady"));
-        if (data.threadId) next.emit("support:join", { threadId: data.threadId });
+        setAgentTyping(false);
+        next.emit("support:join", { threadId: data.threadId });
+        if (data.replay || !data.message) return;
+        setAgentReadyMessage(sanitizeBotReply(data.message));
+        appendSystem(data.threadId, data.message);
       });
 
       next.on("support:agent-joined", (data: SupportAgentPayload) => {
+        if (!matchesOpenThread(data.threadId)) return;
         if (data.threadId) syncThreadId(data.threadId);
         syncStatus("LIVE");
-        appendBotNotice(data.threadId, data.message || t("chatbot.agentJoined"));
-        if (data.threadId) next.emit("support:join", { threadId: data.threadId });
+        appendSystem(data.threadId, data.message);
       });
 
       next.on("support:agent-left", (data: SupportAgentPayload) => {
-        if (data.threadId) syncThreadId(data.threadId);
+        if (!matchesOpenThread(data.threadId)) return;
         setAgentTyping(false);
-        appendBotNotice(data.threadId, data.message || t("chatbot.agentLeft"));
+        appendSystem(data.threadId, data.message);
       });
 
       next.on("support:message", (raw: unknown) => {
         const parsed = parseSupportMessage(raw, threadIdRef.current ?? "");
         if (!parsed) return;
+        if (
+          parsed.threadId &&
+          threadIdRef.current &&
+          parsed.threadId !== threadIdRef.current
+        ) {
+          return;
+        }
+        if (parsed.threadId && !threadIdRef.current) {
+          syncThreadId(parsed.threadId);
+        }
         const nextMsg =
           parsed.author === "BOT"
             ? { ...parsed, text: sanitizeBotReply(parsed.text) }
@@ -313,12 +337,20 @@ export function useClientSupport(isAuthenticated: boolean) {
       });
 
       next.on("support:typing", (data: SupportTypingPayload) => {
-        setAgentTyping(data?.isAdmin === true && data?.isTyping === true);
+        if (!data.threadId || data.threadId !== threadIdRef.current) return;
+        if (data.isAdmin !== true) return;
+        setAgentTyping(data.isTyping === true);
       });
 
-      next.on("support:closed", (_data: SupportClosedPayload) => {
-        syncStatus("CLOSED");
-        syncThreadId(null);
+      next.on("support:closed", (data: SupportClosedPayload) => {
+        if (
+          data.threadId &&
+          threadIdRef.current &&
+          data.threadId !== threadIdRef.current
+        ) {
+          return;
+        }
+        syncStatus("BOT");
         syncPrompt(undefined);
         syncTxid(null);
         setAgentTyping(false);
@@ -328,23 +360,27 @@ export function useClientSupport(isAuthenticated: boolean) {
       });
 
       next.on("support:history", (data: SupportHistoryPayload) => {
-        if (data?.threadId) syncThreadId(data.threadId);
-        if (data?.status === "LIVE" || data?.status === "WAITING") {
+        if (!data.threadId || !matchesOpenThread(data.threadId)) return;
+        syncThreadId(data.threadId);
+        if (
+          data.status === "BOT" ||
+          data.status === "WAITING" ||
+          data.status === "LIVE" ||
+          data.status === "CLOSED"
+        ) {
           syncStatus(data.status);
         }
-        const nextMessages = Array.isArray(data?.messages)
-          ? data.messages
-              .map((item) =>
-                parseSupportMessage(item, threadIdRef.current ?? ""),
-              )
-              .filter((item): item is SupportMessage => !!item)
-              .map((item) =>
-                item.author === "BOT"
-                  ? { ...item, text: sanitizeBotReply(item.text) }
-                  : item,
-              )
-          : [];
-        setMessages(nextMessages);
+        if (!Array.isArray(data.messages)) return;
+        setMessages(
+          data.messages
+            .map((item) => parseSupportMessage(item, data.threadId))
+            .filter((item): item is SupportMessage => !!item)
+            .map((item) =>
+              item.author === "BOT"
+                ? { ...item, text: sanitizeBotReply(item.text) }
+                : item,
+            ),
+        );
       });
 
       next.on("support:error", (data: SupportErrorPayload) => {
@@ -389,21 +425,22 @@ export function useClientSupport(isAuthenticated: boolean) {
       socket?.disconnect();
       socketRef.current = null;
     };
-  }, [appendBotNotice, isAuthenticated, syncPrompt, syncStatus, syncThreadId, syncTxid, t]);
+  }, [
+    appendSystem,
+    isAuthenticated,
+    matchesOpenThread,
+    syncPrompt,
+    syncStatus,
+    syncThreadId,
+    syncTxid,
+  ]);
 
   const sendText = useCallback(
     async (raw: string) => {
       const text = raw.trim();
       if (!text) return;
 
-      const current = statusRef.current;
-      if (isLiveSupportStatus(current)) {
-        if (!emitLiveText(text)) {
-          await postBot({ message: text }, text);
-        }
-        return;
-      }
-
+      if (statusRef.current === "LIVE" && emitLiveText(text)) return;
       await postBot({ message: text }, text);
     },
     [emitLiveText, postBot],

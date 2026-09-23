@@ -150,7 +150,6 @@ export function AiChatbot() {
     agentTyping,
     sending,
     uploading,
-    loadThread,
     sendText,
     sendSuggestion,
     sendPhoneFix,
@@ -171,9 +170,6 @@ export function AiChatbot() {
   const fabRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const openedOnce = useRef(false);
-  const loadThreadRef = useRef(loadThread);
-  loadThreadRef.current = loadThread;
   const dragState = useRef({
     pointerId: -1,
     startX: 0,
@@ -213,15 +209,6 @@ export function AiChatbot() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending, agentTyping, isOpen, suggestions]);
-
-  useEffect(() => {
-    if (!isOpen || !isAuthenticated) return;
-    if (!openedOnce.current) {
-      openedOnce.current = true;
-      return;
-    }
-    void loadThreadRef.current();
-  }, [isOpen, isAuthenticated]);
 
   useEffect(() => {
     if (!socketError) return;
