@@ -20,10 +20,30 @@ import { toAuthHttpError } from "@/lib/auth-errors";
 
 /**
  * BFF — axios serveur uniquement. Le navigateur n'appelle pas cette URL.
- * Le socket client utilise `NEXT_PUBLIC_API_URL` (origine sans `/v3`).
+ * Le socket client utilise la même origine, sans `/v3`.
+ *
+ * `NEXT_PUBLIC_API_URL` : `http://localhost:7001` en local, `https://api.afrue.com` sur le VPS.
+ * Sans variable, la prod ne doit pas retomber sur localhost (rien n'écoute sur :7001).
  */
-// export const baseURL = "https://api.afrue.com/v3/";
-export const baseURL = "http://localhost:7001/v3/";
+function resolveBaseURL(): string {
+  const fromEnv = (
+    process.env.API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    ""
+  )
+    .trim()
+    .replace(/\/+$/, "");
+
+  const origin =
+    fromEnv ||
+    (process.env.NODE_ENV === "production"
+      ? "https://api.afrue.com"
+      : "http://localhost:7001");
+
+  return origin.replace(/\/v3$/i, "") + "/v3/";
+}
+
+export const baseURL = resolveBaseURL();
 
 /** Node on macOS often hangs ~75s on a broken IPv6 (AAAA) path before falling back to IPv4. */
 const ipv4Agent = new https.Agent({ family: 4, keepAlive: true });
