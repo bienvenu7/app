@@ -360,9 +360,9 @@ export function useClientSupport(isAuthenticated: boolean) {
         socket = io(auth.url, {
           auth: { token: auth.token },
           transports: ["websocket", "polling"],
-        });
-        socket.on("connect_error", (err) => {
-          setSocketError(err.message);
+          reconnection: true,
+          reconnectionAttempts: 8,
+          reconnectionDelay: 2000,
         });
         socketRef.current = socket;
         attach(socket);

@@ -25,28 +25,44 @@ import {
   MAX_PROOF_FILE_BYTES,
 } from "@/lib/upload-proof";
 
+function isLoopbackOrigin(origin: string): boolean {
+  return /localhost|127\.0\.0\.1/i.test(origin);
+}
+
+function originFromUrl(raw: string | undefined): string | null {
+  const trimmed = raw?.trim().replace(/\/+$/, "");
+  if (!trimmed) return null;
+  try {
+    return new URL(trimmed.replace(/\/v3$/i, "")).origin;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Le navigateur se connecte ici — pas le BFF.
- * `baseURL` (localhost:7001/v3) est uniquement pour axios côté serveur.
- * Envoyer localhost au client casse le socket dès que la page n'est pas
- * ouverte sur la même machine que l'API.
+ * URL vue par le navigateur. Jamais localhost en production :
+ * le téléphone / app.afrue.com ne peut pas joindre le VPS via 127.0.0.1.
  */
 function socketOrigin(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "");
-  if (fromEnv) return fromEnv.replace(/\/v3$/i, "");
-
-  try {
-    const origin = new URL(baseURL).origin;
-    const loopback = /localhost|127\.0\.0\.1/i.test(origin);
-    if (loopback && process.env.NODE_ENV === "production") {
-      return "https://api.afrue.com";
-    }
-    return origin;
-  } catch {
-    return process.env.NODE_ENV === "production"
-      ? "https://api.afrue.com"
-      : "http://localhost:7001";
+  const fromEnv = originFromUrl(process.env.NEXT_PUBLIC_API_URL);
+  if (
+    fromEnv &&
+    (!isLoopbackOrigin(fromEnv) || process.env.NODE_ENV !== "production")
+  ) {
+    return fromEnv;
   }
+
+  const fromBase = originFromUrl(baseURL);
+  if (
+    fromBase &&
+    (!isLoopbackOrigin(fromBase) || process.env.NODE_ENV !== "production")
+  ) {
+    return fromBase;
+  }
+
+  return process.env.NODE_ENV === "production"
+    ? "https://api.afrue.com"
+    : "http://localhost:7001";
 }
 
 export const getChatbotThread = async (): Promise<ClientThreadResponse> => {
