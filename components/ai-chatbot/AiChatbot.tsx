@@ -9,6 +9,7 @@ import {
   isLiveSupportStatus,
   isProofFileInput,
   isReceiverPhoneInput,
+  receiverPhoneValue,
   sanitizeBotReply,
   type SupportAuthor,
   type SupportMessage,
@@ -30,7 +31,7 @@ import {
   validateProofFiles,
 } from "@/lib/upload-proof";
 import { compressImageFile } from "@/lib/compress-image";
-import { sanitizeWhatsappInput, WHATSAPP_PATTERN } from "@/lib/phone-rules";
+import { sanitizeWhatsappInput } from "@/lib/phone-rules";
 
 const FAB_SIZE_MOBILE = 44;
 const FAB_SIZE_DESKTOP = 56;
@@ -139,7 +140,6 @@ export function AiChatbot() {
   );
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [proofFile, setProofFile] = useState<File | null>(null);
 
   const support = useClientSupport(isAuthenticated);
   const {
@@ -275,8 +275,22 @@ export function AiChatbot() {
 
   const handleSendMessage = useCallback(async () => {
     const trimmed = input.trim();
-    const phoneValue = sanitizeWhatsappInput(trimmed);
     if (!trimmed || busy) return;
+
+    if (phonePrompt) {
+      const digits = receiverPhoneValue(trimmed);
+      if (!digits) {
+        toast.error(t("chatbot.phoneInvalid"));
+        return;
+      }
+      setInput("");
+      try {
+        await sendPhoneFix(digits);
+      } catch (error) {
+        toast.error(toastSendError(error));
+      }
+      return;
+    }
 
     if (trimmed.length > CHATBOT_MESSAGE_MAX_LENGTH) {
       toast.error(t("chatbot.messageTooLong"));
@@ -285,11 +299,7 @@ export function AiChatbot() {
 
     setInput("");
     try {
-      if (phonePrompt && WHATSAPP_PATTERN.test(phoneValue)) {
-        await sendPhoneFix(phoneValue);
-      } else {
-        await sendText(trimmed);
-      }
+      await sendText(trimmed);
     } catch (error) {
       toast.error(toastSendError(error));
     }
@@ -345,7 +355,14 @@ export function AiChatbot() {
     if (!file) return;
 
     if (proofPrompt) {
-      setProofFile(file);
+      void (async () => {
+        try {
+          const compressed = await compressImageFile(file);
+          await uploadProof(compressed);
+        } catch (error) {
+          toast.error(toastSendError(error));
+        }
+      })();
       return;
     }
 
@@ -360,17 +377,6 @@ export function AiChatbot() {
         );
       }
     })();
-  };
-
-  const handleProofUpload = async () => {
-    if (!proofFile || busy) return;
-    try {
-      const compressed = await compressImageFile(proofFile);
-      await uploadProof(compressed);
-      setProofFile(null);
-    } catch (error) {
-      toast.error(toastSendError(error));
-    }
   };
 
   const subtitle =
@@ -507,7 +513,7 @@ export function AiChatbot() {
                       <button
                         key={suggestion.id}
                         type="button"
-                        className={styles.suggestionBtn}
+                        className={`${styles.suggestionBtn} ${styles.txChoice}`}
                         disabled={busy}
                         onClick={() => void handleSuggestion(suggestion)}
                       >
@@ -521,29 +527,14 @@ export function AiChatbot() {
               {showGuidedInput && proofPrompt && (
                 <div className={styles.guided}>
                   <p className={styles.proofHint}>{t("chatbot.attachHint")}</p>
-                  <div className={styles.proofRow}>
-                    <button
-                      type="button"
-                      className={styles.suggestionBtn}
-                      disabled={busy}
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      {t("chatbot.chooseFile")}
-                    </button>
-                    {proofFile && (
-                      <>
-                        <span className={styles.fileName}>{proofFile.name}</span>
-                        <button
-                          type="button"
-                          className={styles.suggestionBtn}
-                          disabled={busy}
-                          onClick={() => void handleProofUpload()}
-                        >
-                          {t("chatbot.uploadProof")}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    className={styles.suggestionBtn}
+                    disabled={busy}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {t("chatbot.chooseFile")}
+                  </button>
                 </div>
               )}
 

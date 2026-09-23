@@ -4,7 +4,10 @@ export type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
 export type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
 export type ChatbotAction = "select_tx" | "fix" | "proof_done" | "handoff";
 
-/** Une TX ERROR du jour — message présélectionné. */
+/**
+ * Une transaction du jour (brouillons exclus, 20 maximum).
+ * `label` est déjà explicite : l'afficher tel quel, sans le découper.
+ */
 export type ChatSuggestion = {
   id: string;
   label: string;
@@ -113,11 +116,25 @@ export function sanitizeBotReply(text: string): string {
     .trim();
 }
 
-/** Boutons ERROR seulement si `choices` est dans cette réponse. */
+/**
+ * Boutons de cette réponse uniquement.
+ * `choices` s'il est présent — y compris `[]`, pour retirer les boutons.
+ * Sinon `suggestions` (même liste). Ne jamais recycler une liste précédente.
+ */
 export function buttonsFromReply(data: {
   choices?: ChatSuggestion[];
+  suggestions?: ChatSuggestion[];
 }): ChatSuggestion[] {
-  return data.choices ?? [];
+  if (data.choices !== undefined) return data.choices;
+  return data.suggestions ?? [];
+}
+
+const RECEIVER_PHONE = /^\d{9,15}$/;
+
+/** Chiffres seuls, indicatif, 9 à 15, sans `+`. Sinon le champ ne part pas en `fix`. */
+export function receiverPhoneValue(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  return RECEIVER_PHONE.test(digits) ? digits : null;
 }
 
 export function isLiveSupportStatus(

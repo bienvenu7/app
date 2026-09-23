@@ -19,6 +19,7 @@ import {
   parseSupportMessage,
   persistActiveTxid,
   readPersistedTxid,
+  receiverPhoneValue,
   sanitizeBotReply,
   transactionIdFromProofInput,
   type ChatbotRequest,
@@ -444,6 +445,7 @@ export function useClientSupport(isAuthenticated: boolean) {
         emitLiveText(text);
         return;
       }
+      // « j'ai payé », « j'ai envoyé » ou un numéro collé ici ne changent pas le statut.
       await postBot({ message: text }, text);
     },
     [emitLiveText, postBot],
@@ -452,26 +454,22 @@ export function useClientSupport(isAuthenticated: boolean) {
   const sendSuggestion = useCallback(
     async (suggestion: ChatSuggestion) => {
       syncTxid(suggestion.txid);
-      if (statusRef.current === "LIVE") {
-        emitLiveText(suggestion.label);
-        return;
-      }
       await postBot(
-        { action: suggestion.action, txid: suggestion.txid },
+        { action: "select_tx", txid: suggestion.txid },
         suggestion.label,
       );
     },
-    [emitLiveText, postBot, syncTxid],
+    [postBot, syncTxid],
   );
 
   const sendPhoneFix = useCallback(
     async (value: string) => {
+      const digits = receiverPhoneValue(value);
       const txid = activeTxidRef.current;
-      if (txid) {
-        await postBot({ action: "fix", txid, value }, value);
-        return;
+      if (!digits || !txid) {
+        throw new Error("invalid_phone_fix");
       }
-      await postBot({ message: value }, value);
+      await postBot({ action: "fix", txid, value: digits }, digits);
     },
     [postBot],
   );

@@ -18,12 +18,12 @@ POST /v3/chatbot/message
 → { reply, threadId, suggestions, waiting?, choices?, input? }
 ```
 
-Parcours ERROR (2 temps) :
+Transactions du jour (2 temps) :
 
-Les boutons ERROR n’existent **que** si le client vient d’en parler. « bonjour » / `GET /thread` → `suggestions: []`, pas de `choices`.
+Les boutons n’existent **que** si `choices` est dans la réponse en cours. « bonjour » / FAQ / `GET /thread` → `suggestions: []`, pas de `choices`.
 
-1. Message « problème avec une transaction » → `reply` « Veuillez choisir la transaction pour continuer. » + `choices` = un bouton par TX ERROR (`{ id, label, action: "select_tx", txid }`).
-2. Clic → `{ "action": "select_tx", "txid": "AE12" }` → l’IA guide la correction. `reply` sans code interne ni lien `/v3/file/…`.
+1. Message lié à une transaction → `reply` « Veuillez choisir la transaction pour continuer. » + `choices` = un bouton par transaction du jour (brouillons exclus, 20 max). `label` tel quel.
+2. Clic → `{ "action": "select_tx", "txid": "AE12" }` — jamais le `label` en `message`. `reply` sans code interne ni lien `/v3/file/…`.
 
 ```http
 { "action": "select_tx", "txid": "AE12" }
@@ -31,9 +31,9 @@ Les boutons ERROR n’existent **que** si le client vient d’en parler. « bonj
 { "action": "proof_done", "txid": "AE12" }
 ```
 
-`input.type=file` → file picker front, `POST input.endpoint`, puis `proof_done`.  
-`input.type=text` → nouvel `receiverPhone`.  
-`suggestions` = même liste ERROR (peut être vide).
+`input.type=file` → file picker, `POST input.endpoint` (statut inchangé), puis tout de suite `proof_done`.  
+`input.type=text` / `receiverPhone` → `{ action: "fix", txid, value }` uniquement. Un `{ "message": "…" }` ne remet pas la transaction en cours.  
+`suggestions` = même liste (souvent `[]` quand `choices` est rempli).
 
 Si `waiting: true`, ne plus attendre DeepSeek : écouter la socket.
 

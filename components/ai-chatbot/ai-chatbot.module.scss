@@ -283,7 +283,7 @@ $z-panel: 90;
 
 .chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -310,20 +310,11 @@ $z-panel: 90;
   }
 }
 
-.proofRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.fileName {
-  font-size: 12px;
-  color: $text-muted;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.txChoice {
+  width: 100%;
+  border-radius: $r-sm;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .proofHint {

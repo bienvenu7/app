@@ -30,7 +30,7 @@ export const uploadFiles = async (
 
     const formData = new FormData();
     files.forEach((file) => formData.append("file", file));
-    formData.append("comment", comment);
+    if (comment.trim()) formData.append("comment", comment.trim());
 
     const { data } = await instance.post(
       `file/upload/${apiPathSegment(id)}`,

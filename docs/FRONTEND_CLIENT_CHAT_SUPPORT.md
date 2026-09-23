@@ -14,24 +14,30 @@ Docs liées :
 
 ## 0. Contrat produit (à respecter à la lettre)
 
-### Les TX en erreur n’apparaissent que si le client en parle
+### Les transactions du jour n’apparaissent que si le client en parle
+
+Ce ne sont plus seulement les transactions en erreur. Ce sont **toutes les transactions du jour** du client (brouillons exclus), 20 maximum.
 
 **Interdit** : un bloc permanent « Transferts en erreur aujourd’hui » sous un « bonjour », une FAQ, ou au montage du widget.
 
-| Situation                                              | Boutons ERROR                                | L’IA parle des ERROR                                |
-| ------------------------------------------------------ | -------------------------------------------- | --------------------------------------------------- |
-| « bonjour », salut, FAQ, statut                        | **Aucun.** `suggestions: []`, `choices` omis | Non                                                 |
-| `GET /thread` au open / refresh                        | **Aucun.** `suggestions: []`                 | Non                                                 |
-| Le client **écrit** qu’il a un problème de transaction | `choices` = un bouton par TX ERROR           | « Veuillez choisir la transaction pour continuer. » |
-| Clic sur un bouton                                     | `input` (champ / file picker)                | Motif en langage courant + correction               |
+| Situation                                              | Boutons                                          | L’IA                                                |
+| ------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------- |
+| « bonjour », FAQ (« comment envoyer », frais, pays)    | **Aucun.** `suggestions: []`, `choices` omis     | Non                                                 |
+| `GET /thread` au open / refresh                        | **Aucun.**                                       | Non                                                 |
+| Message lié à une transaction                          | Un bouton par `choices[]`                        | « Veuillez choisir la transaction pour continuer. » |
+| Clic sur un bouton                                     | `input` (champ / file picker)                    | `reply` renvoyé, sans inventer le statut            |
 
-Si `choices` est **omis** dans **cette** réponse : retire les boutons. Ne recycle pas une ancienne liste.
+Si `choices` est **omis** dans **cette** réponse : retire les boutons. Ne recycle pas une ancienne liste. Préférer `choices` ; sinon `suggestions` de **cette** réponse.
 
-### Parcours erreur = 2 temps (seulement après notification client)
+Liste vide : « Aucune transaction aujourd’hui. » — pas de bouton.
+
+Dire « j’ai payé », « j’ai envoyé la preuve » ou coller un numéro dans le champ de chat **ne change pas** le statut. Ne pas en déduire « en cours ». Seuls `fix` et `proof_done` remettent la transaction en cours.
+
+### Parcours = 2 temps (seulement après que le client parle d’une transaction)
 
 | Temps | Déclencheur                                     | `reply`                                             | Boutons   |
 | ----- | ----------------------------------------------- | --------------------------------------------------- | --------- |
-| 1     | Le client **parle** d’une erreur de transaction | « Veuillez choisir la transaction pour continuer. » | `choices` |
+| 1     | Le client **parle** d’une transaction           | « Veuillez choisir la transaction pour continuer. » | `choices` |
 | 2     | Clic `{ action: "select_tx", txid }`            | Motif en langage courant + ce qu’il faut corriger   | `input`   |
 
 L’IA **ne choisit jamais** une TX toute seule.  
@@ -57,9 +63,9 @@ Trois modes, un seul widget :
 
 | Mode           | `thread.status`        | Comportement UI                                                                                                    |
 | -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Bot            | `BOT`                  | Bulles. Boutons ERROR **uniquement** si `choices` est dans la dernière réponse. Si `input` : champ ou file picker. |
-| File d’attente | `WAITING`              | « Un agent va vous répondre ». Socket. Les boutons ERROR restent utilisables pour auto-correction.                 |
-| Agent          | `LIVE`                 | Chat temps réel. Pièces jointes. Typing. Les boutons ERROR ne relancent **pas** le bot.                            |
+| Bot            | `BOT`                  | Bulles. Boutons **uniquement** si `choices` est dans la dernière réponse. Si `input` : champ ou file picker. |
+| File d’attente | `WAITING`              | « Un agent va vous répondre ». Socket. Un clic de transaction envoie `{ action: "select_tx", txid }`.        |
+| Agent          | `LIVE`                 | Chat temps réel. Pièces jointes. Typing. Un clic de transaction envoie `{ action: "select_tx", txid }`, jamais le label. |
 | Fermé          | `CLOSED` ou pas de fil | Le prochain message crée un fil `BOT`.                                                                             |
 
 `GET /v3/chatbot/thread` au montage et après refresh décide le mode.
@@ -91,10 +97,10 @@ Le client rejoint automatiquement la room `{userId}`. Ne pas inventer d’autres
 type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
 type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
 
-/** Une TX ERROR du jour — un bouton. */
+/** Une transaction du jour — un bouton. `label` tel quel. */
 type ChatSuggestion = {
   id: string; // "select_tx:{txid}"
-  label: string; // "AE12 · 150 · Ali K."
+  label: string; // "AE12 · 14:32 · Russie - Mali · envoi 15 000 · Ali Koné · 79001234567 · en erreur · numéro destinataire invalide"
   action: "select_tx";
   txid: string;
 };
@@ -169,13 +175,13 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-Si `thread` est `null` : widget vide, **sans** liste ERROR. Le premier `POST /message` crée le fil.
+Si `thread` est `null` : widget vide, **sans** boutons de transaction. Le premier `POST /message` crée le fil.
 
 Si un parcours erreur est en cours, `input` peut déjà être présent (après refresh).
 
 | `status`          | Au chargement                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `BOT`             | Afficher `messages`. Zone de saisie. **Pas** de boutons ERROR (sauf si tu viens d’un POST qui a renvoyé `choices`). |
+| `BOT`             | Afficher `messages`. Zone de saisie. **Pas** de boutons (sauf si tu viens d’un POST qui a renvoyé `choices`). |
 | `WAITING`         | Afficher `messages`. `socket.emit('support:join', { threadId })`.                                                   |
 | `LIVE`            | Idem + saisie live + pièces jointes.                                                                                |
 | absent / `CLOSED` | Nouveau chat bot.                                                                                                   |
@@ -223,11 +229,11 @@ Ce n’est **pas** la preuve de paiement d’une transaction (voir §5.4).
 
 ---
 
-## 5. Parcours ERROR
+## 5. Transactions du jour
 
-### 5.1 Temps 1 — le client parle d’une erreur
+### 5.1 Temps 1 — le client parle d’une transaction
 
-Exemples de `message` : « j’ai un problème avec une transaction », « transfert en erreur », « preuve refusée ».
+Dès que le client parle d’un envoi, d’un blocage, d’une preuve, d’un destinataire, d’un numéro ou d’un paiement pas arrivé. Exemples : « j’ai un problème avec une transaction », « transfert en erreur », « preuve refusée ».
 
 **Réponse à afficher telle quelle :**
 
@@ -237,28 +243,26 @@ Exemples de `message` : « j’ai un problème avec une transaction », « trans
   "choices": [
     {
       "id": "select_tx:AE12",
-      "label": "AE12 · 150 · Ali K.",
+      "label": "AE12 · 14:32 · Russie - Mali · envoi 15 000 · Ali Koné · 79001234567 · en erreur · numéro destinataire invalide",
       "action": "select_tx",
       "txid": "AE12"
-    },
-    {
-      "id": "select_tx:AE13",
-      "label": "AE13 · 80 · Fatou D.",
-      "action": "select_tx",
-      "txid": "AE13"
     }
   ],
-  "suggestions": ["…même liste…"]
+  "suggestions": []
 }
 ```
 
 Rendu :
 
 1. Bulle bot = `reply` uniquement.
-2. Sous la bulle : **un bouton par** `choices[]` (préféré) ou `suggestions[]`. `label` tel quel.
+2. Sous la bulle : **un bouton par** `choices[]` (préféré) ou `suggestions[]`. `label` tel quel, sans le découper ni le réécrire.
 3. Clic = `{ "action": "select_tx", "txid": item.txid }`. **Jamais** le `label` en `message`.
 
-Liste vide : pas de bouton. `reply` = « Aucune transaction en erreur aujourd’hui. »
+Ordre des morceaux du `label` (ceux qui manquent sont absents) : `txid · heure · corridor · envoi|réception + montant · destinataire · téléphone · statut · motif`.
+
+Statuts possibles dans le label : `en attente`, `en cours`, `confirmée`, `en erreur`, `terminée`. Le motif (`numéro destinataire invalide`, `limite du numéro atteinte`, `preuve de paiement refusée`, `montant payé incorrect`) n’est présent que si le statut est `en erreur`.
+
+Liste vide : pas de bouton. `reply` = « Aucune transaction aujourd’hui. »
 
 ### 5.2 Temps 2 — après le clic
 
@@ -268,7 +272,7 @@ Liste vide : pas de bouton. `reply` = « Aucune transaction en erreur aujourd’
 
 **Alors seulement** l’IA backend :
 
-1. Charge **cette** TX si elle est encore `ERROR` et appartient au client.
+1. Charge **cette** transaction du jour si elle appartient au client.
 2. Explique le motif en langage naturel. Jamais `(ERREUR_CAPTURE)`.
 3. Demande **uniquement** la donnée manquante.
 4. Renvoie `input` pour le contrôle.
@@ -280,9 +284,9 @@ Exemple interdit : « … (ERREUR_CAPTURE). Téléversez via /v3/file/upload/e7c
 
 | Motif (interne, jamais affiché) | L’IA demande                             | Contrôle `input`         | Mise à jour                            |
 | ------------------------------- | ---------------------------------------- | ------------------------ | -------------------------------------- |
-| Mauvais numéro                  | Nouveau n° destinataire                  | `text` / `receiverPhone` | TX → `INPROGRESS`                      |
-| Seuil atteint                   | Autre n° **ou** agent                    | `text` / `receiverPhone` | idem, ou `handoff`                     |
-| Preuve illisible                | Nouveau reçu                             | `file` (file picker)     | upload puis `proof_done`               |
+| Mauvais numéro                  | Nouveau n° destinataire                  | `text` / `receiverPhone` | `fix` seulement                        |
+| Seuil atteint                   | Autre n° **ou** agent                    | `text` / `receiverPhone` | `fix`, ou `handoff`                    |
+| Preuve illisible                | Nouveau reçu                             | `file` (file picker)     | upload (statut inchangé) puis `proof_done` |
 | Montant incorrect               | Renvoyer le **montant déclaré** + preuve | `file`                   | idem. **Ne jamais changer le montant** |
 
 ### 5.4 L’utilisateur donne un numéro
@@ -295,9 +299,9 @@ Si `input.type === "text"` et `input.name === "receiverPhone"` :
 
 Chiffres seuls, indicatif, **9 à 15** digits, **sans** `+`.
 
-S’il tape le numéro dans le champ chat, `{ "message": "79001234567" }` suffit.
+Le submit du champ **est** cette action. Un `{ "message": "79001234567" }` ne reprend pas la transaction. Un texte du type « j’ai payé » non plus : afficher seulement le `reply`, sans en déduire « en cours ».
 
-Succès : `reply` confirme la reprise. Le bouton de cette TX disparaît.
+Succès : le `reply` renvoyé confirme ou non la reprise. Ne pas inventer le statut.
 
 ### 5.5 L’utilisateur envoie une preuve
 
@@ -311,13 +315,15 @@ POST /v3/file/upload/:transactionId
 Content-Type: multipart/form-data
 ```
 
-Champ `file` (+ `comment` optionnel). **201** `{ ok: true }`.
+Champ `file`. **201** `{ ok: true }`.
 
-Puis :
+Sur une transaction **en erreur**, cet upload enregistre le fichier et **laisse le statut inchangé**. Enchaîner tout de suite :
 
 ```json
 { "action": "proof_done", "txid": "AE12" }
 ```
+
+C’est seulement `fix` ou `proof_done` qui peut remettre la transaction en cours. Dire « j’ai envoyé la preuve » dans le champ de chat ne le fait pas.
 
 Si aucun fichier n’est arrivé, `reply` redemande le justificatif — toujours sans URL.
 
@@ -498,17 +504,18 @@ export function buttonsFromReply(data: {
 
 ## 10. Checklist agent web app
 
-- [ ] `GET /v3/chatbot/thread` à l’ouverture : **aucun** bloc ERROR (`suggestions` est vide)
-- [ ] Boutons ERROR **seulement** si `choices` est présent dans **cette** réponse
+- [ ] `GET /v3/chatbot/thread` à l’ouverture : **aucun** bouton
+- [ ] Boutons **seulement** si `choices` est présent dans **cette** réponse (sinon `suggestions` de cette réponse)
 - [ ] « bonjour » / FAQ : pas de liste, pas de « indiquez la référence »
-- [ ] Temps 1 : `reply` + **un bouton par** `choices`
+- [ ] Temps 1 : `reply` + **un bouton par** élément, `label` tel quel
 - [ ] Clic bouton = `{ action: "select_tx", txid }` — jamais le `label` en `message`
 - [ ] Retirer les boutons dès que `choices` est omis
 - [ ] Ne pas inventer « J’ai trouvé votre transfert… » ni un titre « Transferts en erreur aujourd’hui » en permanence
 - [ ] Conserver les espaces de `reply` (ne pas coller les mots)
-- [ ] `input.type === "text"` → champ n° ; submit = `{ action: "fix", txid, value }`
-- [ ] `input.type === "file"` → file picker (pas de lien dans la bulle) → `POST input.endpoint` puis `{ action: "proof_done", txid }`
-- [ ] Ne jamais afficher `input.endpoint`, un UUID, ou `(ERREUR_CAPTURE)`
+- [ ] Champ téléphone → `{ action: "fix", txid, value }` uniquement (9 à 15 chiffres, sans `+`)
+- [ ] Fichier → `POST input.endpoint` puis `{ action: "proof_done", txid }`
+- [ ] Ne pas traiter « j’ai payé » / « j’ai envoyé » / un numéro collé dans le chat comme une mise à jour de statut
+- [ ] Ne jamais afficher `input.endpoint`, un UUID, ou un code `ERREUR_CAPTURE` / `MAUVAIS_NUMERO` / `MONTANT_INCORRECT` / `SEUIL_ATTEINT`
 - [ ] Socket connecté au login (pas seulement dans le widget)
 - [ ] `support:accepted` → banner + `payload.message` (agent prêt)
 - [ ] `support:typing` si `isAdmin` → « L’agent écrit… »
@@ -530,6 +537,6 @@ export function buttonsFromReply(data: {
 - Demander une référence de transfert sur un simple bonjour
 - Afficher un lien d’upload ou un code `complain`
 - Changer le montant déclaré d’une TX
-- Corriger une TX qui n’est plus `ERROR`
+- Traiter un message (« j’ai envoyé », un numéro collé) comme une reprise de statut
 - Rejoindre `admins-*` ou `support:{id}` d’un autre fil
 - Fermer le fil (l’agent dashboard le fait)
