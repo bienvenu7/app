@@ -169,6 +169,8 @@ export function AiChatbot() {
   const proofPrompt = isProofFileInput(prompt);
   const liveMode = isLiveSupportStatus(status);
   const showGuidedInput = !!prompt && status !== "LIVE";
+  const showQuickPrompts =
+    !liveMode && choices.length === 0 && !showGuidedInput && !busy;
 
   const fabRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -337,6 +339,14 @@ export function AiChatbot() {
     }
   };
 
+  const handleFaqPrompt = async (text: string) => {
+    try {
+      await sendText(text);
+    } catch (error) {
+      toast.error(toastSendError(error));
+    }
+  };
+
   const handleSuggestion = async (suggestion: (typeof choices)[number]) => {
     try {
       await sendSuggestion(suggestion);
@@ -493,6 +503,38 @@ export function AiChatbot() {
                     <div className={styles.bubble}>{t("chatbot.closedHint")}</div>
                   </div>
                 )}
+                {showQuickPrompts && (
+                  <div className={styles.quickPrompts}>
+                    <button
+                      type="button"
+                      className={styles.quickPrompt}
+                      disabled={busy}
+                      onClick={() => void handlePinned()}
+                    >
+                      {pinned.label}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.quickPrompt}
+                      disabled={busy}
+                      onClick={() =>
+                        void handleFaqPrompt(t("chatbot.promptTransfer"))
+                      }
+                    >
+                      {t("chatbot.promptTransfer")}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.quickPrompt}
+                      disabled={busy}
+                      onClick={() =>
+                        void handleFaqPrompt(t("chatbot.promptAbout"))
+                      }
+                    >
+                      {t("chatbot.promptAbout")}
+                    </button>
+                  </div>
+                )}
                 {(sending || agentTyping) && (
                   <div className={`${styles.message} ${styles.assistant}`}>
                     <div
@@ -519,29 +561,23 @@ export function AiChatbot() {
                 </p>
               )}
 
-              <div className={styles.suggestions}>
-                <div className={styles.chips}>
-                  <button
-                    type="button"
-                    className={`${styles.suggestionBtn} ${styles.txChoice}`}
-                    disabled={busy}
-                    onClick={() => void handlePinned()}
-                  >
-                    {pinned.label}
-                  </button>
-                  {choices.map((suggestion) => (
-                    <button
-                      key={suggestion.id}
-                      type="button"
-                      className={`${styles.suggestionBtn} ${styles.txChoice}`}
-                      disabled={busy}
-                      onClick={() => void handleSuggestion(suggestion)}
-                    >
-                      {suggestion.label}
-                    </button>
-                  ))}
+              {choices.length > 0 && (
+                <div className={styles.suggestions}>
+                  <div className={styles.chips}>
+                    {choices.map((suggestion) => (
+                      <button
+                        key={suggestion.id}
+                        type="button"
+                        className={`${styles.suggestionBtn} ${styles.txChoice}`}
+                        disabled={busy}
+                        onClick={() => void handleSuggestion(suggestion)}
+                      >
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {showGuidedInput && proofPrompt && (
                 <div className={styles.guided}>
