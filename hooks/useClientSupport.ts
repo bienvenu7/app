@@ -11,20 +11,21 @@ import {
 import { uploadFiles } from "@/app/actions/file";
 import { unwrapAction } from "@/lib/auth-errors";
 import {
-  buttonsFromReply,
+  choicesFromReply,
   isLiveSupportStatus,
   isProofFileInput,
   localSupportMessage,
   mergeSupportMessage,
   parseSupportMessage,
   persistActiveTxid,
+  pinnedFromPayload,
   readPersistedTxid,
   receiverPhoneValue,
   sanitizeBotReply,
-  TRANSACTION_PROBLEM_MESSAGE,
   transactionIdFromProofInput,
   type ChatbotRequest,
   type ChatInput,
+  type ChatPinned,
   type ChatSuggestion,
   type ChatbotReply,
   type SupportMessage,
@@ -68,7 +69,10 @@ export function useClientSupport(isAuthenticated: boolean) {
   const [status, setStatus] = useState<SupportStatus>("NONE");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [suggestions, setSuggestions] = useState<ChatSuggestion[]>([]);
+  const [choices, setChoices] = useState<ChatSuggestion[]>([]);
+  const [pinned, setPinned] = useState<ChatPinned>(() =>
+    pinnedFromPayload({}),
+  );
   const [prompt, setPrompt] = useState<ChatInput | undefined>(undefined);
   const [activeTxid, setActiveTxid] = useState<string | null>(null);
   const [agentTyping, setAgentTyping] = useState(false);
@@ -142,7 +146,8 @@ export function useClientSupport(isAuthenticated: boolean) {
   const applyReply = useCallback(
     (data: ChatbotReply) => {
       syncThreadId(data.threadId);
-      setSuggestions(buttonsFromReply(data));
+      setChoices(choicesFromReply(data));
+      setPinned(pinnedFromPayload(data));
       syncPrompt(data.input);
 
       const alreadyHuman = isLiveSupportStatus(statusRef.current);
@@ -232,7 +237,8 @@ export function useClientSupport(isAuthenticated: boolean) {
             : item,
         ),
       );
-      setSuggestions([]);
+      setChoices([]);
+      setPinned(pinnedFromPayload(data));
       syncPrompt(data.input);
       setAgentReadyMessage(null);
       if (!activeTxidRef.current) {
@@ -256,7 +262,8 @@ export function useClientSupport(isAuthenticated: boolean) {
       syncStatus("NONE");
       syncThreadId(null);
       setMessages([]);
-      setSuggestions([]);
+      setChoices([]);
+      setPinned(pinnedFromPayload({}));
       syncPrompt(undefined);
       syncTxid(null);
       setAgentTyping(false);
@@ -357,7 +364,7 @@ export function useClientSupport(isAuthenticated: boolean) {
         syncTxid(null);
         setAgentTyping(false);
         setAgentReadyMessage(null);
-        setSuggestions([]);
+        setChoices([]);
         void loadThreadRef.current();
       });
 
@@ -463,9 +470,9 @@ export function useClientSupport(isAuthenticated: boolean) {
     [postBot, syncTxid],
   );
 
-  const sendTransactionProblem = useCallback(
-    async (label: string) => {
-      await postBot({ message: TRANSACTION_PROBLEM_MESSAGE }, label);
+  const sendPinned = useCallback(
+    async (button: ChatPinned) => {
+      await postBot({ action: "tx_error" }, button.label);
     },
     [postBot],
   );
@@ -547,7 +554,8 @@ export function useClientSupport(isAuthenticated: boolean) {
     status,
     threadId,
     messages,
-    suggestions,
+    choices,
+    pinned,
     prompt,
     activeTxid,
     agentTyping,
@@ -556,7 +564,7 @@ export function useClientSupport(isAuthenticated: boolean) {
     uploading,
     loadThread,
     sendText,
-    sendTransactionProblem,
+    sendPinned,
     sendSuggestion,
     sendPhoneFix,
     uploadProof,

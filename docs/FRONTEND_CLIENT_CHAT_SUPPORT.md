@@ -14,30 +14,37 @@ Docs liées :
 
 ## 0. Contrat produit (à respecter à la lettre)
 
-### Les transactions du jour n’apparaissent que si le client en parle
+### Bouton fixe « Transactions échouées »
 
-Ce ne sont plus seulement les transactions en erreur. Ce sont **toutes les transactions du jour** du client (brouillons exclus), 20 maximum.
+Sur chaque `POST /v3/chatbot/message` et `GET /v3/chatbot/thread`, même sans fil :
 
-**Interdit** : un bloc permanent « Transferts en erreur aujourd’hui » sous un « bonjour », une FAQ, ou au montage du widget.
+```json
+"pinned": { "id": "failed_tx", "label": "Transactions échouées", "action": "tx_error" }
+```
 
-| Situation                                              | Boutons                                          | L’IA                                                |
-| ------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------- |
-| « bonjour », FAQ (« comment envoyer », frais, pays)    | **Aucun.** `suggestions: []`, `choices` omis     | Non                                                 |
-| `GET /thread` au open / refresh                        | **Aucun.**                                       | Non                                                 |
-| Message lié à une transaction                          | Un bouton par `choices[]`                        | « Veuillez choisir la transaction pour continuer. » |
-| Clic sur un bouton                                     | `input` (champ / file picker)                    | `reply` renvoyé, sans inventer le statut            |
+`suggestions` contient ce seul bouton. Il reste collé au chat. Un message libre ne l’enlève pas et ne le remplace pas par la liste.
 
-Si `choices` est **omis** dans **cette** réponse : retire les boutons. Ne recycle pas une ancienne liste. Préférer `choices` ; sinon `suggestions` de **cette** réponse.
+Clic : `{ "action": "tx_error" }`.
 
-Liste vide : « Aucune transaction aujourd’hui. » — pas de bouton.
+### La liste n’apparaît qu’après ce clic
+
+Tout `{ "message": "…" }` sans `action` est une FAQ. « bonjour », délai, frais, pays, comment envoyer : bulle = `reply`. **Pas** de `choices`. Ne pas ouvrir le parcours erreur parce que le texte parle d’un envoi. Pas de bouton « parler à un agent ».
+
+Après `tx_error` seulement, `choices` = une transaction **en erreur** du jour par bouton. `label` tel quel. Clic = `{ "action": "select_tx", "txid" }`.
+
+Si `choices` est **omis** : retire la liste. Garde le bouton fixe.
+
+Liste vide : « Aucune transaction en erreur aujourd’hui. »
+
+Un agent n’arrive que si la réponse a `waiting: true`.
 
 Dire « j’ai payé », « j’ai envoyé la preuve » ou coller un numéro dans le champ de chat **ne change pas** le statut. Ne pas en déduire « en cours ». Seuls `fix` et `proof_done` remettent la transaction en cours.
 
-### Parcours = 2 temps (seulement après que le client parle d’une transaction)
+### Parcours = 2 temps (seulement après `tx_error`)
 
 | Temps | Déclencheur                                     | `reply`                                             | Boutons   |
 | ----- | ----------------------------------------------- | --------------------------------------------------- | --------- |
-| 1     | Le client **parle** d’une transaction           | « Veuillez choisir la transaction pour continuer. » | `choices` |
+| 1     | Clic `{ action: "tx_error" }`                   | « Veuillez choisir la transaction pour continuer. » | `choices` |
 | 2     | Clic `{ action: "select_tx", txid }`            | Motif en langage courant + ce qu’il faut corriger   | `input`   |
 
 L’IA **ne choisit jamais** une TX toute seule.  
@@ -229,17 +236,18 @@ Ce n’est **pas** la preuve de paiement d’une transaction (voir §5.4).
 
 ---
 
-## 5. Transactions du jour
+## 5. Transactions en erreur
 
-### 5.1 Temps 1 — le client parle d’une transaction
+### 5.1 Temps 1 — après `{ "action": "tx_error" }`
 
-Dès que le client parle d’un envoi, d’un blocage, d’une preuve, d’un destinataire, d’un numéro ou d’un paiement pas arrivé. Exemples : « j’ai un problème avec une transaction », « transfert en erreur », « preuve refusée ».
+Un message libre ne déclenche pas cette liste. Seulement le clic du bouton fixe.
 
 **Réponse à afficher telle quelle :**
 
 ```json
 {
   "reply": "Veuillez choisir la transaction pour continuer.",
+  "pinned": { "id": "failed_tx", "label": "Transactions échouées", "action": "tx_error" },
   "choices": [
     {
       "id": "select_tx:AE12",
@@ -248,14 +256,16 @@ Dès que le client parle d’un envoi, d’un blocage, d’une preuve, d’un de
       "txid": "AE12"
     }
   ],
-  "suggestions": []
+  "suggestions": [
+    { "id": "failed_tx", "label": "Transactions échouées", "action": "tx_error" }
+  ]
 }
 ```
 
 Rendu :
 
 1. Bulle bot = `reply` uniquement.
-2. Sous la bulle : **un bouton par** `choices[]` (préféré) ou `suggestions[]`. `label` tel quel, sans le découper ni le réécrire.
+2. Le bouton fixe reste. Sous la bulle : **un bouton par** `choices[]`. `label` tel quel, sans le découper ni le réécrire.
 3. Clic = `{ "action": "select_tx", "txid": item.txid }`. **Jamais** le `label` en `message`.
 
 Ordre des morceaux du `label` (ceux qui manquent sont absents) : `txid · heure · corridor · envoi|réception + montant · destinataire · téléphone · statut · motif`.
@@ -504,12 +514,14 @@ export function buttonsFromReply(data: {
 
 ## 10. Checklist agent web app
 
-- [ ] `GET /v3/chatbot/thread` à l’ouverture : **aucun** bouton
-- [ ] Boutons **seulement** si `choices` est présent dans **cette** réponse (sinon `suggestions` de cette réponse)
+- [ ] Bouton « Transactions échouées » toujours visible (`pinned`, sinon `suggestions[0]`)
+- [ ] Clic de ce bouton = `{ action: "tx_error" }`
+- [ ] `choices` seulement après ce clic : un bouton par transaction en erreur du jour, `label` tel quel
+- [ ] Clic d’une transaction = `{ action: "select_tx", txid }` — jamais le `label` en `message`
+- [ ] Retirer `choices` dès qu’il est omis, sans retirer le bouton fixe
+- [ ] Message libre : bulle `reply` seulement, pas de liste, pas de bouton « parler à un agent »
 - [ ] « bonjour » / FAQ : pas de liste, pas de « indiquez la référence »
-- [ ] Temps 1 : `reply` + **un bouton par** élément, `label` tel quel
-- [ ] Clic bouton = `{ action: "select_tx", txid }` — jamais le `label` en `message`
-- [ ] Retirer les boutons dès que `choices` est omis
+- [ ] `waiting: true` → file agent
 - [ ] Ne pas inventer « J’ai trouvé votre transfert… » ni un titre « Transferts en erreur aujourd’hui » en permanence
 - [ ] Conserver les espaces de `reply` (ne pas coller les mots)
 - [ ] Champ téléphone → `{ action: "fix", txid, value }` uniquement (9 à 15 chiffres, sans `+`)

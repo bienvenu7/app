@@ -145,13 +145,14 @@ export function AiChatbot() {
   const {
     status,
     messages,
-    suggestions,
+    choices,
+    pinned,
     prompt,
     agentTyping,
     sending,
     uploading,
     sendText,
-    sendTransactionProblem,
+    sendPinned,
     sendSuggestion,
     sendPhoneFix,
     uploadProof,
@@ -167,8 +168,6 @@ export function AiChatbot() {
   const proofPrompt = isProofFileInput(prompt);
   const liveMode = isLiveSupportStatus(status);
   const showGuidedInput = !!prompt && status !== "LIVE";
-  const showStarterActions =
-    suggestions.length === 0 && !showGuidedInput && !liveMode;
 
   const fabRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -211,7 +210,7 @@ export function AiChatbot() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending, agentTyping, isOpen, suggestions]);
+  }, [messages, sending, agentTyping, isOpen, choices, pinned]);
 
   useEffect(() => {
     if (!socketError) return;
@@ -329,15 +328,15 @@ export function AiChatbot() {
     if (status === "LIVE" || status === "WAITING") setClientTyping(true);
   };
 
-  const handleTransactionProblem = async () => {
+  const handlePinned = async () => {
     try {
-      await sendTransactionProblem(t("chatbot.transactionProblem"));
+      await sendPinned(pinned);
     } catch (error) {
       toast.error(toastSendError(error));
     }
   };
 
-  const handleSuggestion = async (suggestion: (typeof suggestions)[number]) => {
+  const handleSuggestion = async (suggestion: (typeof choices)[number]) => {
     try {
       await sendSuggestion(suggestion);
     } catch (error) {
@@ -517,38 +516,29 @@ export function AiChatbot() {
                 </p>
               )}
 
-              {showStarterActions && (
-                <div className={styles.suggestions}>
-                  <div className={styles.chips}>
+              <div className={styles.suggestions}>
+                <div className={styles.chips}>
+                  <button
+                    type="button"
+                    className={`${styles.suggestionBtn} ${styles.txChoice}`}
+                    disabled={busy}
+                    onClick={() => void handlePinned()}
+                  >
+                    {pinned.label}
+                  </button>
+                  {choices.map((suggestion) => (
                     <button
+                      key={suggestion.id}
                       type="button"
                       className={`${styles.suggestionBtn} ${styles.txChoice}`}
                       disabled={busy}
-                      onClick={() => void handleTransactionProblem()}
+                      onClick={() => void handleSuggestion(suggestion)}
                     >
-                      {t("chatbot.transactionProblem")}
+                      {suggestion.label}
                     </button>
-                  </div>
+                  ))}
                 </div>
-              )}
-
-              {suggestions.length > 0 && (
-                <div className={styles.suggestions}>
-                  <div className={styles.chips}>
-                    {suggestions.map((suggestion) => (
-                      <button
-                        key={suggestion.id}
-                        type="button"
-                        className={`${styles.suggestionBtn} ${styles.txChoice}`}
-                        disabled={busy}
-                        onClick={() => void handleSuggestion(suggestion)}
-                      >
-                        {suggestion.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              </div>
 
               {showGuidedInput && proofPrompt && (
                 <div className={styles.guided}>

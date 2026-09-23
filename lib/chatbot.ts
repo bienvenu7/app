@@ -1,15 +1,29 @@
 export const CHATBOT_MESSAGE_MAX_LENGTH = 2000;
 
-/** Phrase qui ouvre la liste des transactions du jour via POST /v3/chatbot/message. */
-export const TRANSACTION_PROBLEM_MESSAGE =
-  "j'ai un problème avec une transaction";
-
 export type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
 export type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
-export type ChatbotAction = "select_tx" | "fix" | "proof_done" | "handoff";
+export type ChatbotAction =
+  | "select_tx"
+  | "fix"
+  | "proof_done"
+  | "handoff"
+  | "tx_error";
+
+/** Bouton fixe. Le libellé vient de l'API ; repli si le champ est absent. */
+export type ChatPinned = {
+  id: string;
+  label: string;
+  action: "tx_error";
+};
+
+export const DEFAULT_PINNED: ChatPinned = {
+  id: "failed_tx",
+  label: "Transactions échouées",
+  action: "tx_error",
+};
 
 /**
- * Une transaction du jour (brouillons exclus, 20 maximum).
+ * Une transaction en erreur du jour.
  * `label` est déjà explicite : l'afficher tel quel, sans le découper.
  */
 export type ChatSuggestion = {
@@ -44,12 +58,13 @@ export type SupportMessage = {
 export type ChatbotReply = {
   reply: string;
   threadId: string;
-  suggestions: ChatSuggestion[];
+  suggestions: ChatPinned[];
   waiting?: boolean;
   live?: boolean;
   status?: ThreadStatus;
   echo?: SupportMessage;
   choices?: ChatSuggestion[];
+  pinned?: ChatPinned;
   input?: ChatInput;
 };
 
@@ -61,7 +76,8 @@ export type ClientThreadResponse = {
     updatedAt: string;
   } | null;
   messages: SupportMessage[];
-  suggestions: ChatSuggestion[];
+  suggestions: ChatPinned[];
+  pinned?: ChatPinned;
   input?: ChatInput;
 };
 
@@ -121,16 +137,21 @@ export function sanitizeBotReply(text: string): string {
 }
 
 /**
- * Boutons de cette réponse uniquement.
- * `choices` s'il est présent — y compris `[]`, pour retirer les boutons.
- * Sinon `suggestions` (même liste). Ne jamais recycler une liste précédente.
+ * Liste sous la bulle : uniquement `choices` de cette réponse.
+ * Absent ou omis → plus de liste. Ne jamais y mettre le bouton fixe.
  */
-export function buttonsFromReply(data: {
+export function choicesFromReply(data: {
   choices?: ChatSuggestion[];
-  suggestions?: ChatSuggestion[];
 }): ChatSuggestion[] {
-  if (data.choices !== undefined) return data.choices;
-  return data.suggestions ?? [];
+  return data.choices ?? [];
+}
+
+/** Bouton fixe : `pinned`, sinon le premier `suggestions`. */
+export function pinnedFromPayload(data: {
+  pinned?: ChatPinned;
+  suggestions?: ChatPinned[];
+}): ChatPinned {
+  return data.pinned ?? data.suggestions?.[0] ?? DEFAULT_PINNED;
 }
 
 const RECEIVER_PHONE = /^\d{9,15}$/;
@@ -217,6 +238,23 @@ export function parseSupportMessage(
   return message;
 }
 
+function parsePinned(value: unknown): ChatPinned | null {
+  const rec = asRecord(value);
+  if (!rec) return null;
+  const id = asString(rec.id);
+  const label = asString(rec.label);
+  if (!id || !label) return null;
+  if (rec.action != null && rec.action !== "tx_error") return null;
+  return { id, label, action: "tx_error" };
+}
+
+function parsePinnedList(value: unknown): ChatPinned[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(parsePinned)
+    .filter((item): item is ChatPinned => !!item);
+}
+
 function parseSuggestion(value: unknown): ChatSuggestion | null {
   const rec = asRecord(value);
   if (!rec) return null;
@@ -254,17 +292,15 @@ export function parseChatbotReply(value: unknown): ChatbotReply | null {
   const threadId = asString(rec.threadId);
   if (!threadId) return null;
 
-  const suggestions = Array.isArray(rec.suggestions)
-    ? rec.suggestions
-        .map(parseSuggestion)
-        .filter((item): item is ChatSuggestion => !!item)
-    : [];
+  const suggestions = parsePinnedList(rec.suggestions);
+  const pinned = parsePinned(rec.pinned) ?? suggestions[0];
 
   const reply: ChatbotReply = {
     reply: typeof rec.reply === "string" ? rec.reply : "",
     threadId,
     suggestions,
   };
+  if (pinned) reply.pinned = pinned;
   if (rec.waiting === true) reply.waiting = true;
   if (rec.live === true) reply.live = true;
 
@@ -317,17 +353,15 @@ export function parseClientThread(value: unknown): ClientThreadResponse {
         .filter((item): item is SupportMessage => !!item)
     : [];
 
-  const suggestions = Array.isArray(rec.suggestions)
-    ? rec.suggestions
-        .map(parseSuggestion)
-        .filter((item): item is ChatSuggestion => !!item)
-    : [];
+  const suggestions = parsePinnedList(rec.suggestions);
+  const pinned = parsePinned(rec.pinned) ?? suggestions[0];
 
   const input = parseChatInput(rec.input);
   return {
     thread,
     messages,
     suggestions,
+    ...(pinned ? { pinned } : {}),
     ...(input ? { input } : {}),
   };
 }
