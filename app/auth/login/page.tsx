@@ -446,6 +446,8 @@ function LoginFlow() {
         }, 500);
         return;
       }
+      // Other errors: clear the code so the user can retype it and retry.
+      setResetOtp("");
       if (isRateLimited(error)) {
         toast.error(t("auth.rateLimited"));
         return;
@@ -457,6 +459,21 @@ function LoginFlow() {
       toast.error(t("auth.passwordResetError"));
     }
   };
+
+  // Reset OTP — auto-submit once at 6 digits
+  const resetOtpSubmittedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (resetOtp.length !== 6) {
+      resetOtpSubmittedRef.current = null;
+      return;
+    }
+    if (mode !== "forgot-reset" || resetStep !== "otp") return;
+    if (resetOtpSubmittedRef.current === resetOtp) return;
+
+    resetOtpSubmittedRef.current = resetOtp;
+    handleConfirmResetSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetOtp, mode, resetStep]);
 
   const canSubmitLogin =
     password.length >= 1 &&
@@ -1088,13 +1105,10 @@ function LoginFlow() {
                   {isRequestingReset ? t("auth.sending") : t("common.next")}
                 </button>
               ) : (
-                <button
-                  className={`${ui.btn} ${ui.btnPrimary}`}
-                  onClick={handleConfirmResetSubmit}
-                  disabled={!canConfirmReset || isResettingPassword}
-                >
-                  {isResettingPassword ? t("auth.updating") : t("auth.reset")}
-                </button>
+                // The reset starts automatically once the 6-digit code is typed.
+                <p className={styles.otpHint} aria-live="polite">
+                  {isResettingPassword ? t("auth.updating") : ""}
+                </p>
               )}
             </div>
           </motion.div>
