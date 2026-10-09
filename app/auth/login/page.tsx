@@ -100,6 +100,7 @@ function LoginFlow() {
     useState<AuthIdentifier | null>(null);
   const [resetOtp, setResetOtp] = useState("");
   const [resetOtpError, setResetOtpError] = useState(false);
+  const [resetStep, setResetStep] = useState<"otp" | "password">("otp");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -312,6 +313,7 @@ function LoginFlow() {
     setPendingResetIdentifier(null);
     setResetOtp("");
     setResetOtpError(false);
+    setResetStep("otp");
     setNewPassword("");
     setConfirmNewPassword("");
     setShowNewPassword(false);
@@ -332,6 +334,7 @@ function LoginFlow() {
   };
 
   const handleBackToForgotEmail = () => {
+    setResetStep("otp");
     setResetOtp("");
     setResetOtpError(false);
     setNewPassword("");
@@ -345,6 +348,7 @@ function LoginFlow() {
     try {
       await requestReset(resetIdentifier);
       setPendingResetIdentifier(resetIdentifier);
+      setResetStep("otp");
       setResetOtp("");
       setResetOtpError(false);
       setNewPassword("");
@@ -414,6 +418,8 @@ function LoginFlow() {
       toast.success(t("auth.passwordUpdated"));
     } catch (error) {
       if (isForbiddenAuth(error)) {
+        // Send the user back to the code step so they can re-enter it.
+        setResetStep("otp");
         setResetOtpError(true);
         toast.error(t("auth.passwordResetOtpInvalid"));
         setTimeout(() => {
@@ -917,27 +923,34 @@ function LoginFlow() {
             exit="exit"
             transition={{ duration: 0.2 }}
           >
-            <div className={styles.header}>
-              <h1 className={styles.title}>
-                {t("auth.forgotResetTitle")}{" "}
-                <em>{t("auth.forgotResetTitleEm")}</em>
-              </h1>
-              <p className={styles.subtitle}>
-                {resetOtpChannel === "whatsapp"
-                  ? t("auth.forgotResetSubtitleWhatsapp")
-                  : resetOtpChannel === "email"
-                    ? t("auth.forgotResetSubtitleEmail")
-                    : t("auth.forgotResetSubtitleUnknown")}
-                <br />
-                <span className={styles.otpEmail}>
-                  {pendingResetIdentifier
-                    ? identifierDisplay(pendingResetIdentifier)
-                    : ""}
-                </span>
-              </p>
-            </div>
+            {resetStep === "otp" ? (
+              <div className={styles.header}>
+                <h1 className={styles.title}>
+                  {t("auth.forgotResetTitle")}{" "}
+                  <em>{t("auth.forgotResetTitleEm")}</em>
+                </h1>
+                <p className={styles.subtitle}>
+                  {resetOtpChannel === "whatsapp"
+                    ? t("auth.forgotResetSubtitleWhatsapp")
+                    : resetOtpChannel === "email"
+                      ? t("auth.forgotResetSubtitleEmail")
+                      : t("auth.forgotResetSubtitleUnknown")}
+                  <br />
+                  <span className={styles.otpEmail}>
+                    {pendingResetIdentifier
+                      ? identifierDisplay(pendingResetIdentifier)
+                      : ""}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className={styles.header}>
+                <h1 className={styles.title}>{t("auth.newPassword")}</h1>
+              </div>
+            )}
 
             <div className={styles.form}>
+              {resetStep === "otp" && (
               <div>
                 <span className={styles.label}>{t("auth.resetCodeLabel")}</span>
                 <PinPad
@@ -965,7 +978,10 @@ function LoginFlow() {
                   </button>
                 </p>
               </div>
+              )}
 
+              {resetStep === "password" && (
+              <>
               <div className={styles.passwordField}>
                 <span className={styles.label}>{t("auth.newPassword")}</span>
                 <input
@@ -1030,23 +1046,39 @@ function LoginFlow() {
                     </p>
                   )}
               </div>
+              </>
+              )}
             </div>
 
             <div className={styles.stepFooter} style={{ marginTop: 26 }}>
               <button
                 className={ui.back}
-                onClick={handleBackToForgotEmail}
+                onClick={
+                  resetStep === "password"
+                    ? () => setResetStep("otp")
+                    : handleBackToForgotEmail
+                }
                 aria-label={t("common.back")}
               >
                 <ArrowLeft aria-hidden="true" />
               </button>
-              <button
-                className={`${ui.btn} ${ui.btnPrimary}`}
-                onClick={handleConfirmResetSubmit}
-                disabled={!canConfirmReset || isResettingPassword}
-              >
-                {isResettingPassword ? t("auth.updating") : t("auth.reset")}
-              </button>
+              {resetStep === "otp" ? (
+                <button
+                  className={`${ui.btn} ${ui.btnPrimary}`}
+                  onClick={() => setResetStep("password")}
+                  disabled={resetOtp.length !== 6}
+                >
+                  {t("common.next")}
+                </button>
+              ) : (
+                <button
+                  className={`${ui.btn} ${ui.btnPrimary}`}
+                  onClick={handleConfirmResetSubmit}
+                  disabled={!canConfirmReset || isResettingPassword}
+                >
+                  {isResettingPassword ? t("auth.updating") : t("auth.reset")}
+                </button>
+              )}
             </div>
           </motion.div>
         )}
