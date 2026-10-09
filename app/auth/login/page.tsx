@@ -100,7 +100,7 @@ function LoginFlow() {
     useState<AuthIdentifier | null>(null);
   const [resetOtp, setResetOtp] = useState("");
   const [resetOtpError, setResetOtpError] = useState(false);
-  const [resetStep, setResetStep] = useState<"otp" | "password">("otp");
+  const [resetStep, setResetStep] = useState<"password" | "otp">("password");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -147,7 +147,10 @@ function LoginFlow() {
     remaining: resetOtpRemaining,
     expired: resetOtpExpired,
     restart: restartResetOtpTtl,
-  } = useOtpTtl(mode === "forgot-reset", RESET_OTP_TTL_MS);
+  } = useOtpTtl(
+    mode === "forgot-reset" && resetStep === "otp",
+    RESET_OTP_TTL_MS,
+  );
 
   const loginOtpChannel: OtpChannel = pendingOtpChannel;
   const resetOtpChannel: OtpChannel = pendingResetIdentifier
@@ -301,11 +304,12 @@ function LoginFlow() {
       ? /\S+@\S+\.\S+/.test(resetEmail.trim())
       : WHATSAPP_PATTERN.test(resetPhone);
 
-  const canConfirmReset =
+  const canSetNewPassword =
     !!pendingResetIdentifier &&
-    resetOtp.length === 6 &&
     newPassword.length >= 6 &&
     confirmNewPassword === newPassword;
+
+  const canConfirmReset = canSetNewPassword && resetOtp.length === 6;
 
   const clearForgotForm = () => {
     setResetEmail("");
@@ -313,7 +317,7 @@ function LoginFlow() {
     setPendingResetIdentifier(null);
     setResetOtp("");
     setResetOtpError(false);
-    setResetStep("otp");
+    setResetStep("password");
     setNewPassword("");
     setConfirmNewPassword("");
     setShowNewPassword(false);
@@ -334,7 +338,7 @@ function LoginFlow() {
   };
 
   const handleBackToForgotEmail = () => {
-    setResetStep("otp");
+    setResetStep("password");
     setResetOtp("");
     setResetOtpError(false);
     setNewPassword("");
@@ -342,19 +346,35 @@ function LoginFlow() {
     setMode("forgot-password");
   };
 
-  const handleForgotPasswordSubmit = async () => {
+  const handleBackToNewPassword = () => {
+    setResetOtp("");
+    setResetOtpError(false);
+    setResetStep("password");
+  };
+
+  // Step 1: identifier -> new password. No OTP is sent yet.
+  const handleForgotPasswordSubmit = () => {
     if (!canRequestReset || !resetIdentifier) return;
 
+    setPendingResetIdentifier(resetIdentifier);
+    setResetStep("password");
+    setResetOtp("");
+    setResetOtpError(false);
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setMode("forgot-reset");
+  };
+
+  // Step 2: new password -> send the OTP, then show the code step.
+  const handleSendResetCode = async () => {
+    if (!canSetNewPassword || !pendingResetIdentifier) return;
+
     try {
-      await requestReset(resetIdentifier);
-      setPendingResetIdentifier(resetIdentifier);
-      setResetStep("otp");
+      await requestReset(pendingResetIdentifier);
       setResetOtp("");
       setResetOtpError(false);
-      setNewPassword("");
-      setConfirmNewPassword("");
-      setMode("forgot-reset");
-      toast.success(otpSentMessage(fallbackOtpChannel(resetIdentifier)));
+      setResetStep("otp");
+      toast.success(otpSentMessage(resetOtpChannel));
     } catch (error) {
       if (isOtpDeliveryFailed(error)) {
         toast.error(apiErrorMessage(error) ?? t("auth.otpDeliveryError"));
@@ -418,8 +438,6 @@ function LoginFlow() {
       toast.success(t("auth.passwordUpdated"));
     } catch (error) {
       if (isForbiddenAuth(error)) {
-        // Send the user back to the code step so they can re-enter it.
-        setResetStep("otp");
         setResetOtpError(true);
         toast.error(t("auth.passwordResetOtpInvalid"));
         setTimeout(() => {
@@ -904,11 +922,9 @@ function LoginFlow() {
               <button
                 className={`${ui.btn} ${ui.btnPrimary}`}
                 onClick={handleForgotPasswordSubmit}
-                disabled={!canRequestReset || isRequestingReset}
+                disabled={!canRequestReset}
               >
-                {isRequestingReset
-                  ? t("auth.sendingResetCode")
-                  : t("auth.sendResetCode")}
+                {t("common.next")}
               </button>
             </div>
           </motion.div>
@@ -1020,7 +1036,7 @@ function LoginFlow() {
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   aria-label={t("common.confirm")}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleConfirmResetSubmit();
+                    if (e.key === "Enter") handleSendResetCode();
                   }}
                 />
                 <button
@@ -1054,21 +1070,22 @@ function LoginFlow() {
               <button
                 className={ui.back}
                 onClick={
-                  resetStep === "password"
-                    ? () => setResetStep("otp")
+                  resetStep === "otp"
+                    ? handleBackToNewPassword
                     : handleBackToForgotEmail
                 }
                 aria-label={t("common.back")}
+                disabled={isRequestingReset || isResettingPassword}
               >
                 <ArrowLeft aria-hidden="true" />
               </button>
-              {resetStep === "otp" ? (
+              {resetStep === "password" ? (
                 <button
                   className={`${ui.btn} ${ui.btnPrimary}`}
-                  onClick={() => setResetStep("password")}
-                  disabled={resetOtp.length !== 6}
+                  onClick={handleSendResetCode}
+                  disabled={!canSetNewPassword || isRequestingReset}
                 >
-                  {t("common.next")}
+                  {isRequestingReset ? t("auth.sending") : t("common.next")}
                 </button>
               ) : (
                 <button
