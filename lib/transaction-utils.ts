@@ -22,6 +22,11 @@ export function parseTransactionRoute(code?: string) {
   };
 }
 
+/** Corridor `ru-…` : le client envoie depuis la Russie. */
+export function isRussiaIncoming(code?: string) {
+  return (code ?? "").split("-")[0].toLowerCase() === "ru";
+}
+
 export function isWaitingStatus(status: Status | string | undefined) {
   return status === Status.WAITING || status === "WAITING";
 }

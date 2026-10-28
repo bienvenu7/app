@@ -392,6 +392,22 @@ const ru: Messages = {
     timerExpired:
       "Срок в 30 минут истёк. Курс больше не гарантирован — совершите платёж как можно скорее.",
     timerAria: "Оставшееся время для оплаты: {time}",
+    payNow: "Произвести оплату",
+    sendingWhatsapp: "Отправка реквизитов в WhatsApp...",
+    resendCoords: "Отправить реквизиты ещё раз",
+    russiaSentHint: "Платёжные реквизиты отправлены в ваш WhatsApp.",
+    russiaSentTitle: "Реквизиты отправлены",
+    russiaSentBody:
+      "Вы получили платёжные реквизиты в WhatsApp. После оплаты загрузите квитанцию с деталями на этой странице оплаты.",
+    russiaWhatsappTitle: "Номер WhatsApp",
+    russiaWhatsappBody:
+      "Ваш номер WhatsApp указан неверно или не обновлён в профиле.",
+    updateProfile: "Обновить мой профиль",
+    contactSupport: "Связаться со службой поддержки",
+    russiaSendError:
+      "Не удалось отправить платёжные реквизиты. Попробуйте снова.",
+    supportWhatsappDraft:
+      "Здравствуйте, я не получаю платёжные реквизиты в WhatsApp по транзакции {txid}. Возможно, мой номер WhatsApp указан неверно или не обновлён в профиле. Пожалуйста, помогите.",
   },
   chatbot: {
     greeting:

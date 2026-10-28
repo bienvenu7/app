@@ -5,6 +5,7 @@ import {
   getTransactionByClientEmail,
   getTransactionById,
   getTransactionsStatsMonthly,
+  sendRussiaPaymentCard,
   updateTransaction,
 } from "@/app/actions/transaction";
 import type { ITrasanctionData } from "@/types/transaction";
@@ -63,6 +64,17 @@ export const useGetTransactonById = (id: string | undefined) => {
     refetchInterval: 1000 * 5,
   });
   return { transaction, isGettingTransaction, isTransactionError, refetch };
+};
+
+export const useSendRussiaPaymentCard = () => {
+  const {
+    isPending: isSendingRussiaCard,
+    mutateAsync: sendRussiaCard,
+  } = useMutation({
+    mutationFn: (transactionId: string) =>
+      unwrapAction(sendRussiaPaymentCard(transactionId)),
+  });
+  return { sendRussiaCard, isSendingRussiaCard };
 };
 
 export const useUpdateTransaction = () => {

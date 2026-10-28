@@ -1,5 +1,20 @@
 export const CHATBOT_MESSAGE_MAX_LENGTH = 2000;
 
+export const OPEN_SUPPORT_CHAT_EVENT = "afrue-open-support-chat";
+
+export type OpenSupportChatDetail = {
+  draft?: string;
+};
+
+export function openSupportChat(draft?: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<OpenSupportChatDetail>(OPEN_SUPPORT_CHAT_EVENT, {
+      detail: { draft },
+    }),
+  );
+}
+
 export type ThreadStatus = "BOT" | "WAITING" | "LIVE" | "CLOSED";
 export type SupportAuthor = "CLIENT" | "BOT" | "ADMIN";
 export type ChatbotAction =

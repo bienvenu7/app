@@ -23,6 +23,7 @@ import { getLinks } from "@/lib/payment-networks";
 import {
   getTransactionAmounts,
   isProcessingStatus,
+  isRussiaIncoming,
   isTransactionPaid,
   isWaitingStatus,
   parseTransactionRoute,
@@ -33,6 +34,7 @@ import { Auth } from "@/providers/AuthContext";
 import {
   useGetTransactonById,
   useUpdateTransaction,
+  useSendRussiaPaymentCard,
   invalidateTransactionQueries,
 } from "@/hooks/useTransaction";
 import { uploadFiles } from "@/app/actions/file";
@@ -51,8 +53,11 @@ import {
   isNotFound,
   isRateLimited,
   isValidationError,
+  toAuthHttpError,
   unwrapAction,
 } from "@/lib/auth-errors";
+import { openSupportChat } from "@/lib/chatbot";
+import { InfoModal } from "@/components/info-modal";
 import axios from "axios";
 import type { ITrasanctionResponse } from "@/types/transaction";
 import { Status } from "@/types/transaction";
@@ -107,6 +112,17 @@ function getTransferStatusView(
   };
 }
 
+function isRussiaWhatsappIssue(error: unknown) {
+  const err = toAuthHttpError(error);
+  if (!err) return false;
+  if (err.status === 502) return true;
+  if (err.status === 400) {
+    const message = (err.apiMessage ?? "").toLowerCase();
+    return message.includes("whatsapp");
+  }
+  return false;
+}
+
 function TransferStatusIcon({ variant }: { variant: StatusVariant }) {
   return (
     <div
@@ -153,11 +169,17 @@ function ValidateFlow() {
     useGetTransactonById(txId);
 
   const { isUpdatingTransaction } = useUpdateTransaction();
+  const { sendRussiaCard, isSendingRussiaCard } = useSendRussiaPaymentCard();
   const queryClient = useQueryClient();
 
   const [paidLocally, setPaidLocally] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [russiaCardSent, setRussiaCardSent] = useState(false);
+  const [russiaSendFailed, setRussiaSendFailed] = useState(false);
+  const [russiaModal, setRussiaModal] = useState<"sent" | "whatsapp" | null>(
+    null,
+  );
   const [proofFiles, setProofFiles] = useState<
     { file: File; previewUrl: string }[]
   >([]);
@@ -176,13 +198,17 @@ function ValidateFlow() {
     [tx?.code],
   );
 
+  const isRussiaOrigin = isRussiaIncoming(tx?.code);
+
   const countryFrom = useMemo(() => {
     return (countries as ICountry[])?.find(
       (country: ICountry) => country.name === fromCode,
     );
   }, [countries, fromCode]);
 
-  const { cards, isLoading: isLoadingCards } = useGetCards(countryFrom?.id);
+  const { cards, isLoading: isLoadingCards } = useGetCards(
+    isRussiaOrigin ? undefined : countryFrom?.id,
+  );
 
   const paymentCards = useMemo(
     () =>
@@ -237,6 +263,29 @@ function ValidateFlow() {
       if (entry) URL.revokeObjectURL(entry.previewUrl);
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const russiaAlreadySent = isRussiaOrigin && (russiaCardSent || !!tx?.card);
+
+  const handleSendRussiaCard = async () => {
+    if (!tx || isSendingRussiaCard) return;
+    const transactionId = tx.id ?? txId;
+    if (!transactionId) return;
+
+    try {
+      await sendRussiaCard(transactionId);
+      setRussiaCardSent(true);
+      setRussiaSendFailed(false);
+      setRussiaModal("sent");
+      await invalidateTransactionQueries(queryClient);
+    } catch (error) {
+      setRussiaSendFailed(true);
+      if (isRussiaWhatsappIssue(error)) {
+        setRussiaModal("whatsapp");
+        return;
+      }
+      toast.error(t("validate.russiaSendError"));
+    }
   };
 
   const handleCopyPayment = async (text: string) => {
@@ -486,7 +535,7 @@ function ValidateFlow() {
           </div>
         </div>
 
-        {tx.card && (
+        {tx.card && !isRussiaOrigin && (
           <div className={styles.card}>
             <p className={styles.cardTitle}>{t("validate.paymentAccount")}</p>
             <div className={styles.rows}>
@@ -517,76 +566,108 @@ function ValidateFlow() {
                 {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
-            <div className={styles.payMethods}>
-              <p className={styles.payMethodsTitle}>{t("validate.paymentMethod")}</p>
-              {isLoadingCards ? (
-                <p className={styles.payMethodsHint}>
-                  {t("validate.loadingPayment")}
+            {isRussiaOrigin ? (
+              russiaAlreadySent ? (
+                <div className={styles.payMethods}>
+                  <p className={styles.payMethodsHint}>
+                    {t("validate.russiaSentHint")}
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.payBtn}
+                  onClick={handleSendRussiaCard}
+                  disabled={isSendingRussiaCard}
+                >
+                  {isSendingRussiaCard ? (
+                    <>
+                      <span className={styles.spinner} />{" "}
+                      {t("validate.sendingWhatsapp")}
+                    </>
+                  ) : russiaSendFailed ? (
+                    t("validate.resendCoords")
+                  ) : (
+                    t("validate.payNow")
+                  )}
+                </button>
+              )
+            ) : (
+              <div className={styles.payMethods}>
+                <p className={styles.payMethodsTitle}>
+                  {t("validate.paymentMethod")}
                 </p>
-              ) : paymentCards?.length ? (
-                <div className={styles.payMethodsList}>
-                  {paymentCards.map((el) => {
-                    const networkFlag = getLinks(el.network?.name ?? "");
-                    const isSbpLogo = networkFlag?.includes("sbp-logo");
+                {isLoadingCards ? (
+                  <p className={styles.payMethodsHint}>
+                    {t("validate.loadingPayment")}
+                  </p>
+                ) : paymentCards?.length ? (
+                  <div className={styles.payMethodsList}>
+                    {paymentCards.map((el) => {
+                      const networkFlag = getLinks(el.network?.name ?? "");
+                      const isSbpLogo = networkFlag?.includes("sbp-logo");
 
-                    return el.isLink ? (
-                      <Link
-                        key={el.id}
-                        className={`${styles.payLink} ${isSbpLogo ? styles.payLinkSbp : ""}`}
-                        href={el.content || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {networkFlag ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={networkFlag}
-                            alt={el.network?.pubicName}
-                            className={isSbpLogo ? styles.payLinkSbpImg : undefined}
-                          />
-                        ) : (
-                          t("validate.payWith", {
-                            name: el.network?.pubicName ?? "",
-                          })
-                        )}
-                      </Link>
-                    ) : (
-                      <div key={el.id} className={styles.payContainer}>
-                        <span className={styles.payContent}>
+                      return el.isLink ? (
+                        <Link
+                          key={el.id}
+                          className={`${styles.payLink} ${isSbpLogo ? styles.payLinkSbp : ""}`}
+                          href={el.content || "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           {networkFlag ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={networkFlag}
-                              alt={el.network?.name}
+                              alt={el.network?.pubicName}
                               className={
-                                isSbpLogo
-                                  ? styles.payNetworkImgSbp
-                                  : styles.payNetworkImg
+                                isSbpLogo ? styles.payLinkSbpImg : undefined
                               }
                             />
                           ) : (
-                            <strong>{el.network?.name} : </strong>
+                            t("validate.payWith", {
+                              name: el.network?.pubicName ?? "",
+                            })
                           )}
-                          {el.content || ""}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.copyBtn}
-                          aria-label={t("validate.copyPaymentAria")}
-                          onClick={() => handleCopyPayment(el.content || "")}
-                        >
-                          <Copy size={16} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className={styles.payMethodsHint}>
-                  {t("validate.noPaymentMethods")}
-                </p>
-              )}
-            </div>
+                        </Link>
+                      ) : (
+                        <div key={el.id} className={styles.payContainer}>
+                          <span className={styles.payContent}>
+                            {networkFlag ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={networkFlag}
+                                alt={el.network?.name}
+                                className={
+                                  isSbpLogo
+                                    ? styles.payNetworkImgSbp
+                                    : styles.payNetworkImg
+                                }
+                              />
+                            ) : (
+                              <strong>{el.network?.name} : </strong>
+                            )}
+                            {el.content || ""}
+                          </span>
+                          <button
+                            type="button"
+                            className={styles.copyBtn}
+                            aria-label={t("validate.copyPaymentAria")}
+                            onClick={() => handleCopyPayment(el.content || "")}
+                          >
+                            <Copy size={16} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className={styles.payMethodsHint}>
+                    {t("validate.noPaymentMethods")}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className={styles.proofNotice} role="note">
               <div className={styles.proofNoticeIcon} aria-hidden>
@@ -698,6 +779,49 @@ function ValidateFlow() {
           </div>
         )}
       </div>
+
+      <InfoModal
+        open={russiaModal === "sent"}
+        onClose={() => setRussiaModal(null)}
+        titleId="russia-card-sent-title"
+        title={t("validate.russiaSentTitle")}
+        actions={[
+          {
+            label: t("schedule.understood"),
+            onClick: () => setRussiaModal(null),
+          },
+        ]}
+      >
+        <p>{t("validate.russiaSentBody")}</p>
+      </InfoModal>
+
+      <InfoModal
+        open={russiaModal === "whatsapp"}
+        onClose={() => setRussiaModal(null)}
+        titleId="russia-card-whatsapp-title"
+        title={t("validate.russiaWhatsappTitle")}
+        actions={[
+          {
+            label: t("validate.updateProfile"),
+            onClick: () => {
+              setRussiaModal(null);
+              router.push("/profile");
+            },
+          },
+          {
+            label: t("validate.contactSupport"),
+            variant: "ghost",
+            onClick: () => {
+              setRussiaModal(null);
+              openSupportChat(
+                t("validate.supportWhatsappDraft", { txid: tx.txid }),
+              );
+            },
+          },
+        ]}
+      >
+        <p>{t("validate.russiaWhatsappBody")}</p>
+      </InfoModal>
     </main>
   );
 }

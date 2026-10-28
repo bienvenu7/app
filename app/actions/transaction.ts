@@ -128,6 +128,21 @@ export const updateTransaction = async (
   }) as Promise<ITrasanctionResponse>;
 };
 
+export const sendRussiaPaymentCard = async (
+  transactionId: string,
+): Promise<{ ok: true }> => {
+  return withAuthError(async () => {
+    await requireAccessToken();
+    const { data } = await instance.post(
+      `transactions/${apiPathSegment(transactionId)}/send-russia-card`,
+    );
+    if (data?.ok !== true) {
+      throw new AuthHttpError(502, "service_unavailable");
+    }
+    return data as { ok: true };
+  }) as Promise<{ ok: true }>;
+};
+
 export const getTransactionById = async (
   transactionId: string,
 ): Promise<ITrasanctionResponse> => {

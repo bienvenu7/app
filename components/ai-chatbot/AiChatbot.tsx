@@ -9,8 +9,10 @@ import {
   isLiveSupportStatus,
   isProofFileInput,
   isReceiverPhoneInput,
+  OPEN_SUPPORT_CHAT_EVENT,
   receiverPhoneValue,
   sanitizeBotReply,
+  type OpenSupportChatDetail,
   type SupportAuthor,
   type SupportMessage,
 } from "@/lib/chatbot";
@@ -174,6 +176,7 @@ export function AiChatbot() {
 
   const fabRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({
     pointerId: -1,
@@ -224,6 +227,22 @@ export function AiChatbot() {
   useEffect(() => {
     if (status === "CLOSED") setInput("");
   }, [status]);
+
+  useEffect(() => {
+    const onOpenSupport = (event: Event) => {
+      const draft = (event as CustomEvent<OpenSupportChatDetail>).detail?.draft;
+      setIsOpen(true);
+      if (typeof draft === "string" && draft.trim()) {
+        setInput(draft.slice(0, CHATBOT_MESSAGE_MAX_LENGTH));
+      }
+      window.setTimeout(() => inputRef.current?.focus(), 50);
+    };
+
+    window.addEventListener(OPEN_SUPPORT_CHAT_EVENT, onOpenSupport);
+    return () => {
+      window.removeEventListener(OPEN_SUPPORT_CHAT_EVENT, onOpenSupport);
+    };
+  }, []);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!position) return;
@@ -613,12 +632,13 @@ export function AiChatbot() {
                   </button>
                 )}
                 <textarea
+                  ref={inputRef}
                   className={styles.input}
                   value={input}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={handleInputKeyDown}
                   placeholder={placeholder}
-                  rows={1}
+                  rows={input.length > 80 ? 4 : 1}
                   inputMode={phonePrompt ? "numeric" : "text"}
                   maxLength={
                     phonePrompt ? 15 : CHATBOT_MESSAGE_MAX_LENGTH

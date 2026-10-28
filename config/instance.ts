@@ -26,19 +26,15 @@ import { toAuthHttpError } from "@/lib/auth-errors";
  * Sans variable, la prod ne doit pas retomber sur localhost (rien n'écoute sur :7001).
  */
 function resolveBaseURL(): string {
-  const fromEnv = (
-    process.env.API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    ""
-  )
+  const fromEnv = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "")
     .trim()
     .replace(/\/+$/, "");
 
-  const origin =
-    fromEnv ||
-    (process.env.NODE_ENV === "production"
-      ? "https://api.afrue.com"
-      : "http://localhost:7001");
+  const origin = "https://api.afrue.com";
+  // fromEnv ||
+  // (process.env.NODE_ENV === "production"
+  //   ? "https://api.afrue.com"
+  //   : "http://localhost:7001");
 
   return origin.replace(/\/v3$/i, "") + "/v3/";
 }

@@ -382,6 +382,23 @@ const fr = {
     timerExpired:
       "Le délai de 30 minutes est écoulé. Le taux n'est plus garanti — effectuez le paiement dès que possible.",
     timerAria: "Temps restant pour effectuer le paiement : {time}",
+    payNow: "Effectuer le paiement",
+    sendingWhatsapp: "Envoi des coordonnées sur WhatsApp...",
+    resendCoords: "Renvoyer les coordonnées",
+    russiaSentHint:
+      "Les coordonnées de paiement ont été envoyées sur votre WhatsApp.",
+    russiaSentTitle: "Coordonnées envoyées",
+    russiaSentBody:
+      "Vous avez reçu les coordonnées de paiement sur votre WhatsApp. Après le paiement, téléversez le reçu avec les détails sur cette page de paiement.",
+    russiaWhatsappTitle: "Numéro WhatsApp",
+    russiaWhatsappBody:
+      "Votre numéro WhatsApp n'est pas correct, ou il n'a pas été mis à jour sur votre profil.",
+    updateProfile: "Mettre à jour mon profil",
+    contactSupport: "Contacter les services client",
+    russiaSendError:
+      "Impossible d'envoyer les coordonnées de paiement. Réessayez.",
+    supportWhatsappDraft:
+      "Bonjour, je n'arrive pas à recevoir les coordonnées de paiement sur WhatsApp pour la transaction {txid}. Mon numéro WhatsApp n'est peut-être pas correct ou à jour sur mon profil. Merci de m'aider.",
   },
   chatbot: {
     greeting:
