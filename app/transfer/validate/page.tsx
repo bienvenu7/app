@@ -589,15 +589,9 @@ function ValidateFlow() {
                     disabled={isSendingRussiaCard}
                   >
                     {isSendingRussiaCard ? (
-                      <>
-                        <span className={styles.spinner} />{" "}
-                        {t("validate.sendingWhatsapp")}
-                      </>
-                    ) : russiaAlreadySent || russiaSendFailed ? (
-                      t("validate.resendCoords")
-                    ) : (
-                      t("validate.sendCoordsWhatsapp")
-                    )}
+                      <span className={styles.spinner} />
+                    ) : null}
+                    {t("validate.payNow")}
                   </button>
                 </div>
               ) : isLoadingCards ? (
