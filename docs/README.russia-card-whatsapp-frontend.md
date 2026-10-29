@@ -63,7 +63,7 @@ Exemple :
 
 ```http
 POST /v3/transactions/3fa85f64-5717-4562-b3fc-2c963f66afa6/send-russia-card
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <accessToken>
 ```
 
 Pas de `Content-Type: application/json`. Rien dans le body.
