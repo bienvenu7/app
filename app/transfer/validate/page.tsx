@@ -265,7 +265,7 @@ function ValidateFlow() {
     });
   };
 
-  const russiaAlreadySent = isRussiaOrigin && (russiaCardSent || !!tx?.card);
+  const russiaAlreadySent = isRussiaOrigin && russiaCardSent;
 
   const handleSendRussiaCard = async () => {
     if (!tx || isSendingRussiaCard) return;
@@ -558,6 +558,34 @@ function ValidateFlow() {
           </div>
         )}
 
+        {canPay && isRussiaOrigin && (
+          <div className={styles.russiaPay}>
+            {russiaAlreadySent ? (
+              <p className={styles.payMethodsHint}>
+                {t("validate.russiaSentHint")}
+              </p>
+            ) : (
+              <button
+                type="button"
+                className={styles.payBtn}
+                onClick={handleSendRussiaCard}
+                disabled={isSendingRussiaCard}
+              >
+                {isSendingRussiaCard ? (
+                  <>
+                    <span className={styles.spinner} />{" "}
+                    {t("validate.sendingWhatsapp")}
+                  </>
+                ) : russiaSendFailed ? (
+                  t("validate.resendCoords")
+                ) : (
+                  t("validate.payNow")
+                )}
+              </button>
+            )}
+          </div>
+        )}
+
         {canPay && (
           <div className={styles.payBar}>
             <div className={styles.total}>
@@ -566,33 +594,7 @@ function ValidateFlow() {
                 {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
-            {isRussiaOrigin ? (
-              russiaAlreadySent ? (
-                <div className={styles.payMethods}>
-                  <p className={styles.payMethodsHint}>
-                    {t("validate.russiaSentHint")}
-                  </p>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className={styles.payBtn}
-                  onClick={handleSendRussiaCard}
-                  disabled={isSendingRussiaCard}
-                >
-                  {isSendingRussiaCard ? (
-                    <>
-                      <span className={styles.spinner} />{" "}
-                      {t("validate.sendingWhatsapp")}
-                    </>
-                  ) : russiaSendFailed ? (
-                    t("validate.resendCoords")
-                  ) : (
-                    t("validate.payNow")
-                  )}
-                </button>
-              )
-            ) : (
+            {!isRussiaOrigin && (
               <div className={styles.payMethods}>
                 <p className={styles.payMethodsTitle}>
                   {t("validate.paymentMethod")}
