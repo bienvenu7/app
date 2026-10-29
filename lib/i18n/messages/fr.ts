@@ -383,6 +383,7 @@ const fr = {
       "Le délai de 30 minutes est écoulé. Le taux n'est plus garanti — effectuez le paiement dès que possible.",
     timerAria: "Temps restant pour effectuer le paiement : {time}",
     payNow: "Effectuer le paiement",
+    sendCoordsWhatsapp: "Recevoir les coordonnées sur WhatsApp",
     sendingWhatsapp: "Envoi des coordonnées sur WhatsApp...",
     resendCoords: "Renvoyer les coordonnées",
     russiaSentHint:

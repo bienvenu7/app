@@ -198,13 +198,18 @@ function ValidateFlow() {
     [tx?.code],
   );
 
-  const isRussiaOrigin = isRussiaIncoming(tx?.code);
-
   const countryFrom = useMemo(() => {
+    const origin = fromCode.toLowerCase();
     return (countries as ICountry[])?.find(
-      (country: ICountry) => country.name === fromCode,
+      (country: ICountry) => country.name.toLowerCase() === origin,
     );
   }, [countries, fromCode]);
+
+  const isRussiaOrigin =
+    isRussiaIncoming(tx?.code) ||
+    fromCode.toLowerCase() === "ru" ||
+    (from?.code ?? "").toLowerCase() === "ru" ||
+    countryFrom?.name?.toLowerCase() === "ru";
 
   const { cards, isLoading: isLoadingCards } = useGetCards(
     isRussiaOrigin ? undefined : countryFrom?.id,
@@ -558,34 +563,6 @@ function ValidateFlow() {
           </div>
         )}
 
-        {canPay && isRussiaOrigin && (
-          <div className={styles.russiaPay}>
-            {russiaAlreadySent ? (
-              <p className={styles.payMethodsHint}>
-                {t("validate.russiaSentHint")}
-              </p>
-            ) : (
-              <button
-                type="button"
-                className={styles.payBtn}
-                onClick={handleSendRussiaCard}
-                disabled={isSendingRussiaCard}
-              >
-                {isSendingRussiaCard ? (
-                  <>
-                    <span className={styles.spinner} />{" "}
-                    {t("validate.sendingWhatsapp")}
-                  </>
-                ) : russiaSendFailed ? (
-                  t("validate.resendCoords")
-                ) : (
-                  t("validate.payNow")
-                )}
-              </button>
-            )}
-          </div>
-        )}
-
         {canPay && (
           <div className={styles.payBar}>
             <div className={styles.total}>
@@ -594,82 +571,105 @@ function ValidateFlow() {
                 {formatMoney(amounts.totalAmount, sourceCountry)}
               </span>
             </div>
-            {!isRussiaOrigin && (
-              <div className={styles.payMethods}>
-                <p className={styles.payMethodsTitle}>
-                  {t("validate.paymentMethod")}
+            <div className={styles.payMethods}>
+              <p className={styles.payMethodsTitle}>
+                {t("validate.paymentMethod")}
+              </p>
+              {isRussiaOrigin ? (
+                <div className={styles.russiaPay}>
+                  {russiaAlreadySent ? (
+                    <p className={styles.payMethodsHint}>
+                      {t("validate.russiaSentHint")}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={styles.payBtn}
+                    onClick={handleSendRussiaCard}
+                    disabled={isSendingRussiaCard}
+                  >
+                    {isSendingRussiaCard ? (
+                      <>
+                        <span className={styles.spinner} />{" "}
+                        {t("validate.sendingWhatsapp")}
+                      </>
+                    ) : russiaAlreadySent || russiaSendFailed ? (
+                      t("validate.resendCoords")
+                    ) : (
+                      t("validate.sendCoordsWhatsapp")
+                    )}
+                  </button>
+                </div>
+              ) : isLoadingCards ? (
+                <p className={styles.payMethodsHint}>
+                  {t("validate.loadingPayment")}
                 </p>
-                {isLoadingCards ? (
-                  <p className={styles.payMethodsHint}>
-                    {t("validate.loadingPayment")}
-                  </p>
-                ) : paymentCards?.length ? (
-                  <div className={styles.payMethodsList}>
-                    {paymentCards.map((el) => {
-                      const networkFlag = getLinks(el.network?.name ?? "");
-                      const isSbpLogo = networkFlag?.includes("sbp-logo");
+              ) : paymentCards?.length ? (
+                <div className={styles.payMethodsList}>
+                  {paymentCards.map((el) => {
+                    const networkFlag = getLinks(el.network?.name ?? "");
+                    const isSbpLogo = networkFlag?.includes("sbp-logo");
 
-                      return el.isLink ? (
-                        <Link
-                          key={el.id}
-                          className={`${styles.payLink} ${isSbpLogo ? styles.payLinkSbp : ""}`}
-                          href={el.content || "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
+                    return el.isLink ? (
+                      <Link
+                        key={el.id}
+                        className={`${styles.payLink} ${isSbpLogo ? styles.payLinkSbp : ""}`}
+                        href={el.content || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {networkFlag ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={networkFlag}
+                            alt={el.network?.pubicName}
+                            className={
+                              isSbpLogo ? styles.payLinkSbpImg : undefined
+                            }
+                          />
+                        ) : (
+                          t("validate.payWith", {
+                            name: el.network?.pubicName ?? "",
+                          })
+                        )}
+                      </Link>
+                    ) : (
+                      <div key={el.id} className={styles.payContainer}>
+                        <span className={styles.payContent}>
                           {networkFlag ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={networkFlag}
-                              alt={el.network?.pubicName}
+                              alt={el.network?.name}
                               className={
-                                isSbpLogo ? styles.payLinkSbpImg : undefined
+                                isSbpLogo
+                                  ? styles.payNetworkImgSbp
+                                  : styles.payNetworkImg
                               }
                             />
                           ) : (
-                            t("validate.payWith", {
-                              name: el.network?.pubicName ?? "",
-                            })
+                            <strong>{el.network?.name} : </strong>
                           )}
-                        </Link>
-                      ) : (
-                        <div key={el.id} className={styles.payContainer}>
-                          <span className={styles.payContent}>
-                            {networkFlag ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={networkFlag}
-                                alt={el.network?.name}
-                                className={
-                                  isSbpLogo
-                                    ? styles.payNetworkImgSbp
-                                    : styles.payNetworkImg
-                                }
-                              />
-                            ) : (
-                              <strong>{el.network?.name} : </strong>
-                            )}
-                            {el.content || ""}
-                          </span>
-                          <button
-                            type="button"
-                            className={styles.copyBtn}
-                            aria-label={t("validate.copyPaymentAria")}
-                            onClick={() => handleCopyPayment(el.content || "")}
-                          >
-                            <Copy size={16} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className={styles.payMethodsHint}>
-                    {t("validate.noPaymentMethods")}
-                  </p>
-                )}
-              </div>
-            )}
+                          {el.content || ""}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.copyBtn}
+                          aria-label={t("validate.copyPaymentAria")}
+                          onClick={() => handleCopyPayment(el.content || "")}
+                        >
+                          <Copy size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className={styles.payMethodsHint}>
+                  {t("validate.noPaymentMethods")}
+                </p>
+              )}
+            </div>
 
             <div className={styles.proofNotice} role="note">
               <div className={styles.proofNoticeIcon} aria-hidden>

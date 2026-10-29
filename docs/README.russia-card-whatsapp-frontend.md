@@ -132,17 +132,25 @@ Après succès, un `GET /v3/transaction/get/by-id/:transactionId` peut exposer `
 
 ---
 
-## UI
+## UI — écran `/transfer/validate` (mobile)
 
-1. Parcours envoi **depuis la Russie** : après création, **ne pas** afficher le picker `GET /v3/country/get/cards/:countryId`.
-2. Appeler `POST .../send-russia-card` une fois, avec l’`id` renvoyé par `create-one`.
-3. Pendant l’appel : loader (« Envoi des coordonnées sur WhatsApp… »).
-4. Succès : « Les coordonnées de paiement ont été envoyées sur votre WhatsApp. »
-5. Le client continue (preuve de paiement, `PATCH`, upload fichier) comme aujourd’hui.
-6. Bouton retry seulement après échec réseau / `502`. Label du type « Renvoyer les coordonnées ».
-7. Si le profil n’a pas de WhatsApp, l’API répond `400` — oriente vers la page de mise à jour du numéro. Ne pas inventer un numéro.
+Bloc **Moyen de paiement**, sous « Total à payer ».
 
-Les autres pays : écran cartes inchangé.
+**Interdit** : liste des cartes SBP / numéros / bouton copier.
+
+**Attendu** : un **seul bouton** pleine largeur. Aucune carte, aucun numéro, aucun copy.
+
+| État | Contenu du bloc |
+| --- | --- |
+| Avant envoi | 1 bouton « Recevoir les coordonnées sur WhatsApp » |
+| En cours | 1 bouton disabled + loader |
+| Succès | texte « envoyées sur votre WhatsApp » + le même bouton devient « Renvoyer les coordonnées » |
+| Échec 502 / WhatsApp | le même bouton « Renvoyer les coordonnées » |
+
+Ne pas appeler `GET /v3/country/get/cards/:countryId` quand l’origine est `ru`.  
+La preuve obligatoire et le bouton Confirmer **restent** en dessous.
+
+Les autres corridors : liste de cartes inchangée.
 
 ---
 

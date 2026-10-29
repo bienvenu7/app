@@ -393,6 +393,7 @@ const ru: Messages = {
       "Срок в 30 минут истёк. Курс больше не гарантирован — совершите платёж как можно скорее.",
     timerAria: "Оставшееся время для оплаты: {time}",
     payNow: "Произвести оплату",
+    sendCoordsWhatsapp: "Получить реквизиты в WhatsApp",
     sendingWhatsapp: "Отправка реквизитов в WhatsApp...",
     resendCoords: "Отправить реквизиты ещё раз",
     russiaSentHint: "Платёжные реквизиты отправлены в ваш WhatsApp.",
