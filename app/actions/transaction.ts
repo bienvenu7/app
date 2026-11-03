@@ -131,10 +131,19 @@ export const updateTransaction = async (
 export const sendRussiaPaymentCard = async (
   transactionId: string,
 ): Promise<{ ok: true }> => {
+  return sendWhatsappPaymentCard(transactionId, "ru");
+};
+
+export const sendWhatsappPaymentCard = async (
+  transactionId: string,
+  origin: "ru" | "sen",
+): Promise<{ ok: true }> => {
+  const path =
+    origin === "sen" ? "send-senegal-card" : "send-russia-card";
   return withAuthError(async () => {
     await requireAccessToken();
     const { data } = await instance.post(
-      `transactions/${apiPathSegment(transactionId)}/send-russia-card`,
+      `transactions/${apiPathSegment(transactionId)}/${path}`,
     );
     if (data?.ok !== true) {
       throw new AuthHttpError(502, "service_unavailable");

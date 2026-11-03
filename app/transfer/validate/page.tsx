@@ -23,10 +23,10 @@ import { getLinks } from "@/lib/payment-networks";
 import {
   getTransactionAmounts,
   isProcessingStatus,
-  isRussiaIncoming,
   isTransactionPaid,
   isWaitingStatus,
   parseTransactionRoute,
+  whatsappCardOrigin,
 } from "@/lib/transaction-utils";
 import Loading from "@/components/Loading";
 import { TransactionDetailsModal } from "@/components/transaction-details-modal";
@@ -34,7 +34,7 @@ import { Auth } from "@/providers/AuthContext";
 import {
   useGetTransactonById,
   useUpdateTransaction,
-  useSendRussiaPaymentCard,
+  useSendWhatsappPaymentCard,
   invalidateTransactionQueries,
 } from "@/hooks/useTransaction";
 import { uploadFiles } from "@/app/actions/file";
@@ -169,15 +169,16 @@ function ValidateFlow() {
     useGetTransactonById(txId);
 
   const { isUpdatingTransaction } = useUpdateTransaction();
-  const { sendRussiaCard, isSendingRussiaCard } = useSendRussiaPaymentCard();
+  const { sendWhatsappCard, isSendingWhatsappCard } =
+    useSendWhatsappPaymentCard();
   const queryClient = useQueryClient();
 
   const [paidLocally, setPaidLocally] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [russiaCardSent, setRussiaCardSent] = useState(false);
-  const [russiaSendFailed, setRussiaSendFailed] = useState(false);
-  const [russiaModal, setRussiaModal] = useState<"sent" | "whatsapp" | null>(
+  const [whatsappCardSent, setWhatsappCardSent] = useState(false);
+  const [whatsappSendFailed, setWhatsappSendFailed] = useState(false);
+  const [whatsappModal, setWhatsappModal] = useState<"sent" | "whatsapp" | null>(
     null,
   );
   const [proofFiles, setProofFiles] = useState<
@@ -201,18 +202,19 @@ function ValidateFlow() {
   const countryFrom = useMemo(() => {
     const origin = fromCode.toLowerCase();
     return (countries as ICountry[])?.find(
-      (country: ICountry) => country.name.toLowerCase() === origin,
+      (country: ICountry) => (country.name ?? "").toLowerCase() === origin,
     );
   }, [countries, fromCode]);
 
-  const isRussiaOrigin =
-    isRussiaIncoming(tx?.code) ||
-    fromCode.toLowerCase() === "ru" ||
-    (from?.code ?? "").toLowerCase() === "ru" ||
-    countryFrom?.name?.toLowerCase() === "ru";
+  const paymentCardOrigin = whatsappCardOrigin(
+    tx?.code,
+    fromCode,
+    countryFrom?.name,
+  );
+  const isWhatsappCardOrigin = paymentCardOrigin !== null;
 
   const { cards, isLoading: isLoadingCards } = useGetCards(
-    isRussiaOrigin ? undefined : countryFrom?.id,
+    isWhatsappCardOrigin ? undefined : countryFrom?.id,
   );
 
   const paymentCards = useMemo(
@@ -270,23 +272,23 @@ function ValidateFlow() {
     });
   };
 
-  const russiaAlreadySent = isRussiaOrigin && russiaCardSent;
+  const whatsappAlreadySent = isWhatsappCardOrigin && whatsappCardSent;
 
-  const handleSendRussiaCard = async () => {
-    if (!tx || isSendingRussiaCard) return;
+  const handleSendWhatsappCard = async () => {
+    if (!tx || !paymentCardOrigin || isSendingWhatsappCard) return;
     const transactionId = tx.id ?? txId;
     if (!transactionId) return;
 
     try {
-      await sendRussiaCard(transactionId);
-      setRussiaCardSent(true);
-      setRussiaSendFailed(false);
-      setRussiaModal("sent");
+      await sendWhatsappCard({ transactionId, origin: paymentCardOrigin });
+      setWhatsappCardSent(true);
+      setWhatsappSendFailed(false);
+      setWhatsappModal("sent");
       await invalidateTransactionQueries(queryClient);
     } catch (error) {
-      setRussiaSendFailed(true);
+      setWhatsappSendFailed(true);
       if (isRussiaWhatsappIssue(error)) {
-        setRussiaModal("whatsapp");
+        setWhatsappModal("whatsapp");
         return;
       }
       toast.error(t("validate.russiaSendError"));
@@ -540,7 +542,7 @@ function ValidateFlow() {
           </div>
         </div>
 
-        {tx.card && !isRussiaOrigin && (
+        {tx.card && !isWhatsappCardOrigin && (
           <div className={styles.card}>
             <p className={styles.cardTitle}>{t("validate.paymentAccount")}</p>
             <div className={styles.rows}>
@@ -575,9 +577,9 @@ function ValidateFlow() {
               <p className={styles.payMethodsTitle}>
                 {t("validate.paymentMethod")}
               </p>
-              {isRussiaOrigin ? (
+              {isWhatsappCardOrigin ? (
                 <div className={styles.russiaPay}>
-                  {russiaAlreadySent ? (
+                  {whatsappAlreadySent ? (
                     <p className={styles.payMethodsHint}>
                       {t("validate.russiaSentHint")}
                     </p>
@@ -585,13 +587,19 @@ function ValidateFlow() {
                   <button
                     type="button"
                     className={styles.payBtn}
-                    onClick={handleSendRussiaCard}
-                    disabled={isSendingRussiaCard}
+                    onClick={handleSendWhatsappCard}
+                    disabled={isSendingWhatsappCard}
                   >
-                    {isSendingRussiaCard ? (
-                      <span className={styles.spinner} />
-                    ) : null}
-                    {t("validate.payNow")}
+                    {isSendingWhatsappCard ? (
+                      <>
+                        <span className={styles.spinner} />{" "}
+                        {t("validate.sendingWhatsapp")}
+                      </>
+                    ) : whatsappAlreadySent || whatsappSendFailed ? (
+                      t("validate.resendCoords")
+                    ) : (
+                      t("validate.sendCoordsWhatsapp")
+                    )}
                   </button>
                 </div>
               ) : isLoadingCards ? (
@@ -777,14 +785,14 @@ function ValidateFlow() {
       </div>
 
       <InfoModal
-        open={russiaModal === "sent"}
-        onClose={() => setRussiaModal(null)}
+        open={whatsappModal === "sent"}
+        onClose={() => setWhatsappModal(null)}
         titleId="russia-card-sent-title"
         title={t("validate.russiaSentTitle")}
         actions={[
           {
             label: t("schedule.understood"),
-            onClick: () => setRussiaModal(null),
+            onClick: () => setWhatsappModal(null),
           },
         ]}
       >
@@ -792,15 +800,15 @@ function ValidateFlow() {
       </InfoModal>
 
       <InfoModal
-        open={russiaModal === "whatsapp"}
-        onClose={() => setRussiaModal(null)}
+        open={whatsappModal === "whatsapp"}
+        onClose={() => setWhatsappModal(null)}
         titleId="russia-card-whatsapp-title"
         title={t("validate.russiaWhatsappTitle")}
         actions={[
           {
             label: t("validate.updateProfile"),
             onClick: () => {
-              setRussiaModal(null);
+              setWhatsappModal(null);
               router.push("/profile");
             },
           },
@@ -808,7 +816,7 @@ function ValidateFlow() {
             label: t("validate.contactSupport"),
             variant: "ghost",
             onClick: () => {
-              setRussiaModal(null);
+              setWhatsappModal(null);
               openSupportChat(
                 t("validate.supportWhatsappDraft", { txid: tx.txid }),
               );

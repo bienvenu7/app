@@ -5,7 +5,7 @@ import {
   getTransactionByClientEmail,
   getTransactionById,
   getTransactionsStatsMonthly,
-  sendRussiaPaymentCard,
+  sendWhatsappPaymentCard,
   updateTransaction,
 } from "@/app/actions/transaction";
 import type { ITrasanctionData } from "@/types/transaction";
@@ -18,6 +18,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { unwrapAction } from "@/lib/auth-errors";
+import type { WhatsappCardOrigin } from "@/lib/transaction-utils";
 
 /** Refresh home stats + transactions list after create/update. */
 export function invalidateTransactionQueries(queryClient: QueryClient) {
@@ -66,15 +67,20 @@ export const useGetTransactonById = (id: string | undefined) => {
   return { transaction, isGettingTransaction, isTransactionError, refetch };
 };
 
-export const useSendRussiaPaymentCard = () => {
+export const useSendWhatsappPaymentCard = () => {
   const {
-    isPending: isSendingRussiaCard,
-    mutateAsync: sendRussiaCard,
+    isPending: isSendingWhatsappCard,
+    mutateAsync: sendWhatsappCard,
   } = useMutation({
-    mutationFn: (transactionId: string) =>
-      unwrapAction(sendRussiaPaymentCard(transactionId)),
+    mutationFn: ({
+      transactionId,
+      origin,
+    }: {
+      transactionId: string;
+      origin: WhatsappCardOrigin;
+    }) => unwrapAction(sendWhatsappPaymentCard(transactionId, origin)),
   });
-  return { sendRussiaCard, isSendingRussiaCard };
+  return { sendWhatsappCard, isSendingWhatsappCard };
 };
 
 export const useUpdateTransaction = () => {

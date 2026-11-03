@@ -22,9 +22,36 @@ export function parseTransactionRoute(code?: string) {
   };
 }
 
+function originFromCode(code?: string) {
+  return (code ?? "").split("-")[0].trim().toLowerCase();
+}
+
 /** Corridor `ru-…` : le client envoie depuis la Russie. */
 export function isRussiaIncoming(code?: string) {
-  return (code ?? "").split("-")[0].trim().toLowerCase() === "ru";
+  return originFromCode(code) === "ru";
+}
+
+/** Corridor `sen-…` : le client envoie depuis le Sénégal. */
+export function isSenegalIncoming(code?: string) {
+  return originFromCode(code) === "sen";
+}
+
+export type WhatsappCardOrigin = "ru" | "sen";
+
+/** Origine qui envoie les coordonnées par WhatsApp au lieu d’afficher les cartes. */
+export function whatsappCardOrigin(
+  code?: string,
+  fromCode?: string,
+  countryName?: string,
+): WhatsappCardOrigin | null {
+  const from =
+    originFromCode(code) ||
+    (fromCode ?? "").trim().toLowerCase() ||
+    (countryName ?? "").trim().toLowerCase();
+
+  if (from === "ru") return "ru";
+  if (from === "sen") return "sen";
+  return null;
 }
 
 export function isWaitingStatus(status: Status | string | undefined) {
