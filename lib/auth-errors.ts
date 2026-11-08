@@ -11,6 +11,7 @@ export class AuthHttpError extends Error {
     | "service_unavailable"
     | "otp_delivery"
     | "conflict"
+    | "daily_limit"
     | "unknown";
   /** Seconds before the caller may retry, when the API advertises them. */
   retryAfter?: number;
@@ -115,6 +116,7 @@ function codeFromStatus(status: number): AuthHttpError["code"] | null {
   if (status === 400) return "validation";
   if (status === 405) return "otp_delivery";
   if (status === 409) return "conflict";
+  if (status === 422) return "daily_limit";
   if (status === 502 || status === 503) return "service_unavailable";
   return null;
 }
@@ -307,6 +309,11 @@ export function isConflict(error: unknown): boolean {
 /** Texte de l'API destiné à être affiché tel quel, quand il y en a un. */
 export function apiErrorMessage(error: unknown): string | undefined {
   return toAuthHttpError(error)?.apiMessage;
+}
+
+/** 422 : seuil journalier de la direction atteint à la création d'un transfert. */
+export function isDailyLimitReached(error: unknown): boolean {
+  return toAuthHttpError(error)?.code === "daily_limit";
 }
 
 /** 405 : l'OTP n'a pas pu être envoyé (WhatsApp ou email). */

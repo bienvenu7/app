@@ -48,7 +48,7 @@ import {
   getScheduleBlockReason,
   timeZoneForCountryCode,
 } from "@/lib/working-hours";
-import { isForbiddenAuth } from "@/lib/auth-errors";
+import { isDailyLimitReached, isForbiddenAuth } from "@/lib/auth-errors";
 import type { IShedule } from "@/types/country";
 import { useT } from "@/lib/i18n";
 
@@ -263,6 +263,10 @@ function TransferFlow() {
       .catch((error) => {
         if (isForbiddenAuth(error)) {
           setScheduleModalOpen(true);
+          return;
+        }
+        if (isDailyLimitReached(error)) {
+          toast.error(t("transfer.dailyLimitReached"));
           return;
         }
         toast.error(t("transfer.errorToast"));

@@ -254,6 +254,8 @@ const fr = {
     recap: "Récapitulatif",
     successToast: "transfert {txid} enregistré avec succès !",
     errorToast: "Une erreur s'est produite, veuillez réessayer plus tard !",
+    dailyLimitReached:
+      "Vous avez atteint votre seuil journalier pour cette direction.",
     typeTitle: "Que souhaitez-vous faire ?",
     typeDesc: "Choisissez le type d'opération.",
     sendMoney: "Envoyer de l'argent",
