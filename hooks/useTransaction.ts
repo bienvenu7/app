@@ -4,6 +4,8 @@ import {
   fetchTransactionsByThreeMonths,
   getTransactionByClientEmail,
   getTransactionById,
+  getDailyLimit,
+  getPaymentNetworks,
   getTransactionsStatsMonthly,
   sendWhatsappPaymentCard,
   updateTransaction,
@@ -24,6 +26,7 @@ import type { WhatsappCardOrigin } from "@/lib/transaction-utils";
 export function invalidateTransactionQueries(queryClient: QueryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: ["transaction"] }),
+    queryClient.invalidateQueries({ queryKey: ["transaction-daily-limit"] }),
     queryClient.resetQueries({ queryKey: ["transactions-infinite"] }),
     queryClient.invalidateQueries({ queryKey: ["transaction-stats-monthly"] }),
     queryClient.invalidateQueries({
@@ -51,6 +54,18 @@ export const useCreateTransaction = (data: ITrasanctionData) => {
   return { mutateAsync, isCreatingTransaction, isCreatingTransactionError };
 };
 
+/** Montant restant à envoyer aujourd'hui sur une direction (seuil journalier). */
+export const useGetDailyLimit = (code: string | undefined) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["transaction-daily-limit", code],
+    queryFn: () => unwrapAction(getDailyLimit(code!)),
+    enabled: !!code,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  return { dailyLimit: data, isLoadingDailyLimit: isLoading };
+};
+
 export const useGetTransactonById = (id: string | undefined) => {
   const {
     isPending: isGettingTransaction,
@@ -75,12 +90,33 @@ export const useSendWhatsappPaymentCard = () => {
     mutationFn: ({
       transactionId,
       origin,
+      networkId,
     }: {
       transactionId: string;
       origin: WhatsappCardOrigin;
-    }) => unwrapAction(sendWhatsappPaymentCard(transactionId, origin)),
+      networkId: string;
+    }) =>
+      unwrapAction(sendWhatsappPaymentCard(transactionId, origin, networkId)),
   });
   return { sendWhatsappCard, isSendingWhatsappCard };
+};
+
+/** Réseaux de dépôt proposés au client (ru / sen) ; `enabled` = origine WhatsApp uniquement. */
+export const useGetPaymentNetworks = (
+  transactionId: string | undefined,
+  enabled: boolean,
+) => {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["payment-networks", transactionId],
+    queryFn: () => unwrapAction(getPaymentNetworks(transactionId!)),
+    enabled: !!transactionId && enabled,
+    staleTime: 1000 * 60,
+  });
+  return {
+    paymentNetworks: data ?? [],
+    isLoadingPaymentNetworks: isLoading,
+    isPaymentNetworksError: isError,
+  };
 };
 
 export const useUpdateTransaction = () => {

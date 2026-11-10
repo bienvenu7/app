@@ -282,6 +282,8 @@ const ru: Messages = {
     minPlaceholder: "минимум {min}",
     minError: "Минимальная сумма — {amount}.",
     maxError: "Максимальная сумма — {amount}.",
+    dailyRemainingError:
+      "Сегодня вы можете отправить ещё {amount} (дневной лимит).",
     transferFees: "Комиссия за перевод",
     feesExtra: "Комиссия сверху",
     feesExtraHint: "Вы оплачиваете комиссию дополнительно",
@@ -397,6 +399,8 @@ const ru: Messages = {
     payNow: "Произвести оплату",
     sendCoordsWhatsapp: "Получить реквизиты в WhatsApp",
     sendingWhatsapp: "Отправка реквизитов в WhatsApp...",
+    chooseNetwork: "Выберите сеть, через которую вы внесёте средства",
+    noNetworks: "Сейчас нет доступных способов пополнения. Попробуйте позже или обратитесь в поддержку.",
     resendCoords: "Отправить реквизиты ещё раз",
     russiaSentHint: "Платёжные реквизиты отправлены в ваш WhatsApp.",
     russiaSentTitle: "Реквизиты отправлены",

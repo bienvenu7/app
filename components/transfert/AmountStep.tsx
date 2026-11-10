@@ -37,6 +37,7 @@ export default function AmountStep({
   user,
   rateData,
   iltineraire,
+  maxAmount,
   feesIncluded,
   setFeesIncluded,
   receiveAmount,
@@ -54,6 +55,8 @@ export default function AmountStep({
   user: IClientResponse;
   rateData: IRate;
   iltineraire: IDirection;
+  /** min(max de la direction, reste du seuil journalier). */
+  maxAmount: number;
   feesIncluded: boolean;
   setFeesIncluded: (v: boolean) => void;
   receiveAmount: string;
@@ -144,19 +147,28 @@ export default function AmountStep({
   const isAmountOutOfRange =
     !!iltineraire &&
     amountNum > 0 &&
-    (amountNum < iltineraire.min || amountNum > iltineraire.max);
+    (amountNum < iltineraire.min || amountNum > maxAmount);
+
+  // Le plafond est limité par le seuil journalier plutôt que par la direction.
+  const isDailyCapped = !!iltineraire && maxAmount < iltineraire.max;
 
   const amountError = !iltineraire
     ? null
-    : amountNum > 0 && amountNum < iltineraire.min
-      ? t("transfer.minError", {
-          amount: formatMoney(iltineraire.min, from),
-        })
-      : amountNum > iltineraire.max
-        ? t("transfer.maxError", {
-            amount: formatMoney(iltineraire.max, from),
+    : isDailyCapped && amountNum > maxAmount && maxAmount < iltineraire.min
+      ? t("transfer.dailyLimitReached")
+      : amountNum > 0 && amountNum < iltineraire.min
+        ? t("transfer.minError", {
+            amount: formatMoney(iltineraire.min, from),
           })
-        : null;
+        : amountNum > maxAmount
+          ? isDailyCapped
+            ? t("transfer.dailyRemainingError", {
+                amount: formatMoney(maxAmount, from),
+              })
+            : t("transfer.maxError", {
+                amount: formatMoney(iltineraire.max, from),
+              })
+          : null;
 
   // const handleSendChange = (value: string) => {
   //   lastEdited.current = "send";

@@ -146,6 +146,27 @@ export function computeTransferAmounts(
   };
 }
 
+/**
+ * Plus grand montant saisissable dont le total à payer (`totalToPay`) tient
+ * dans `total`. Frais inclus : le total est le montant saisi. Frais en plus :
+ * on retire les frais du plafond (même arrondi que computeTransferAmounts).
+ */
+export function maxAmountForTotal(
+  total: number,
+  feePercent: number,
+  feesIncluded: boolean,
+): number {
+  if (total <= 0) return 0;
+  if (feesIncluded) return Math.floor(total);
+
+  const feeRate = feePercent / 100;
+  let amount = Math.floor(total / (1 + feeRate));
+  while (amount > 0 && amount + Math.round(amount * feeRate) > total) {
+    amount -= 1;
+  }
+  return Math.max(0, amount);
+}
+
 /** Inverse of computeTransferAmounts: payout → send-side amount. */
 // export function computeSendAmountFromPayout(
 //   payout: number,

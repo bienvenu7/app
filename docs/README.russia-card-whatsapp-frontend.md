@@ -3,109 +3,64 @@
 **Destinataire :** agent IA frontend de `money-transfer-app`.  
 **API :** préfixe `/v3/transactions`  
 **Auth :** JWT **client** uniquement (même token que create / patch / get-by-id).  
-**Backend déjà livré.** Ce fichier est la source de vérité pour cet endpoint.
+**Backend déjà livré.** Version complète : `money-transfert-api/README.russia-card-whatsapp-frontend.md`.
 
-```http
-Authorization: Bearer <accessToken>
-```
+Cookie `refresh` HttpOnly : `credentials: 'include'`. Access TTL = **900 s**. En `403`, refresh puis retry une fois.
 
-Cookie `refresh` HttpOnly : `credentials: 'include'` comme les autres appels client.  
-Access TTL = **900 s**. En `403`, refresh puis retry une fois.
-
-Tu n’inventes ni carte, ni réseau, ni montant. L’API choisit la carte et envoie le message WhatsApp. La réponse HTTP **ne contient pas** les coordonnées.
+> **Breaking :** `send-russia-card` / `send-senegal-card` exigent `{ "networkId": "<uuid>" }`. Déployer API et app ensemble.
 
 ---
 
-## À quoi ça sert
+## Flux (origine `ru-…` ou `sen-…` uniquement)
 
-Pour une **transaction entrante en Russie** (`code` = `ru-…`) **ou au Sénégal** (`code` = `sen-…`), l’app ne montre plus un sélecteur de cartes.
+1. `GET /v3/transactions/{transactionId}/payment-networks` → `[{ id, name, pubicName }]` (réseaux ayant au moins une carte active).
+2. Le client **choisit** un réseau (chips texte `pubicName`, pas de logos : les banques SBP partagent le même logo).
+3. `POST /v3/transactions/{transactionId}/send-russia-card` (`ru-`) ou `send-senegal-card` (`sen-`) avec body `{ "networkId": "<uuid>" }`.
 
-À la place, tu appelles l’endpoint du pays. Le backend :
+Le backend tire une carte **active au hasard parmi celles du réseau choisi** (sans resservir la même au même client tant qu’il en reste une autre sur ce réseau), envoie 3 lignes sur WhatsApp (`card.content`, `network.pubicName`, `amountToSend` + devise) et lie la carte à la transaction.
 
-1. Vérifie que la transaction appartient au JWT.
-2. Vérifie que l’origine du corridor est `ru` ou `sen` (selon la route).
-3. Choisit une `Card` **active** de ce pays, **sans resservir** au même client une carte déjà utilisée tant qu’il en reste une autre.
-4. Envoie les coordonnées sur le **WhatsApp du client AfruE** (numéro du profil).
-5. Lie cette carte à la transaction (`cardId`).
+**Une transaction = une seule carte.** Au premier envoi réussi la carte est liée à la transaction ; tout renvoi (« Renvoyer les coordonnées », retry, rechargement) renvoie **la même carte**, sans nouveau tirage. Le `networkId` des appels suivants est ignoré (toujours obligatoire dans le body). Si le **premier** envoi échoue (`502`), la carte est déliée et le client peut encore choisir un autre réseau.
 
-Les autres corridors (ex. `cg-ru`, `cam-sen`, `civ-cg`) **ne changent pas**. Ils gardent `GET /v3/country/get/cards/:countryId`.
+Réponse `200` : `{ "ok": true }` — pas de `card` dans le JSON.
 
----
+`transactionId` = `id` (UUID) de `create-one`, **pas** le `txid`.
 
-## Route
-
-```http
-POST /v3/transactions/{transactionId}/send-russia-card
-POST /v3/transactions/{transactionId}/send-senegal-card
-Authorization: Bearer <accessToken>
-```
-
-Aussi valides via `/v3/transaction/...` (même router).
-
-**Préfixe à utiliser dans l’app : `/v3`.** Ne pas appeler `/v1` ni `/v2`.
-
-| Origine | Route |
-| --- | --- |
-| `ru-…` | `POST .../send-russia-card` |
-| `sen-…` | `POST .../send-senegal-card` |
-
-| | |
-| --- | --- |
-| Méthode | `POST` |
-| Body | **aucun** — pas de JSON |
-| Query | **aucune** |
-| Path | `transactionId` UUID de la transaction créée |
-
-Pas de `Content-Type: application/json`. Rien dans le body.
+Autres corridors (`cg-ru`, `cam-sen`, `civ-cg`, …) : inchangés (`GET /v3/country/get/cards/:countryId`).
 
 ---
 
-## Quand l’appeler
+## UI — `/transfer/validate`
 
-Après un `POST /v3/transactions/create-one` **réussi**, si la transaction part de Russie **ou** du Sénégal.
+- Bloc **Moyen de paiement** : chips de réseaux + **un seul bouton** pleine largeur. Aucune carte, aucun numéro, aucun copy.
+- Bouton **disabled** tant qu’aucun réseau n’est choisi.
+- 1 seul réseau → présélectionné, chips masqués.
+- Liste vide / erreur → message « aucun réseau disponible », bouton inactif.
+- Après succès (ou si `tx.card` est déjà présent après rechargement) : « envoyées sur WhatsApp » + bouton « Renvoyer les coordonnées », **chips masqués** (la carte est figée, changer de réseau n’a plus d’effet).
+- Ne pas appeler `GET /v3/country/get/cards/:countryId` pour `ru` / `sen`.
+- Preuve obligatoire + bouton Confirmer **restent** en dessous.
 
-```ts
-const origin = (code: string) => code.split('-')[0];
-const isWhatsappCardOrigin = ['ru', 'sen'].includes(origin(code));
-```
+---
 
-| `code` | Appeler ? | Route |
+## Erreurs
+
+| HTTP | Cas | UI |
 | --- | --- | --- |
-| `ru-cg`, `ru-cam`, `ru-sen`, `ru-civ` | **oui** | `send-russia-card` |
-| `sen-cg`, `sen-cam`, `sen-civ`, `sen-ru` | **oui** | `send-senegal-card` |
-| `cg-ru`, `cam-ru`, `civ-sen` | non — destination, pas une entrée | — |
-| `cam-cg`, `civ-cg`, … | non | — |
-
-Le `transactionId` est le champ `id` de la réponse de `create-one` (UUID), **pas** le `txid` affiché au client.
-
----
-
-## Réponse 200
-
-```json
-{ "ok": true }
-```
-
-C’est tout. Pas de `card` dans le JSON. Le message WhatsApp (3 lignes) : `card.content`, `network.pubicName`, `amountToSend` + devise (`rub` ou `xof`).
-
----
-
-## UI — écran `/transfer/validate` (mobile)
-
-Bloc **Moyen de paiement**, sous « Total à payer ».
-
-**Attendu** pour `ru` et `sen` : un **seul bouton** pleine largeur. Aucune carte, aucun numéro, aucun copy.
-
-Ne pas appeler `GET /v3/country/get/cards/:countryId` quand l’origine est `ru` ou `sen`.  
-La preuve obligatoire et le bouton Confirmer **restent** en dessous.
-
-Les autres corridors : liste de cartes inchangée.
+| `400` | `networkId` absent / pas UUID | Bug : réseau non sélectionné |
+| `400` | Pas une entrée `ru` / `sen` | Mauvaise route, ne pas réessayer |
+| `400` | WhatsApp manquant / invalide | Écran profil |
+| `403` | Token expiré / JWT admin | Refresh client, retry |
+| `404` | `Transaction non trouvée` | Ne pas réessayer |
+| `404` | `Aucune carte active disponible pour ce réseau …` | Recharger les réseaux, choisir un autre |
+| `502` | `L'envoi WhatsApp a échoué` | Bouton renvoyer |
 
 ---
 
 ## Checklist
 
-- [ ] Après `create-one`, si `code` commence par `ru-` → `send-russia-card` ; si `sen-` → `send-senegal-card`
+- [ ] `ru-` / `sen-` → `GET payment-networks` au montage
+- [ ] Chips + bouton disabled tant que rien n’est choisi
+- [ ] `POST send-*` avec `{ networkId }` (`ru-` → russia, `sen-` → senegal)
 - [ ] Path = UUID `id`, pas `txid`
-- [ ] Pas de liste de cartes sur les écrans entrée `ru` et `sen` — **un bouton**
-- [ ] Autres corridors inchangés (`GET .../cards/:countryId`)
+- [ ] Pas de liste de cartes pour `ru` / `sen`
+- [ ] `404` « pour ce réseau » → recharger les réseaux
+- [ ] Autres corridors inchangés

@@ -21,6 +21,7 @@ import {
   computeQuote,
   formatMoney,
   computeTransferAmounts,
+  maxAmountForTotal,
   PAYMENT_METHODS,
   type Country,
   getCountryWithId,
@@ -41,7 +42,10 @@ import { INetworkResponse } from "@/types/networks";
 import TermsStep from "@/components/transfert/TermsStep";
 import { ITrasanctionData } from "@/types/transaction";
 import moment from "moment";
-import { useCreateTransaction } from "@/hooks/useTransaction";
+import {
+  useCreateTransaction,
+  useGetDailyLimit,
+} from "@/hooks/useTransaction";
 import { toast } from "sonner";
 import { ScheduleUnavailableModal } from "@/components/schedule-unavailable-modal";
 import {
@@ -141,6 +145,7 @@ function TransferFlow() {
     setAmount(iltineraire.min.toString());
   }, [iltineraire]);
 
+  const { dailyLimit } = useGetDailyLimit(iltineraire?.code);
   const { data: rateData } = useGetRate(iltineraire?.code);
   const { network: networks } = useGetNetworksById(countryTo?.id);
 
@@ -160,6 +165,19 @@ function TransferFlow() {
       ),
     [amountNum, iltineraire, rate, feesIncluded],
   );
+  /**
+   * Montant maximum saisissable : le plus petit entre le max de la direction
+   * et ce qu'il reste à envoyer aujourd'hui (seuil journalier).
+   */
+  const dailyRemaining = dailyLimit?.remaining;
+  const maxAmount = useMemo(() => {
+    if (!iltineraire) return 0;
+    if (dailyRemaining === undefined) return iltineraire.max;
+    return Math.min(
+      iltineraire.max,
+      maxAmountForTotal(dailyRemaining, iltineraire.fee ?? 0, feesIncluded),
+    );
+  }, [iltineraire, dailyRemaining, feesIncluded]);
   const quote = useMemo(
     () => computeQuote(amountNum, from, to),
     [amountNum, from, to],
@@ -178,7 +196,7 @@ function TransferFlow() {
         amountNum > 0 &&
         !!iltineraire &&
         amountNum >= iltineraire.min &&
-        amountNum <= iltineraire.max
+        amountNum <= maxAmount
       );
     if (step === 2) {
       const expectedDigits = Number(iltineraire?.countryTo?.TelMaxNumber);
@@ -356,6 +374,7 @@ function TransferFlow() {
                 user={user!}
                 rateData={rateData as IRate}
                 iltineraire={iltineraire as IDirection}
+                maxAmount={maxAmount}
                 feesIncluded={feesIncluded}
                 setFeesIncluded={setFeesIncluded}
                 receiveAmount={receiveAmount}

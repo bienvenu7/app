@@ -7,6 +7,7 @@ import type {
   ITrasanctionResponse,
   Status,
 } from "../../types/transaction";
+import type { INetworkResponse } from "../../types/networks";
 import { AuthHttpError, withAuthError } from "@/lib/auth-errors";
 import { apiPathSegment } from "@/lib/api-path";
 import { loadPublicCountries } from "@/app/actions/country";
@@ -108,6 +109,24 @@ export const createTransaction = async (
   }) as Promise<ITrasanctionResponse>;
 };
 
+export interface IDailyLimit {
+  code: string;
+  max: number;
+  used: number;
+  remaining: number;
+}
+
+export const getDailyLimit = async (code: string): Promise<IDailyLimit> => {
+  return withAuthError(async () => {
+    await requireAccessToken();
+    const query = new URLSearchParams({ code });
+    const { data } = await instance.get(
+      `transactions/client/daily-limit?${query}`,
+    );
+    return data as IDailyLimit;
+  }) as Promise<IDailyLimit>;
+};
+
 export const updateTransaction = async (
   transactionId: string,
   senderNumber: string,
@@ -128,15 +147,30 @@ export const updateTransaction = async (
   }) as Promise<ITrasanctionResponse>;
 };
 
+/** Réseaux de dépôt (avec carte active) proposables pour une transaction entrante ru / sen. */
+export const getPaymentNetworks = async (
+  transactionId: string,
+): Promise<INetworkResponse[]> => {
+  return withAuthError(async () => {
+    await requireAccessToken();
+    const { data } = await instance.get(
+      `transactions/${apiPathSegment(transactionId)}/payment-networks`,
+    );
+    return (Array.isArray(data) ? data : []) as INetworkResponse[];
+  }) as Promise<INetworkResponse[]>;
+};
+
 export const sendRussiaPaymentCard = async (
   transactionId: string,
+  networkId: string,
 ): Promise<{ ok: true }> => {
-  return sendWhatsappPaymentCard(transactionId, "ru");
+  return sendWhatsappPaymentCard(transactionId, "ru", networkId);
 };
 
 export const sendWhatsappPaymentCard = async (
   transactionId: string,
   origin: "ru" | "sen",
+  networkId: string,
 ): Promise<{ ok: true }> => {
   const path =
     origin === "sen" ? "send-senegal-card" : "send-russia-card";
@@ -144,6 +178,7 @@ export const sendWhatsappPaymentCard = async (
     await requireAccessToken();
     const { data } = await instance.post(
       `transactions/${apiPathSegment(transactionId)}/${path}`,
+      { networkId },
     );
     if (data?.ok !== true) {
       throw new AuthHttpError(502, "service_unavailable");

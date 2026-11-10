@@ -276,6 +276,8 @@ const fr = {
     minPlaceholder: "minimum {min}",
     minError: "Le montant minimum est {amount}.",
     maxError: "Le montant maximum est {amount}.",
+    dailyRemainingError:
+      "Il vous reste {amount} à envoyer aujourd'hui (seuil journalier).",
     transferFees: "Frais de transfert",
     feesExtra: "Frais en plus",
     feesExtraHint: "Vous payez les frais en supplément",
@@ -387,6 +389,8 @@ const fr = {
     payNow: "Effectuer le paiement",
     sendCoordsWhatsapp: "Recevoir les coordonnées sur WhatsApp",
     sendingWhatsapp: "Envoi des coordonnées sur WhatsApp...",
+    chooseNetwork: "Choisissez le réseau sur lequel vous allez déposer les fonds",
+    noNetworks: "Aucun réseau de dépôt disponible pour le moment. Réessayez plus tard ou contactez le support.",
     resendCoords: "Renvoyer les coordonnées",
     russiaSentHint:
       "Les coordonnées de paiement ont été envoyées sur votre WhatsApp.",

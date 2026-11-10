@@ -153,6 +153,46 @@
   }
 }
 
+.networkChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.networkChip {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba($text-muted, 0.25);
+  background: rgba($bg, 0.35);
+  color: $text;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    color 0.2s;
+  @include tap;
+
+  &:hover:not(:disabled) {
+    border-color: rgba($gold, 0.45);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.networkChipActive {
+  border-color: $gold;
+  background: rgba($gold, 0.14);
+  color: $gold;
+}
+
 .payBar {
   position: relative;
   display: flex;

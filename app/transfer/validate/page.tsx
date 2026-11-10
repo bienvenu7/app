@@ -35,6 +35,7 @@ import {
   useGetTransactonById,
   useUpdateTransaction,
   useSendWhatsappPaymentCard,
+  useGetPaymentNetworks,
   invalidateTransactionQueries,
 } from "@/hooks/useTransaction";
 import { uploadFiles } from "@/app/actions/file";
@@ -178,6 +179,7 @@ function ValidateFlow() {
   const [showDetails, setShowDetails] = useState(false);
   const [whatsappCardSent, setWhatsappCardSent] = useState(false);
   const [whatsappSendFailed, setWhatsappSendFailed] = useState(false);
+  const [pickedNetworkId, setPickedNetworkId] = useState<string | null>(null);
   const [whatsappModal, setWhatsappModal] = useState<"sent" | "whatsapp" | null>(
     null,
   );
@@ -216,6 +218,25 @@ function ValidateFlow() {
   const { cards, isLoading: isLoadingCards } = useGetCards(
     isWhatsappCardOrigin ? undefined : countryFrom?.id,
   );
+
+  const {
+    paymentNetworks,
+    isLoadingPaymentNetworks,
+    isPaymentNetworksError,
+  } = useGetPaymentNetworks(tx?.id ?? txId, isWhatsappCardOrigin);
+
+  // Un seul réseau disponible : inutile de demander au client de le choisir.
+  // La transaction a déjà sa carte (envoi précédent, même après rechargement) :
+  // le backend renvoie toujours la même, le choix du réseau n'a plus d'effet.
+  const hasLinkedCard = isWhatsappCardOrigin && (!!tx?.card || whatsappCardSent);
+
+  const selectedNetworkId =
+    pickedNetworkId &&
+    paymentNetworks.some((network) => network.id === pickedNetworkId)
+      ? pickedNetworkId
+      : paymentNetworks.length === 1 || (hasLinkedCard && paymentNetworks.length)
+        ? paymentNetworks[0].id
+        : null;
 
   const paymentCards = useMemo(
     () =>
@@ -275,12 +296,22 @@ function ValidateFlow() {
   const whatsappAlreadySent = isWhatsappCardOrigin && whatsappCardSent;
 
   const handleSendWhatsappCard = async () => {
-    if (!tx || !paymentCardOrigin || isSendingWhatsappCard) return;
+    if (
+      !tx ||
+      !paymentCardOrigin ||
+      !selectedNetworkId ||
+      isSendingWhatsappCard
+    )
+      return;
     const transactionId = tx.id ?? txId;
     if (!transactionId) return;
 
     try {
-      await sendWhatsappCard({ transactionId, origin: paymentCardOrigin });
+      await sendWhatsappCard({
+        transactionId,
+        origin: paymentCardOrigin,
+        networkId: selectedNetworkId,
+      });
       setWhatsappCardSent(true);
       setWhatsappSendFailed(false);
       setWhatsappModal("sent");
@@ -584,11 +615,48 @@ function ValidateFlow() {
                       {t("validate.russiaSentHint")}
                     </p>
                   ) : null}
+                  {isLoadingPaymentNetworks ? (
+                    <p className={styles.payMethodsHint}>
+                      {t("validate.loadingPayment")}
+                    </p>
+                  ) : isPaymentNetworksError || paymentNetworks.length === 0 ? (
+                    <p className={styles.payMethodsHint}>
+                      {t("validate.noNetworks")}
+                    </p>
+                  ) : paymentNetworks.length > 1 && !hasLinkedCard ? (
+                    <>
+                      <p className={styles.payMethodsHint}>
+                        {t("validate.chooseNetwork")}
+                      </p>
+                      <div
+                        className={styles.networkChips}
+                        role="radiogroup"
+                        aria-label={t("validate.chooseNetwork")}
+                      >
+                        {paymentNetworks.map((network) => {
+                          const isSelected = selectedNetworkId === network.id;
+                          return (
+                            <button
+                              key={network.id}
+                              type="button"
+                              role="radio"
+                              aria-checked={isSelected}
+                              className={`${styles.networkChip} ${isSelected ? styles.networkChipActive : ""}`}
+                              onClick={() => setPickedNetworkId(network.id)}
+                              disabled={isSendingWhatsappCard}
+                            >
+                              {network.pubicName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     className={styles.payBtn}
                     onClick={handleSendWhatsappCard}
-                    disabled={isSendingWhatsappCard}
+                    disabled={isSendingWhatsappCard || !selectedNetworkId}
                   >
                     {isSendingWhatsappCard ? (
                       <>
