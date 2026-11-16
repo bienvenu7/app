@@ -93,13 +93,13 @@ export const AFRICAN_COUNTRIES: Country[] = [
     symbol: "₽",
   },
   // --- Pays ajoutés depuis la capture ---
-  {
-    code: "gab",
-    name: "Gabon",
-    flag: "🇬🇦",
-    currency: "XAF",
-    symbol: "FCFA",
-  },
+  // {
+  //   code: "gab",
+  //   name: "Gabon",
+  //   flag: "🇬🇦",
+  //   currency: "XAF",
+  //   symbol: "FCFA",
+  // },
   {
     code: "mali",
     name: "Mali",
@@ -107,41 +107,41 @@ export const AFRICAN_COUNTRIES: Country[] = [
     currency: "XOF",
     symbol: "CFA",
   },
-  {
-    code: "gib",
-    name: "Guinée bissau",
-    flag: "🇬🇼",
-    currency: "XOF",
-    symbol: "CFA",
-  },
-  {
-    code: "tchad",
-    name: "Tchad",
-    flag: "🇹🇩",
-    currency: "XAF",
-    symbol: "FCFA",
-  },
-  {
-    code: "buf",
-    name: "Burkina Faso",
-    flag: "🇧🇫",
-    currency: "XOF",
-    symbol: "CFA",
-  },
-  {
-    code: "rca",
-    name: "RCA",
-    flag: "🇨🇫",
-    currency: "XAF",
-    symbol: "FCFA",
-  },
-  {
-    code: "nr",
-    name: "Niger",
-    flag: "🇳🇪",
-    currency: "XOF",
-    symbol: "CFA",
-  },
+  // {
+  //   code: "gib",
+  //   name: "Guinée bissau",
+  //   flag: "🇬🇼",
+  //   currency: "XOF",
+  //   symbol: "CFA",
+  // },
+  // {
+  //   code: "tchad",
+  //   name: "Tchad",
+  //   flag: "🇹🇩",
+  //   currency: "XAF",
+  //   symbol: "FCFA",
+  // },
+  // {
+  //   code: "buf",
+  //   name: "Burkina Faso",
+  //   flag: "🇧🇫",
+  //   currency: "XOF",
+  //   symbol: "CFA",
+  // },
+  // {
+  //   code: "rca",
+  //   name: "RCA",
+  //   flag: "🇨🇫",
+  //   currency: "XAF",
+  //   symbol: "FCFA",
+  // },
+  // {
+  //   code: "nr",
+  //   name: "Niger",
+  //   flag: "🇳🇪",
+  //   currency: "XOF",
+  //   symbol: "CFA",
+  // },
 ];
 
 export const ALL_COUNTRIES = [RUSSIA, ...AFRICAN_COUNTRIES];
