@@ -130,7 +130,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
   },
   {
     code: "rca",
-    name: "République centrafricaine",
+    name: "RCA",
     flag: "🇨🇫",
     currency: "XAF",
     symbol: "FCFA",
