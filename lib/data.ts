@@ -128,13 +128,13 @@ export const AFRICAN_COUNTRIES: Country[] = [
   //   currency: "XOF",
   //   symbol: "CFA",
   // },
-  // {
-  //   code: "rca",
-  //   name: "RCA",
-  //   flag: "🇨🇫",
-  //   currency: "XAF",
-  //   symbol: "FCFA",
-  // },
+  {
+    code: "rca",
+    name: "RCA",
+    flag: "🇨🇫",
+    currency: "XAF",
+    symbol: "FCFA",
+  },
   // {
   //   code: "nr",
   //   name: "Niger",
