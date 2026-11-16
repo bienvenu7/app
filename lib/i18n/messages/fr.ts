@@ -199,19 +199,20 @@ const fr = {
     sessionExpired: "Votre session a expiré, veuillez vous reconnecter.",
     passwordUpdated: "Votre mot de passe a été mis à jour. Connectez-vous.",
     passwordResetError: "Impossible de réinitialiser le mot de passe.",
-    otpSent: "Un code à 6 chiffres vous a été envoyé sur WhatsApp ou par email.",
+    otpSent:
+      "Un code à 6 chiffres vous a été envoyé sur WhatsApp ou par email.",
     otpSentWhatsapp: "Un code à 6 chiffres vous a été envoyé sur WhatsApp.",
     otpSentEmail: "Un code à 6 chiffres vous a été envoyé par email.",
     badCredentials: "Identifiants incorrects.",
     emailUnconfirmed:
       "Confirmez d'abord votre adresse email. Un lien vous a été envoyé.",
     rateLimited: "Trop de tentatives. Réessayez dans quelques minutes.",
-    rateLimitedCountdown:
-      "Trop de tentatives. Réessayez dans {seconds} s.",
+    rateLimitedCountdown: "Trop de tentatives. Réessayez dans {seconds} s.",
     otpResent: "Un nouveau code a été envoyé.",
     otpResendError: "Impossible de renvoyer le code.",
     otpVerified: "Code vérifié !",
-    otpIncorrect: "Code invalide ou expiré. Réessayez, ou demandez-en un nouveau.",
+    otpIncorrect:
+      "Code invalide ou expiré. Réessayez, ou demandez-en un nouveau.",
     otpExhausted: "Ce code n'est plus utilisable. Demandez-en un nouveau.",
     requestNewCode: "Demander un nouveau code",
     resendIn: "Renvoyer dans {seconds} s",
@@ -389,8 +390,10 @@ const fr = {
     payNow: "Effectuer le paiement",
     sendCoordsWhatsapp: "Recevoir les coordonnées sur WhatsApp",
     sendingWhatsapp: "Envoi des coordonnées sur WhatsApp...",
-    chooseNetwork: "Choisissez le réseau sur lequel vous allez déposer les fonds",
-    noNetworks: "Aucun réseau de dépôt disponible pour le moment. Réessayez plus tard ou contactez le support.",
+    chooseNetwork:
+      "Choisissez le réseau ou la banque sur lequel vous allez déposer les fonds",
+    noNetworks:
+      "Aucun réseau de dépôt disponible pour le moment. Réessayez plus tard ou contactez le support.",
     resendCoords: "Renvoyer les coordonnées",
     russiaSentHint:
       "Les coordonnées de paiement ont été envoyées sur votre WhatsApp.",

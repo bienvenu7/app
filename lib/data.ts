@@ -17,6 +17,45 @@ export const RUSSIA: Country = {
   symbol: "₽",
 };
 
+// export const AFRICAN_COUNTRIES: Country[] = [
+//   {
+//     code: "civ",
+//     name: "Côte d'Ivoire",
+//     flag: "🇨🇮",
+//     currency: "XOF",
+//     symbol: "CFA",
+//   },
+//   {
+//     code: "sen",
+//     name: "Sénégal",
+//     flag: "🇸🇳",
+//     currency: "XOF",
+//     symbol: "CFA",
+//   },
+//   {
+//     code: "cam",
+//     name: "Cameroun",
+//     flag: "🇨🇲",
+//     currency: "XAF",
+//     symbol: "FCFA",
+//   },
+//   {
+//     code: "cg",
+//     name: "Congo",
+//     flag: "🇨🇬",
+//     currency: "XAF",
+//     symbol: "FCFA",
+//   },
+//   {
+//     code: "ru",
+//     name: "Russia",
+//     flag: "🇷🇺",
+//     currency: "RUB",
+//     symbol: "₽",
+//   },
+
+// ];
+
 export const AFRICAN_COUNTRIES: Country[] = [
   {
     code: "civ",
@@ -48,10 +87,60 @@ export const AFRICAN_COUNTRIES: Country[] = [
   },
   {
     code: "ru",
-    name: "Russia",
+    name: "Russia", // (ou "Russie" selon la capture)
     flag: "🇷🇺",
     currency: "RUB",
     symbol: "₽",
+  },
+  // --- Pays ajoutés depuis la capture ---
+  {
+    code: "gab",
+    name: "Gabon",
+    flag: "🇬🇦",
+    currency: "XAF",
+    symbol: "FCFA",
+  },
+  {
+    code: "mali",
+    name: "Mali",
+    flag: "🇲🇱",
+    currency: "XOF",
+    symbol: "CFA",
+  },
+  {
+    code: "gib",
+    name: "Guinée bissau",
+    flag: "🇬🇼",
+    currency: "XOF",
+    symbol: "CFA",
+  },
+  {
+    code: "tchad",
+    name: "Tchad",
+    flag: "🇹🇩",
+    currency: "XAF",
+    symbol: "FCFA",
+  },
+  {
+    code: "buf",
+    name: "Burkina Faso",
+    flag: "🇧🇫",
+    currency: "XOF",
+    symbol: "CFA",
+  },
+  {
+    code: "rca",
+    name: "République centrafricaine",
+    flag: "🇨🇫",
+    currency: "XAF",
+    symbol: "FCFA",
+  },
+  {
+    code: "nr",
+    name: "Niger",
+    flag: "🇳🇪",
+    currency: "XOF",
+    symbol: "CFA",
   },
 ];
 
