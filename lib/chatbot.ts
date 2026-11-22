@@ -49,7 +49,12 @@ export type ChatSuggestion = {
 };
 
 export type ChatInput =
-  | { type: "text"; name: "receiverPhone"; placeholder: string }
+  | {
+      type: "text";
+      name: "receiverPhone";
+      placeholder: string;
+      txid?: string;
+    }
   | {
       type: "file";
       transactionId: string;
@@ -303,10 +308,12 @@ function parseChatInput(value: unknown): ChatInput | undefined {
   const rec = asRecord(value);
   if (!rec) return undefined;
   if (rec.type === "text" && rec.name === "receiverPhone") {
+    const txid = asString(rec.txid);
     return {
       type: "text",
       name: "receiverPhone",
       placeholder: asString(rec.placeholder) ?? "",
+      ...(txid ? { txid } : {}),
     };
   }
   if (rec.type === "file") {

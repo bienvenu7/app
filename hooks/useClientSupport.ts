@@ -149,6 +149,9 @@ export function useClientSupport(isAuthenticated: boolean) {
       setChoices(choicesFromReply(data));
       setPinned(pinnedFromPayload(data));
       syncPrompt(data.input);
+      if (data.input && "txid" in data.input && data.input.txid) {
+        syncTxid(data.input.txid);
+      }
 
       const alreadyHuman = isLiveSupportStatus(statusRef.current);
       const liveNow = data.live === true || data.status === "LIVE";
@@ -185,7 +188,7 @@ export function useClientSupport(isAuthenticated: boolean) {
         ]);
       }
     },
-    [joinThread, syncPrompt, syncStatus, syncThreadId],
+    [joinThread, syncPrompt, syncStatus, syncThreadId, syncTxid],
   );
 
   const postBot = useCallback(
@@ -242,7 +245,9 @@ export function useClientSupport(isAuthenticated: boolean) {
       syncPrompt(data.input);
       setAgentReadyMessage(null);
       if (!activeTxidRef.current) {
-        const stored = readPersistedTxid();
+        const fromInput =
+          data.input && "txid" in data.input ? data.input.txid : undefined;
+        const stored = fromInput || readPersistedTxid();
         if (stored) syncTxid(stored);
       }
       setAgentTyping(false);
@@ -480,13 +485,18 @@ export function useClientSupport(isAuthenticated: boolean) {
   const sendPhoneFix = useCallback(
     async (value: string) => {
       const digits = receiverPhoneValue(value);
-      const txid = activeTxidRef.current;
+      const prompt = promptRef.current;
+      const txid =
+        activeTxidRef.current ||
+        (prompt && "txid" in prompt ? prompt.txid : undefined) ||
+        readPersistedTxid();
       if (!digits || !txid) {
         throw new Error("invalid_phone_fix");
       }
+      syncTxid(txid);
       await postBot({ action: "fix", txid, value: digits }, digits);
     },
-    [postBot],
+    [postBot, syncTxid],
   );
 
   const uploadProof = useCallback(
